@@ -2,19 +2,18 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../auth/auth_api.dart';
-import '../auth/auth_controller.dart';
-import '../auth/validation.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/log.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../domain/validation.dart';
+import '../controller/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/keyboard_dismiss.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/social_button.dart';
-import 'complete_profile_page.dart';
-import 'forgot_password_email_page.dart';
-import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -54,19 +53,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted) return;
       switch (result) {
         case GoogleSignInLoggedIn():
-          // App watches authProvider — home page takes over.
+          // Router watches authProvider — redirect takes us to /home.
           break;
         case GoogleSignInNeedsProfile(:final profile):
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => CompleteProfilePage(profile: profile),
-            ),
-          );
+          context.push('/complete-profile', extra: profile);
         case GoogleSignInCancelled():
           // User backed out of the Google picker — nothing to do.
           break;
       }
-    } catch (_) {
+    } catch (e, st) {
+      logd('signInWithGoogle failed', e, st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -161,18 +157,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             content: Text('Не удалось отправить. Попробуйте позже.')),
       );
     }
-  }
-
-  void _goToRegister() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RegisterPage()),
-    );
-  }
-
-  void _goToForgotPassword() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ForgotPasswordEmailPage()),
-    );
   }
 
   @override
@@ -292,7 +276,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
-                      onPressed: _goToRegister,
+                      onPressed: () => context.push('/register'),
                       child: const Text(
                         'Регистрация',
                         style: TextStyle(
@@ -303,7 +287,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     TextButton(
-                      onPressed: _goToForgotPassword,
+                      onPressed: () => context.push('/forgot-password'),
                       child: const Text(
                         'Забыли пароль?',
                         style: TextStyle(

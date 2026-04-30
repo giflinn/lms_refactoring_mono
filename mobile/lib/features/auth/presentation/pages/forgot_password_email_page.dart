@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_api.dart';
-import '../auth/auth_controller.dart';
-import '../auth/validation.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/secondary_button.dart';
+import '../../data/auth_api.dart';
+import '../../domain/validation.dart';
+import '../controller/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/keyboard_dismiss.dart';
-import '../widgets/primary_button.dart';
-import '../widgets/secondary_button.dart';
-import 'forgot_password_code_page.dart';
 
 class ForgotPasswordEmailPage extends ConsumerStatefulWidget {
   const ForgotPasswordEmailPage({super.key});
@@ -48,11 +49,7 @@ class _ForgotPasswordEmailPageState
     try {
       await ref.read(authProvider.notifier).requestPasswordReset(email);
       if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ForgotPasswordCodePage(email: email),
-        ),
-      );
+      context.push('/forgot-password/code', extra: email);
     } on NetworkException {
       if (!mounted) return;
       setState(() =>
@@ -137,7 +134,7 @@ class _ForgotPasswordEmailPageState
                 const SizedBox(height: 12),
                 SecondaryButton(
                   label: 'Вернуться на экран авторизации',
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => context.go('/login'),
                 ),
               ],
             ),

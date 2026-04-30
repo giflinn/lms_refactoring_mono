@@ -26,7 +26,7 @@ const webCssOut = join(
   "design",
   "tokens.css",
 );
-const mobileOut = join(REPO_ROOT, "mobile", "lib", "design", "tokens.dart");
+const mobileOut = join(REPO_ROOT, "mobile", "lib", "core", "design", "tokens.dart");
 
 mkdirSync(dirname(webOut), { recursive: true });
 mkdirSync(dirname(mobileOut), { recursive: true });
@@ -37,7 +37,7 @@ writeFileSync(mobileOut, generateDart(tokens));
 
 console.log("✓ design/tokens.json → web/frontend/src/design/tokens.ts");
 console.log("✓ design/tokens.json → web/frontend/src/design/tokens.css");
-console.log("✓ design/tokens.json → mobile/lib/design/tokens.dart");
+console.log("✓ design/tokens.json → mobile/lib/core/design/tokens.dart");
 
 function generateTs(tokens) {
   const json = JSON.stringify(tokens, null, 2);

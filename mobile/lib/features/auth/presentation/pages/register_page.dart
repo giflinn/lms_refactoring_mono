@@ -2,21 +2,23 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_api.dart';
-import '../auth/auth_controller.dart';
-import '../auth/auth_state.dart';
-import '../auth/validation.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/success_dialog.dart';
+import '../../data/auth_api.dart';
+import '../../domain/registration_data.dart';
+import '../../domain/validation.dart';
+import '../controller/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/avatar_picker.dart';
 import '../widgets/checkbox_row.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/keyboard_dismiss.dart';
 import '../widgets/password_rules_tooltip.dart';
 import '../widgets/phone_field.dart';
-import '../widgets/primary_button.dart';
-import '../widgets/success_dialog.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -161,7 +163,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             'Мы отправили письмо на ${_emailCtrl.text.trim()}. Перейдите по ссылке из письма и затем войдите в приложение.',
       );
       if (!mounted) return;
-      Navigator.of(context).pop();
+      context.pop();
     } on NetworkException {
       if (!mounted) return;
       _showSnack('Нет соединения с сервером. Проверьте интернет.');
@@ -371,7 +373,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       style: TextStyle(color: AppColors.white, fontSize: 14),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => context.pop(),
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: const Size(0, 0),

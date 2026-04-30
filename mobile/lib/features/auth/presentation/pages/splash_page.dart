@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
-import '../widgets/gradient_background.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
 
 final appVersionProvider = FutureProvider<String>((ref) async {
   final info = await PackageInfo.fromPlatform();

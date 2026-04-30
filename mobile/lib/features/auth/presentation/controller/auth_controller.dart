@@ -1,8 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'auth_api.dart';
-import 'auth_state.dart';
+import '../../../../core/domain/app_user.dart';
+import '../../../../core/log.dart';
+import '../../data/auth_api.dart';
+import '../../data/auth_api_provider.dart';
+import '../../domain/registration_data.dart';
 
 final authProvider =
     AsyncNotifierProvider<AuthController, AppUser?>(AuthController.new);
@@ -36,6 +39,8 @@ class GoogleSignInCancelled extends GoogleSignInResult {
 }
 
 class AuthController extends AsyncNotifier<AppUser?> {
+  AuthApi get _api => ref.read(authApiProvider);
+
   @override
   Future<AppUser?> build() async {
     final fbUser = await fb.FirebaseAuth.instance.authStateChanges().first;
@@ -54,9 +59,9 @@ class AuthController extends AsyncNotifier<AppUser?> {
     if (token == null) {
       throw StateError('Firebase user has no ID token');
     }
-    final existing = await AuthApi.fetchMe(token);
+    final existing = await _api.fetchMe(token);
     if (existing != null) return existing;
-    return AuthApi.syncExisting(token);
+    return _api.syncExisting(token);
   }
 
   Future<void> signIn(String email, String password) async {
@@ -87,16 +92,18 @@ class AuthController extends AsyncNotifier<AppUser?> {
     try {
       final token = await fbUser.getIdToken();
       if (token == null) throw StateError('Firebase user has no ID token');
-      await AuthApi.syncRegistration(idToken: token, data: data);
+      await _api.syncRegistration(idToken: token, data: data);
       await fbUser.sendEmailVerification();
-    } catch (_) {
+    } catch (e, st) {
       // If profile sync fails the Firebase user is "orphaned" — it would
       // block re-registration with email-already-in-use AND can't log in
       // because there's no DB row. Delete it so the user can retry cleanly.
+      logd('signUp failed, cleaning up orphan firebase user', e, st);
       try {
         await fbUser.delete();
-      } catch (_) {
+      } catch (e2) {
         // delete() can fail if the auth session expired; not much we can do.
+        logd('orphan firebase user delete failed', e2);
       }
       await fb.FirebaseAuth.instance.signOut();
       rethrow;
@@ -142,7 +149,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
     final token = await fbUser.getIdToken();
     if (token == null) throw StateError('Firebase user has no ID token');
 
-    final existing = await AuthApi.fetchMe(token);
+    final existing = await _api.fetchMe(token);
     if (existing != null) {
       state = AsyncData(existing);
       return const GoogleSignInLoggedIn();
@@ -179,7 +186,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
     final token = await fbUser.getIdToken();
     if (token == null) throw StateError('Firebase user has no ID token');
 
-    final user = await AuthApi.syncRegistration(
+    final user = await _api.syncRegistration(
       idToken: token,
       data: RegistrationData(
         email: fbUser.email!,
@@ -202,28 +209,32 @@ class AuthController extends AsyncNotifier<AppUser?> {
     if (fbUser != null) {
       try {
         await fbUser.delete();
-      } catch (_) {/* best effort */}
+      } catch (e) {
+        logd('abandonGoogleSignUp: firebase user delete failed', e);
+      }
     }
     try {
       await GoogleSignIn().signOut();
-    } catch (_) {/* best effort */}
+    } catch (e) {
+      logd('abandonGoogleSignUp: google signOut failed', e);
+    }
     await fb.FirebaseAuth.instance.signOut();
   }
 
   Future<void> requestPasswordReset(String email) =>
-      AuthApi.requestPasswordReset(email);
+      _api.requestPasswordReset(email);
 
   Future<String> verifyResetCode({
     required String email,
     required String code,
   }) =>
-      AuthApi.verifyResetCode(email: email, code: code);
+      _api.verifyResetCode(email: email, code: code);
 
   Future<void> completePasswordReset({
     required String resetToken,
     required String newPassword,
   }) =>
-      AuthApi.completePasswordReset(
+      _api.completePasswordReset(
         resetToken: resetToken,
         newPassword: newPassword,
       );
@@ -231,7 +242,9 @@ class AuthController extends AsyncNotifier<AppUser?> {
   Future<void> signOut() async {
     try {
       await GoogleSignIn().signOut();
-    } catch (_) {/* harmless if user wasn't signed in via Google */}
+    } catch (e) {
+      logd('signOut: google signOut failed (likely not a google user)', e);
+    }
     await fb.FirebaseAuth.instance.signOut();
     state = const AsyncData(null);
   }

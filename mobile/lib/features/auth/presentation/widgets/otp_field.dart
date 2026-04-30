@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import '../design/tokens.dart';
+import '../../../../core/design/tokens.dart';
 
 class OtpField extends StatelessWidget {
   final TextEditingController controller;

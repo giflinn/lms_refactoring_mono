@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_controller.dart';
-import '../auth/auth_state.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/primary_button.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/domain/app_user.dart';
+import '../../../../core/domain/role.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../../auth/presentation/controller/auth_controller.dart';
 
 class HomeStubPage extends ConsumerWidget {
   final AppUser user;

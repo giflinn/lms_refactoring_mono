@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_api.dart';
-import '../auth/auth_controller.dart';
-import '../auth/validation.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/keyboard_dismiss.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/secondary_button.dart';
+import '../../data/auth_api.dart';
+import '../../domain/validation.dart';
+import '../controller/auth_controller.dart';
 import '../widgets/otp_field.dart';
-import '../widgets/primary_button.dart';
-import '../widgets/secondary_button.dart';
-import 'forgot_password_new_pwd_page.dart';
 
 class ForgotPasswordCodePage extends ConsumerStatefulWidget {
   final String email;
@@ -50,11 +51,7 @@ class _ForgotPasswordCodePageState
             code: code,
           );
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => ForgotPasswordNewPwdPage(resetToken: token),
-        ),
-      );
+      context.pushReplacement('/forgot-password/new', extra: token);
     } on NetworkException {
       if (!mounted) return;
       setState(() => _error = 'Нет соединения с сервером.');
@@ -176,8 +173,7 @@ class _ForgotPasswordCodePageState
                 const SizedBox(height: 12),
                 SecondaryButton(
                   label: 'Вернуться на экран авторизации',
-                  onPressed: () =>
-                      Navigator.of(context).popUntil((r) => r.isFirst),
+                  onPressed: () => context.go('/login'),
                 ),
                 const SizedBox(height: 12),
                 Center(

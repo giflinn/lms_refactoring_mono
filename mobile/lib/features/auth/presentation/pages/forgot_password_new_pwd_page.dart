@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_api.dart';
-import '../auth/auth_controller.dart';
-import '../auth/validation.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/success_dialog.dart';
+import '../../data/auth_api.dart';
+import '../../domain/validation.dart';
+import '../controller/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/keyboard_dismiss.dart';
 import '../widgets/password_rules_tooltip.dart';
-import '../widgets/primary_button.dart';
-import '../widgets/success_dialog.dart';
 
 class ForgotPasswordNewPwdPage extends ConsumerStatefulWidget {
   final String resetToken;
@@ -72,9 +74,9 @@ class _ForgotPasswordNewPwdPageState
             newPassword: _passwordCtrl.text,
           );
       if (!mounted) return;
-      // Pop the new-password screen first so the dialog overlays the login page
+      // Pop back to /login first so the dialog overlays the login page
       // (matching the Figma success state).
-      Navigator.of(context).popUntil((r) => r.isFirst);
+      context.go('/login');
       if (!mounted) return;
       await SuccessDialog.show(
         context,

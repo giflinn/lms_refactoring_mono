@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_api.dart';
-import '../auth/auth_controller.dart';
-import '../auth/auth_state.dart';
-import '../auth/validation.dart';
-import '../design/tokens.dart';
-import '../widgets/app_logo.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../../data/auth_api.dart';
+import '../../domain/registration_data.dart';
+import '../../domain/validation.dart';
+import '../controller/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/checkbox_row.dart';
-import '../widgets/gradient_background.dart';
-import '../widgets/keyboard_dismiss.dart';
 import '../widgets/phone_field.dart';
-import '../widgets/primary_button.dart';
 
 /// Shown after a successful Google sign-in for users who don't yet have a row
 /// in our DB. Asks for the few fields Google didn't give us (phone, manager
@@ -106,12 +108,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
             managerCode: code.isEmpty ? null : code,
             termsAccepted: _termsAccepted,
           );
-      if (!mounted) return;
-      // App watches authProvider and renders HomeStubPage at the root once the
-      // user is set, but this CompleteProfilePage was pushed on top of it via
-      // Navigator.push — so we have to pop ourselves out for the user to see
-      // the home screen.
-      Navigator.of(context).popUntil((r) => r.isFirst);
+      // Router watches authProvider — once user is set, redirect lands on /home.
     } on NetworkException {
       if (!mounted) return;
       _showSnack('Нет соединения с сервером. Проверьте интернет.');
@@ -188,9 +185,13 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        final navigator = Navigator.of(context);
-        if (await _confirmExit() && mounted) {
-          navigator.pop();
+        final shouldExit = await _confirmExit();
+        if (!context.mounted) return;
+        if (shouldExit) {
+          // The user confirmed they want to abandon Google sign-up. The
+          // controller revoked the firebase user, so authProvider will go to
+          // null and the router redirect will land on /login.
+          context.go('/login');
         }
       },
       child: GradientBackground(

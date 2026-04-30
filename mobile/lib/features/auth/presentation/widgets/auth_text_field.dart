@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../design/tokens.dart';
+import '../../../../core/design/tokens.dart';
 
 class AuthTextField extends StatefulWidget {
   final String label;

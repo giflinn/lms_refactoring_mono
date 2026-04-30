@@ -1,0 +1,122 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../features/auth/domain/registration_data.dart';
+import '../../features/auth/presentation/controller/auth_controller.dart';
+import '../../features/auth/presentation/pages/complete_profile_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_code_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_email_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_new_pwd_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/home/presentation/pages/home_stub_page.dart';
+import '../domain/app_user.dart';
+
+/// Routes that the user can be on while signed-out. The redirect uses this
+/// to decide whether to bounce them to /login.
+const _authRoutes = {
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/forgot-password/code',
+  '/forgot-password/new',
+};
+
+/// Single source of truth for navigation. Reads [authProvider] and redirects
+/// based on the auth state:
+///   loading       → /splash
+///   logged-out    → keep /login or any /forgot-password screen, else /login
+///   logged-in     → / or /home, never an auth route
+///
+/// `complete-profile` is a special case: the Firebase user exists but has no
+/// DB row yet, so authProvider is still "logged out" (user==null). We allow
+/// it from /login and don't bounce it.
+final routerProvider = Provider<GoRouter>((ref) {
+  // Bridge Riverpod → Listenable so go_router re-evaluates `redirect` when
+  // auth changes. We can't pass `ref.watch(...)` directly because GoRouter
+  // expects a Listenable, not an AsyncValue.
+  final notifier = ValueNotifier<AsyncValue<AppUser?>>(ref.read(authProvider));
+  ref.listen<AsyncValue<AppUser?>>(authProvider, (_, next) {
+    notifier.value = next;
+  });
+  ref.onDispose(notifier.dispose);
+
+  return GoRouter(
+    initialLocation: '/splash',
+    refreshListenable: notifier,
+    debugLogDiagnostics: kDebugMode,
+    redirect: (context, state) {
+      final auth = notifier.value;
+      final loc = state.matchedLocation;
+
+      return auth.when(
+        loading: () => loc == '/splash' ? null : '/splash',
+        error: (_, _) => loc == '/login' ? null : '/login',
+        data: (user) {
+          // Allow /complete-profile through regardless — it's the bridge from
+          // Google sign-in to a fully-synced user.
+          if (loc == '/complete-profile') return null;
+
+          if (user == null) {
+            // Signed out: only auth routes are allowed.
+            if (_authRoutes.contains(loc)) return null;
+            return '/login';
+          }
+          // Signed in: never linger on splash or auth screens.
+          if (loc == '/splash' || _authRoutes.contains(loc)) return '/home';
+          return null;
+        },
+      );
+    },
+    routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (_, _) => const SplashPage(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (_, _) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (_, _) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, _) => const ForgotPasswordEmailPage(),
+        routes: [
+          GoRoute(
+            path: 'code',
+            builder: (_, state) =>
+                ForgotPasswordCodePage(email: state.extra as String),
+          ),
+          GoRoute(
+            path: 'new',
+            builder: (_, state) =>
+                ForgotPasswordNewPwdPage(resetToken: state.extra as String),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/complete-profile',
+        builder: (_, state) => CompleteProfilePage(
+          profile: state.extra as PendingGoogleProfile,
+        ),
+      ),
+      GoRoute(
+        path: '/home',
+        builder: (_, _) {
+          // Safe to read here: redirect guarantees we only reach this route
+          // when authProvider has a non-null AppUser.
+          return Consumer(
+            builder: (context, ref, _) {
+              final user = ref.watch(authProvider).requireValue!;
+              return HomeStubPage(user: user);
+            },
+          );
+        },
+      ),
+    ],
+  );
+});

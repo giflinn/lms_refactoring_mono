@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../design/tokens.dart';
+import '../../../../core/design/tokens.dart';
 
 /// Floating bubble that lists the password rules. Mirrors the Figma design:
 /// translucent purple, white text, dismiss button in the corner.

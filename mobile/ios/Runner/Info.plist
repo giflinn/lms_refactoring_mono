@@ -83,5 +83,13 @@
 				</array>
 			</dict>
 		</array>
+		<!-- Dev-only: allow plain HTTP to private network IPs (10.x, 192.168.x,
+		     172.16-31.x) so a physical iPhone can hit the dev backend running
+		     on the Mac. Public HTTP is still blocked. -->
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsLocalNetworking</key>
+			<true/>
+		</dict>
 	</dict>
 </plist>

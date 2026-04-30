@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import '../design/tokens.dart';
+import '../../../../core/design/tokens.dart';
 
 /// Wrapper around intl_phone_field that mirrors the look of AuthTextField.
 /// Outputs the canonical E.164 string ('+77081234567') via [onChanged] and
