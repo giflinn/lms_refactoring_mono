@@ -68,5 +68,20 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Доступ к фотографиям нужен, чтобы выбрать фото профиля при регистрации.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Доступ к камере нужен, чтобы сделать фото профиля при регистрации.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.878249547590-5nt4vf1hge4ftl8v6s28j5r4t6gvs1jv</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

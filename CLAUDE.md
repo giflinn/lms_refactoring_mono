@@ -25,9 +25,27 @@ Flow:
 2. Client calls backend with `Authorization: Bearer <id_token>`.
 3. Backend's `requireAuth` middleware (`web/backend/src/middleware/auth.ts`) verifies the token via `firebase-admin` and attaches `uid` + `email` to the request.
 4. Our Postgres `users` table stores the app-side profile linked by `firebase_uid` (unique) — never a `password_hash`. Firebase owns credentials.
-5. `POST /auth/sync` is the entry point that finds-or-creates a DB record after first sign-in.
+5. `POST /auth/sync` is the entry point that finds-or-creates a DB record after first sign-in. It accepts `multipart/form-data` carrying the rest of the registration profile (name, phone, manager code, terms, optional avatar file) on first call; subsequent calls (from login) just return the existing row.
 
 The Firebase **service account JSON** lives at `web/backend/firebase-service-account.json` (gitignored). It must exist for the backend to boot when any code imports `src/firebase.ts`.
+
+### Password reset is custom OTP, not Firebase magic-link
+
+We deliberately did **not** use `sendPasswordResetEmail` from Firebase. The Figma flow requires a 6-digit code typed back into the app, which Firebase's link-based reset can't satisfy. Endpoints (in `web/backend/src/routes/passwordReset.ts`):
+
+1. `POST /auth/password-reset/request` — generates a 6-digit code, hashes it (`SHA-256(code + email)`), emails it via SMTP. Anti-enumeration: returns `{ok: true}` even if the email isn't registered. Rate-limited (1/min, 5/hour per email).
+2. `POST /auth/password-reset/verify` — checks the code, returns a short-lived `resetToken`. 5 wrong attempts invalidate the code.
+3. `POST /auth/password-reset/complete` — uses the `resetToken` to update the Firebase user's password via `auth.updateUser()`, also sets `emailVerified=true` (the OTP receipt proves email ownership), and revokes refresh tokens.
+
+When working in this area, do **not** "simplify" by switching to Firebase's link flow — the design and product intentionally diverge from it.
+
+### SMTP
+
+Outbound email goes through nodemailer. Env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`. Without them, the password reset endpoint throws at runtime. See `web/backend/src/services/mailer.ts`.
+
+### Avatar storage
+
+Avatars are stored as files on disk in `web/backend/uploads/avatars/<firebase_uid>.<ext>` (gitignored) and served via `app.use('/avatars', express.static(...))`. We deliberately do **not** use Firebase Storage / S3 — this is the simplest thing that works for the VPS deploy. `users.avatarUrl` holds a relative path like `/avatars/abc123.jpg`.
 
 ## Roles
 
@@ -36,6 +54,8 @@ Enum `user_role`: `client`, `manager`, `senior_manager`, `admin`.
 - **client** — end user; self-registers via the **mobile app**. Cannot log into web admin (block at login).
 - **manager / senior_manager** — staff; created by an admin (admin UI not built yet).
 - **admin** — full access; bootstrapped via `npm run seed:admin` in `web/backend` (one-shot on first deploy).
+
+Each staff user (manager / senior_manager / admin) has a unique 6-digit `manager_code`. Clients can enter it during mobile registration to be linked to their manager via `users.manager_id`. If a client registers without a code, the backend falls back to the **oldest** staff user (by `created_at`) — so the seeded admin always picks up unlinked clients. Generate codes with `web/backend/src/services/managerCode.ts:generateUniqueManagerCode()`. The seed script prints the admin's code at the end of its output.
 
 Mobile registration is open (creates `client`); web has **login only**.
 
@@ -74,6 +94,9 @@ Always edit `schema.ts` first, then `db:generate` — never hand-write migration
 - **iOS deployment target is 15.0** (in `Podfile` and `project.pbxproj`). Required by `firebase_auth`. Don't lower.
 - **Splash screen** uses `flutter_native_splash` (config in `pubspec.yaml`). After changing `assets/logo_white.png` or splash config, regenerate with `dart run flutter_native_splash:create`. `main.dart` calls `FlutterNativeSplash.preserve()` at start and `.remove()` after init, with a 1500ms minimum visibility (via `_minSplashDuration`) so the splash isn't a sub-200ms flash on fast cold starts.
 - **Launcher icons** use `flutter_launcher_icons` (config in `pubspec.yaml`). Source is `assets/icon.png`. After replacing, regenerate with `dart run flutter_launcher_icons`.
+- **`google_sign_in_ios` is pinned via `dependency_overrides`** in `pubspec.yaml` to `5.7.8`. Newer 5.8+ pulls `GoogleSignIn 8.0` which depends on `GTMSessionFetcher ~> 3.3` — that conflicts with Firebase 12's `~> 5.x`, and `pod install` fails. Don't unpin without verifying the conflict is resolved upstream. If `Podfile.lock` ever gets stuck on this, delete it + `mobile/ios/Pods/` and re-run `pod install`.
+- **Google Sign-In iOS plist + URL scheme:** `mobile/ios/Runner/GoogleService-Info.plist` must contain `CLIENT_ID` + `REVERSED_CLIENT_ID` (re-download from Firebase Console after enabling Google provider). The `REVERSED_CLIENT_ID` must also be registered in `Info.plist` under `CFBundleURLTypes` → `CFBundleURLSchemes`.
+- **New Google users land on `complete_profile_page.dart`** to fill phone + manager code + terms (Google doesn't give us those). Existing users skip it and go straight to home.
 
 ## Design system rule
 

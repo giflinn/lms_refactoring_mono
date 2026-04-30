@@ -1,27 +1,62 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'auth_api.dart';
 import 'auth_state.dart';
 
 final authProvider =
     AsyncNotifierProvider<AuthController, AppUser?>(AuthController.new);
 
+/// Thrown by [signIn] when Firebase auth succeeded but the user hasn't
+/// confirmed their email yet. The login page catches it to render an error
+/// + "resend verification" affordance.
+class EmailNotVerifiedException implements Exception {
+  const EmailNotVerifiedException();
+}
+
+/// Result of [AuthController.signInWithGoogle]. Either the user is fully set up
+/// and signed in (controller state is now AsyncData(user)), or this is a new
+/// Google identity that hasn't completed the profile form yet — the caller
+/// should push CompleteProfilePage with [pendingProfile].
+sealed class GoogleSignInResult {
+  const GoogleSignInResult();
+}
+
+class GoogleSignInLoggedIn extends GoogleSignInResult {
+  const GoogleSignInLoggedIn();
+}
+
+class GoogleSignInNeedsProfile extends GoogleSignInResult {
+  final PendingGoogleProfile profile;
+  const GoogleSignInNeedsProfile(this.profile);
+}
+
+class GoogleSignInCancelled extends GoogleSignInResult {
+  const GoogleSignInCancelled();
+}
+
 class AuthController extends AsyncNotifier<AppUser?> {
   @override
   Future<AppUser?> build() async {
     final fbUser = await fb.FirebaseAuth.instance.authStateChanges().first;
     if (fbUser == null) return null;
-    return _resolveUser(fbUser);
+    if (!fbUser.emailVerified) {
+      // Don't strand an unverified user in the app; force them back to login
+      // so they see the "verify your email" message.
+      await fb.FirebaseAuth.instance.signOut();
+      return null;
+    }
+    return _resolveExisting(fbUser);
   }
 
-  Future<AppUser> _resolveUser(fb.User fbUser) async {
+  Future<AppUser> _resolveExisting(fb.User fbUser) async {
     final token = await fbUser.getIdToken();
     if (token == null) {
       throw StateError('Firebase user has no ID token');
     }
     final existing = await AuthApi.fetchMe(token);
     if (existing != null) return existing;
-    return AuthApi.syncUser(token);
+    return AuthApi.syncExisting(token);
   }
 
   Future<void> signIn(String email, String password) async {
@@ -29,11 +64,174 @@ class AuthController extends AsyncNotifier<AppUser?> {
       email: email,
       password: password,
     );
-    final user = await _resolveUser(cred.user!);
+    final fbUser = cred.user!;
+    if (!fbUser.emailVerified) {
+      // Sign out so we don't leave a half-authenticated session lying around.
+      // The login page will offer to resend the verification email.
+      await fb.FirebaseAuth.instance.signOut();
+      throw const EmailNotVerifiedException();
+    }
+    final user = await _resolveExisting(fbUser);
     state = AsyncData(user);
   }
 
+  /// Creates the Firebase user, sends the verification email, syncs the DB
+  /// row, and signs the user out so the login page handles the rest. We
+  /// intentionally don't drop them into the app — they have to verify first.
+  Future<void> signUp(RegistrationData data) async {
+    final cred = await fb.FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: data.email,
+      password: data.password,
+    );
+    final fbUser = cred.user!;
+    try {
+      final token = await fbUser.getIdToken();
+      if (token == null) throw StateError('Firebase user has no ID token');
+      await AuthApi.syncRegistration(idToken: token, data: data);
+      await fbUser.sendEmailVerification();
+    } catch (_) {
+      // If profile sync fails the Firebase user is "orphaned" — it would
+      // block re-registration with email-already-in-use AND can't log in
+      // because there's no DB row. Delete it so the user can retry cleanly.
+      try {
+        await fbUser.delete();
+      } catch (_) {
+        // delete() can fail if the auth session expired; not much we can do.
+      }
+      await fb.FirebaseAuth.instance.signOut();
+      rethrow;
+    }
+    await fb.FirebaseAuth.instance.signOut();
+  }
+
+  /// Re-sends the email verification link for [email]+[password]. Requires
+  /// signing in to access Firebase's send API; we sign back out immediately.
+  Future<void> resendVerification(String email, String password) async {
+    final cred = await fb.FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    try {
+      await cred.user!.sendEmailVerification();
+    } finally {
+      await fb.FirebaseAuth.instance.signOut();
+    }
+  }
+
+  /// Google sign-in flow:
+  /// 1) Pop the Google account picker, get OAuth credentials.
+  /// 2) Sign in to Firebase with those credentials.
+  /// 3) If we already have a DB row → resolve and we're logged in.
+  /// 4) If not → return [GoogleSignInNeedsProfile] so the UI can push the
+  ///    CompleteProfilePage. The Firebase user stays signed-in (verified) so
+  ///    /auth/sync can be called from the profile-completion screen.
+  Future<GoogleSignInResult> signInWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      // User cancelled the picker.
+      return const GoogleSignInCancelled();
+    }
+    final googleAuth = await googleUser.authentication;
+    final cred = fb.GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    final fbCred = await fb.FirebaseAuth.instance.signInWithCredential(cred);
+    final fbUser = fbCred.user!;
+
+    final token = await fbUser.getIdToken();
+    if (token == null) throw StateError('Firebase user has no ID token');
+
+    final existing = await AuthApi.fetchMe(token);
+    if (existing != null) {
+      state = AsyncData(existing);
+      return const GoogleSignInLoggedIn();
+    }
+
+    final fullName = (fbUser.displayName ?? googleUser.displayName ?? '').trim();
+    final parts = fullName.split(RegExp(r'\s+'));
+    final firstName = parts.isNotEmpty ? parts.first : '';
+    final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+    return GoogleSignInNeedsProfile(
+      PendingGoogleProfile(
+        email: fbUser.email ?? googleUser.email,
+        firstName: firstName,
+        lastName: lastName,
+        googlePhotoUrl: fbUser.photoURL ?? googleUser.photoUrl,
+      ),
+    );
+  }
+
+  /// Called from CompleteProfilePage after a Google sign-in. The Firebase user
+  /// already exists and is signed in; we just sync the profile to our DB.
+  Future<void> completeGoogleProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+    required String? managerCode,
+    required bool termsAccepted,
+  }) async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser == null) {
+      throw StateError('No Firebase user — cannot complete profile');
+    }
+    final token = await fbUser.getIdToken();
+    if (token == null) throw StateError('Firebase user has no ID token');
+
+    final user = await AuthApi.syncRegistration(
+      idToken: token,
+      data: RegistrationData(
+        email: fbUser.email!,
+        password: '', // not used by /auth/sync; firebase already has the OAuth creds
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+        managerCode: managerCode,
+        avatarPath: null,
+        termsAccepted: termsAccepted,
+      ),
+    );
+    state = AsyncData(user);
+  }
+
+  /// Cancel an in-progress Google sign-up (the user backed out of the
+  /// CompleteProfilePage). Removes the Firebase user so they can retry cleanly.
+  Future<void> abandonGoogleSignUp() async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser != null) {
+      try {
+        await fbUser.delete();
+      } catch (_) {/* best effort */}
+    }
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {/* best effort */}
+    await fb.FirebaseAuth.instance.signOut();
+  }
+
+  Future<void> requestPasswordReset(String email) =>
+      AuthApi.requestPasswordReset(email);
+
+  Future<String> verifyResetCode({
+    required String email,
+    required String code,
+  }) =>
+      AuthApi.verifyResetCode(email: email, code: code);
+
+  Future<void> completePasswordReset({
+    required String resetToken,
+    required String newPassword,
+  }) =>
+      AuthApi.completePasswordReset(
+        resetToken: resetToken,
+        newPassword: newPassword,
+      );
+
   Future<void> signOut() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {/* harmless if user wasn't signed in via Google */}
     await fb.FirebaseAuth.instance.signOut();
     state = const AsyncData(null);
   }

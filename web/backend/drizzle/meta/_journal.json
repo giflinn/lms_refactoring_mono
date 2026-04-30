@@ -15,6 +15,13 @@
       "when": 1777578948312,
       "tag": "0001_familiar_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777586461374,
+      "tag": "0002_rapid_smiling_tiger",
+      "breakpoints": true
     }
   ]
 }

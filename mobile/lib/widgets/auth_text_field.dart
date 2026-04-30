@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../design/tokens.dart';
 
 class AuthTextField extends StatefulWidget {
@@ -9,6 +10,9 @@ class AuthTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final String? autofillHint;
   final ValueChanged<String>? onChanged;
+  final FocusNode? focusNode;
+  final List<TextInputFormatter>? inputFormatters;
+  final int? maxLength;
 
   const AuthTextField({
     super.key,
@@ -19,6 +23,9 @@ class AuthTextField extends StatefulWidget {
     this.keyboardType,
     this.autofillHint,
     this.onChanged,
+    this.focusNode,
+    this.inputFormatters,
+    this.maxLength,
   });
 
   @override
@@ -57,8 +64,11 @@ class _AuthTextFieldState extends State<AuthTextField> {
           ),
           child: TextField(
             controller: widget.controller,
+            focusNode: widget.focusNode,
             obscureText: widget.isPassword && _obscure,
             keyboardType: widget.keyboardType,
+            inputFormatters: widget.inputFormatters,
+            maxLength: widget.maxLength,
             autofillHints:
                 widget.autofillHint != null ? [widget.autofillHint!] : null,
             onChanged: widget.onChanged,
@@ -67,6 +77,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
             decoration: InputDecoration(
               isCollapsed: true,
               border: InputBorder.none,
+              counterText: '',
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 13,

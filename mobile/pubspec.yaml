@@ -39,9 +39,21 @@ dependencies:
   flutter_riverpod: ^3.3.1
   package_info_plus: ^10.1.0
   http: ^1.6.0
+  http_parser: ^4.1.2
   font_awesome_flutter: ^11.0.0
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.7
+  image_picker: ^1.1.2
+  intl_phone_field: ^3.2.0
+  pin_code_fields: ^8.0.1
+  url_launcher: ^6.3.1
+  google_sign_in: 6.1.6
+
+# Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
+# 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's
+# GTMSessionFetcher 5.x — they can't coexist as of May 2026).
+dependency_overrides:
+  google_sign_in_ios: 5.7.8
 
 dev_dependencies:
   flutter_test:

@@ -4,6 +4,9 @@
 .vscode/
 *.swp
 
+# Claude Code local config (per-machine permissions / scheduled tasks)
+.claude/
+
 # Node
 node_modules/
 npm-debug.log*
@@ -23,6 +26,9 @@ web/frontend/dist-ssr/
 
 # Firebase service account (backend Admin SDK)
 web/backend/firebase-service-account*.json
+
+# Uploaded user content (avatars, etc.)
+web/backend/uploads/
 
 # pm2
 .pm2/

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../src/db";
 import { users } from "../src/db/schema";
 import { firebaseAuth } from "../src/firebase";
+import { generateUniqueManagerCode } from "../src/services/managerCode";
 
 async function main() {
   const { values } = parseArgs({
@@ -33,7 +34,11 @@ async function main() {
       "code" in err &&
       (err as { code: string }).code === "auth/user-not-found"
     ) {
-      const created = await firebaseAuth.createUser({ email, password });
+      const created = await firebaseAuth.createUser({
+        email,
+        password,
+        emailVerified: true,
+      });
       firebaseUid = created.uid;
       console.log(`✓ Firebase user created (uid=${firebaseUid})`);
     } else {
@@ -47,23 +52,30 @@ async function main() {
     .where(eq(users.firebaseUid, firebaseUid))
     .limit(1);
 
+  let managerCode: string;
   if (existingDb.length > 0) {
+    managerCode = existingDb[0].managerCode ?? (await generateUniqueManagerCode());
     await db
       .update(users)
-      .set({ role: "admin" })
+      .set({ role: "admin", managerCode })
       .where(eq(users.firebaseUid, firebaseUid));
     console.log(
       `✓ DB user updated: id=${existingDb[0].id} role=admin`,
     );
   } else {
+    managerCode = await generateUniqueManagerCode();
     const [created] = await db
       .insert(users)
-      .values({ firebaseUid, email, role: "admin" })
+      .values({ firebaseUid, email, role: "admin", managerCode })
       .returning();
     console.log(`✓ DB user created: id=${created.id} role=admin`);
   }
 
   console.log(`\nAdmin ready: ${email}`);
+  console.log(`Admin manager code: ${managerCode}`);
+  console.log(
+    "  → give this code to test clients during mobile registration so they get linked to you.",
+  );
   process.exit(0);
 }
 
