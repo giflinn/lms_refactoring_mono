@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "878249547590",
+    "project_id": "lms-zhs-prod",
+    "storage_bucket": "lms-zhs-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:878249547590:android:e23205a0e87da77649f747",
+        "android_client_info": {
+          "package_name": "kz.zhannaslyamova.lms"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDijjosA17dkyr8V-gUCigNH8qsH1IpE9M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

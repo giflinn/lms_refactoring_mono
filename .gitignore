@@ -21,6 +21,9 @@ web/frontend/dist-ssr/
 .env.*
 !.env.example
 
+# Firebase service account (backend Admin SDK)
+web/backend/firebase-service-account*.json
+
 # pm2
 .pm2/
 logs/
