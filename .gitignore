@@ -47,3 +47,9 @@ mobile/android/**/GeneratedPluginRegistrant.java
 mobile/android/key.properties
 mobile/**/*.g.dart
 mobile/**/*.freezed.dart
+
+# Flutter platforms we don't ship (only android + ios)
+mobile/linux/
+mobile/macos/
+mobile/windows/
+mobile/web/
