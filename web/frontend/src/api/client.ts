@@ -33,6 +33,26 @@ class ApiClient {
     return this.send("DELETE", path, { idToken });
   }
 
+  // Multipart/form-data POST. Don't set Content-Type ourselves — fetch needs
+  // to add the boundary parameter when given a FormData body.
+  async postFormData(
+    path: string,
+    body: FormData,
+    idToken?: string,
+  ): Promise<Response> {
+    const headers: Record<string, string> = {};
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
+    try {
+      return await fetch(`${this.baseUrl}${path}`, {
+        method: "POST",
+        headers,
+        body,
+      });
+    } catch {
+      throw new NetworkException();
+    }
+  }
+
   private async send(
     method: string,
     path: string,

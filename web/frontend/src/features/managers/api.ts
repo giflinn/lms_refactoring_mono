@@ -101,3 +101,20 @@ export async function deactivateManager(
   const res = await apiClient.delete(`/managers/${id}`, idToken);
   await ensureOk(res);
 }
+
+export async function uploadManagerAvatar(
+  idToken: string,
+  id: string,
+  file: File,
+): Promise<Manager> {
+  const fd = new FormData();
+  fd.append("avatar", file);
+  const res = await apiClient.postFormData(
+    `/managers/${id}/avatar`,
+    fd,
+    idToken,
+  );
+  await ensureOk(res);
+  const body = (await res.json()) as { manager: Manager };
+  return body.manager;
+}

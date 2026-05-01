@@ -7,6 +7,10 @@ import { requireStaffAdmin } from "../middleware/requireRole";
 import { firebaseAuth } from "../firebase";
 import { generateUniqueManagerCode } from "../services/managerCode";
 import { generateStrongPassword } from "../services/passwordGen";
+import {
+  managerAvatarUpload,
+  persistManagerAvatar,
+} from "../services/avatarUpload";
 import { sendStaffInvite, sendStaffPasswordReset } from "../services/mailer";
 import {
   isValidEmail,
@@ -527,8 +531,72 @@ managersRouter.delete(
   },
 );
 
+// POST /managers/:id/avatar — multipart upload of a single image. Saved as
+// <target.firebaseUid>.<ext> (overwriting any previous photo) and the URL
+// stored on the user row.
+managersRouter.post(
+  "/managers/:id/avatar",
+  requireAuth,
+  requireStaffAdmin,
+  managerAvatarUpload.single("avatar"),
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId as string;
+      const actorRole = req.actorRole as StaffRole;
+      const targetId = req.params.id;
+
+      if (!req.file) {
+        res.status(400).json({ error: "file_missing" });
+        return;
+      }
+
+      const rows = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, targetId))
+        .limit(1);
+      if (rows.length === 0 || rows[0].deactivatedAt) {
+        res.status(404).json({ error: "manager_not_found" });
+        return;
+      }
+      const target = rows[0];
+      if (!STAFF_ROLES.includes(target.role as StaffRole)) {
+        res.status(404).json({ error: "manager_not_found" });
+        return;
+      }
+
+      const guardErr = canActOnTarget(actorId, actorRole, {
+        id: target.id,
+        role: target.role as StaffRole,
+      });
+      if (guardErr) {
+        res.status(guardErr === "cannot_act_on_self" ? 400 : 403).json({
+          error: guardErr,
+        });
+        return;
+      }
+
+      const avatarUrl = await persistManagerAvatar(
+        target.firebaseUid,
+        req.file,
+      );
+      const [updated] = await db
+        .update(users)
+        .set({ avatarUrl })
+        .where(eq(users.id, target.id))
+        .returning();
+
+      res.json({ manager: serialize(updated) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 class TaggedError extends Error {
-  constructor(public code: string) {
+  code: string;
+  constructor(code: string) {
     super(code);
+    this.code = code;
   }
 }

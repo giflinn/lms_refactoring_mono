@@ -10,6 +10,7 @@ import {
   listManagers,
   resetManagerPassword,
   updateManager,
+  uploadManagerAvatar,
   type ManagerInput,
 } from "./api";
 
@@ -78,6 +79,17 @@ export function useDeactivateManager() {
     mutationFn: async (id: string) => {
       const token = await getIdToken();
       await deactivateManager(token, id);
+    },
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useUploadManagerAvatar() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (vars: { id: string; file: File }) => {
+      const token = await getIdToken();
+      return uploadManagerAvatar(token, vars.id, vars.file);
     },
     onSuccess: () => invalidate(),
   });

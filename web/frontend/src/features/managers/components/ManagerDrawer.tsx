@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -18,6 +18,7 @@ import {
   useCreateManager,
   useResetManagerPassword,
   useUpdateManager,
+  useUploadManagerAvatar,
 } from "../queries";
 import { mapError } from "../errors";
 
@@ -44,6 +45,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
   const create = useCreateManager();
   const update = useUpdateManager();
   const reset = useResetManagerPassword();
+  const uploadAvatar = useUploadManagerAvatar();
 
   const [generalError, setGeneralError] = useState<string | undefined>();
   const [resetState, setResetState] = useState<
@@ -51,6 +53,9 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
     | { mode: "confirm" }
     | { mode: "done" }
   >({ mode: "idle" });
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -70,6 +75,9 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
     if (!open) return;
     setGeneralError(undefined);
     setResetState({ mode: "idle" });
+    setPendingFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (manager) {
       resetForm({
         firstName: manager.firstName,
@@ -83,6 +91,20 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
       resetForm(EMPTY);
     }
   }, [open, manager, resetForm]);
+
+  // Free the object-URL preview when it changes or unmounts.
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    if (!f) return;
+    setPendingFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+    setGeneralError(undefined);
+  }
 
   const isSenior = watch("isSenior");
 
@@ -115,12 +137,18 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
       isSenior: values.isSenior,
     };
     try {
+      let savedId: string;
       if (isEdit && manager) {
         const patch: Partial<ManagerInput> = { ...payload };
         if (!isAdmin) delete patch.isSenior;
         await update.mutateAsync({ id: manager.id, patch });
+        savedId = manager.id;
       } else {
-        await create.mutateAsync(payload);
+        const created = await create.mutateAsync(payload);
+        savedId = created.id;
+      }
+      if (pendingFile) {
+        await uploadAvatar.mutateAsync({ id: savedId, file: pendingFile });
       }
       onClose();
     } catch (err) {
@@ -167,23 +195,49 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
         className="flex flex-col gap-4 pb-2"
       >
         <div className="flex flex-col items-center gap-2">
-          <Avatar
-            src={manager?.avatarUrl}
-            firstName={watch("firstName")}
-            lastName={watch("lastName")}
-            email={watch("email")}
-            size={150}
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt=""
+              className="h-[150px] w-[150px] rounded-full object-cover"
+            />
+          ) : (
+            <Avatar
+              src={manager?.avatarUrl}
+              firstName={watch("firstName")}
+              lastName={watch("lastName")}
+              email={watch("email")}
+              size={150}
+            />
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={onPickFile}
           />
-          {isEdit && manager && (
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
-              onClick={() => setResetState({ mode: "confirm" })}
-              disabled={reset.isPending}
-              className="cursor-pointer rounded-[8px] bg-purple-primary px-5 py-2 text-[14px] font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+              onClick={() => fileInputRef.current?.click()}
+              className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-5 py-2 text-[14px] font-medium text-grey-medium hover:bg-grey-lighter transition-colors"
             >
-              Сбросить пароль
+              {previewUrl || manager?.avatarUrl
+                ? "Изменить фото"
+                : "Добавить фото"}
             </button>
-          )}
+            {isEdit && manager && (
+              <button
+                type="button"
+                onClick={() => setResetState({ mode: "confirm" })}
+                disabled={reset.isPending}
+                className="cursor-pointer rounded-[8px] bg-purple-primary px-5 py-2 text-[14px] font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+              >
+                Сбросить пароль
+              </button>
+            )}
+          </div>
         </div>
 
         <Input

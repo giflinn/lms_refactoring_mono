@@ -1,40 +1,43 @@
+import { type ComponentType, type SVGProps } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import {
-  Home,
-  BarChart3,
-  ShoppingCart,
-  XCircle,
-  Bell,
-  MessageSquare,
-  Tag,
-  Briefcase,
-  Users,
-  Calendar,
-  LogOut,
-} from "lucide-react";
 import clsx from "clsx";
 import { Logo } from "./Logo";
 import { useAuth } from "../auth/AuthContext";
+import IconHome from "../assets/icons/sidebar/home.svg?react";
+import IconReports from "../assets/icons/sidebar/reports.svg?react";
+import IconOrders from "../assets/icons/sidebar/orders.svg?react";
+import IconCancellations from "../assets/icons/sidebar/cancellations.svg?react";
+import IconNotifications from "../assets/icons/sidebar/notifications.svg?react";
+import IconChats from "../assets/icons/sidebar/chats.svg?react";
+import IconProducts from "../assets/icons/sidebar/products.svg?react";
+import IconManagers from "../assets/icons/sidebar/managers.svg?react";
+import IconClients from "../assets/icons/sidebar/clients.svg?react";
+import IconCalendar from "../assets/icons/sidebar/calendar.svg?react";
+import IconLogout from "../assets/icons/sidebar/logout.svg?react";
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 type NavItem = {
   to: string;
   label: string;
-  icon: typeof Home;
+  Icon: IconComponent;
   end?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Главная", icon: Home, end: true },
-  { to: "/reports", label: "Отчеты", icon: BarChart3 },
-  { to: "/orders", label: "Заказы", icon: ShoppingCart },
-  { to: "/cancellations", label: "Отмены", icon: XCircle },
-  { to: "/notifications", label: "Нотификации", icon: Bell },
-  { to: "/chats", label: "Чаты", icon: MessageSquare },
-  { to: "/products", label: "Товары", icon: Tag },
-  { to: "/managers", label: "Менеджеры", icon: Briefcase },
-  { to: "/clients", label: "Клиенты", icon: Users },
-  { to: "/coach-calendar", label: "Календарь Коуча", icon: Calendar },
+  { to: "/", label: "Главная", Icon: IconHome, end: true },
+  { to: "/reports", label: "Отчеты", Icon: IconReports },
+  { to: "/orders", label: "Заказы", Icon: IconOrders },
+  { to: "/cancellations", label: "Отмены", Icon: IconCancellations },
+  { to: "/notifications", label: "Нотификации", Icon: IconNotifications },
+  { to: "/chats", label: "Чаты", Icon: IconChats },
+  { to: "/products", label: "Товары", Icon: IconProducts },
+  { to: "/managers", label: "Менеджеры", Icon: IconManagers },
+  { to: "/clients", label: "Клиенты", Icon: IconClients },
+  { to: "/coach-calendar", label: "Календарь Коуча", Icon: IconCalendar },
 ];
+
+const ICON_CLASS = "h-6 w-6 shrink-0";
 
 export function Sidebar() {
   const { signOut } = useAuth();
@@ -58,11 +61,9 @@ export function Sidebar() {
         onClick={handleLogout}
         className="flex w-[244px] cursor-pointer items-center justify-end"
       >
-        <div className="flex w-[220px] items-center gap-2 rounded-[8px] px-6 py-4 hover:bg-grey-lighter transition-colors">
-          <LogOut size={24} strokeWidth={1.5} className="text-grey-dark" />
-          <span className="text-[16px] font-medium leading-6 text-grey-dark">
-            Выйти
-          </span>
+        <div className="flex w-[220px] items-center gap-2 rounded-[8px] px-6 py-4 text-grey-dark hover:bg-grey-lighter transition-colors">
+          <IconLogout className={ICON_CLASS} />
+          <span className="text-[16px] font-medium leading-6">Выйти</span>
         </div>
       </button>
     </aside>
@@ -70,7 +71,7 @@ export function Sidebar() {
 }
 
 function NavItemRow({ item }: { item: NavItem }) {
-  const Icon = item.icon;
+  const { Icon } = item;
   return (
     <NavLink
       to={item.to}
@@ -93,11 +94,7 @@ function NavItemRow({ item }: { item: NavItem }) {
                 : "text-grey-dark hover:bg-grey-lighter",
             )}
           >
-            <Icon
-              size={24}
-              strokeWidth={1.5}
-              className={isActive ? "text-white" : "text-grey-dark"}
-            />
+            <Icon className={ICON_CLASS} />
             <span className="flex-1 text-[16px] font-medium leading-6">
               {item.label}
             </span>
