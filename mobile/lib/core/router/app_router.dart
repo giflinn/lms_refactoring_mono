@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/forgot_password_new_pwd_page.dart
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/home/presentation/pages/client_shell_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../domain/app_user.dart';
@@ -120,6 +121,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           );
         },
+      ),
+      GoRoute(
+        path: '/client/search',
+        builder: (_, _) => const CatalogSearchPage(),
       ),
     ],
   );

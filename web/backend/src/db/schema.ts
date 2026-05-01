@@ -90,6 +90,10 @@ export const products = pgTable(
       .notNull()
       .references(() => productCategories.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
+    // Short caption shown under the title on the catalog card and in the
+    // product list (e.g. "23-24 Марта", "1 день", "Хлопок 100%"). Optional —
+    // products without a date or short hook just hide the line.
+    subtitle: text("subtitle"),
     description: text("description").notNull(),
     buttonText: text("button_text").notNull(),
     // NULL = "по запросу"; otherwise tenge with up to 2 decimal places (column

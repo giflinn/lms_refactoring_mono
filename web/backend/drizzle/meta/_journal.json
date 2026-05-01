@@ -43,6 +43,13 @@
       "when": 1777661991031,
       "tag": "0005_empty_old_lace",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777669259236,
+      "tag": "0006_smart_quicksilver",
+      "breakpoints": true
     }
   ]
 }

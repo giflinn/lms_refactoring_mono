@@ -24,6 +24,7 @@ import {
 export const productsRouter = Router();
 
 const TITLE_MAX = 120;
+const SUBTITLE_MAX = 60;
 const BUTTON_MAX = 40;
 const DESCRIPTION_MAX = 2000;
 const MAX_DAYS_UNTIL_CANCEL = 365;
@@ -44,6 +45,7 @@ function serialize(p: ProductRow, category: CategorySummary | null) {
     categoryId: p.categoryId,
     category,
     title: p.title,
+    subtitle: p.subtitle,
     description: p.description,
     buttonText: p.buttonText,
     // numeric column comes back as string in pg; expose it as-is so the
@@ -140,6 +142,7 @@ productsRouter.get(
 type CreateInput = {
   categoryId: string;
   title: string;
+  subtitle: string | null;
   description: string;
   buttonText: string;
   price: string | null;
@@ -183,6 +186,20 @@ function parseBody(
       return { ok: false, status: 400, error: "title_too_long" };
     }
     data.title = v;
+  }
+
+  // subtitle is optional — empty string from multipart maps to null.
+  if (has("subtitle")) {
+    const v = String(body.subtitle).trim();
+    if (!v) {
+      data.subtitle = null;
+    } else if (v.length > SUBTITLE_MAX) {
+      return { ok: false, status: 400, error: "subtitle_too_long" };
+    } else {
+      data.subtitle = v;
+    }
+  } else if (!partial) {
+    data.subtitle = null;
   }
 
   err = required("description", "description_required");
@@ -309,6 +326,7 @@ productsRouter.post(
         .values({
           categoryId: data.categoryId,
           title: data.title,
+          subtitle: data.subtitle ?? null,
           description: data.description,
           buttonText: data.buttonText,
           price: data.price,
@@ -386,6 +404,7 @@ productsRouter.patch(
       };
       if (data.categoryId !== undefined) patch.categoryId = data.categoryId;
       if (data.title !== undefined) patch.title = data.title;
+      if (data.subtitle !== undefined) patch.subtitle = data.subtitle;
       if (data.description !== undefined) patch.description = data.description;
       if (data.buttonText !== undefined) patch.buttonText = data.buttonText;
       if (data.price !== undefined) patch.price = data.price;

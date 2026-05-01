@@ -85,6 +85,10 @@ flutter:
     - assets/eye_open.png
     - assets/eye_closed.png
     - assets/icons/nav/
+    - assets/icons/catalog/
+    - assets/icons/search/
+    - assets/icons/logo/
+    - assets/product_cover/
 
 flutter_launcher_icons:
   android: true

@@ -1,6 +1,7 @@
 export type Fields = {
   categoryId?: string;
   title?: string;
+  subtitle?: string;
   description?: string;
   buttonText?: string;
   price?: string;
@@ -18,6 +19,7 @@ const FIELD_MESSAGES: Record<string, { field: keyof Fields; message: string }> =
   category_not_found: { field: "categoryId", message: "Категория не найдена." },
   title_required: { field: "title", message: "Введите название." },
   title_too_long: { field: "title", message: "Название слишком длинное." },
+  subtitle_too_long: { field: "subtitle", message: "Подпись слишком длинная." },
   description_required: { field: "description", message: "Введите описание." },
   description_too_long: {
     field: "description",

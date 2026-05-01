@@ -34,6 +34,7 @@ type Props = {
 const EMPTY: ProductFormValues = {
   categoryId: "",
   title: "",
+  subtitle: "",
   description: "",
   buttonText: "",
   priceOnRequest: false,
@@ -109,6 +110,7 @@ export function ProductFormDrawer({
       reset({
         categoryId: product.categoryId,
         title: product.title,
+        subtitle: product.subtitle ?? "",
         description: product.description,
         buttonText: product.buttonText,
         priceOnRequest: product.price == null,
@@ -180,6 +182,10 @@ export function ProductFormDrawer({
         setError("title", { message: fields.title });
         handled = true;
       }
+      if (fields.subtitle) {
+        setError("subtitle", { message: fields.subtitle });
+        handled = true;
+      }
       if (fields.description) {
         setError("description", { message: fields.description });
         handled = true;
@@ -222,6 +228,7 @@ export function ProductFormDrawer({
     const input: ProductInput = {
       categoryId: values.categoryId,
       title: values.title.trim(),
+      subtitle: values.subtitle.trim() || null,
       description: values.description.trim(),
       buttonText: values.buttonText.trim(),
       price: values.priceOnRequest ? null : values.priceTenge.trim(),
@@ -315,7 +322,7 @@ export function ProductFormDrawer({
           <div className="flex flex-col items-center gap-3 pt-2">
             <ProductPreviewCard
               title={watched.title}
-              description={watched.description}
+              subtitle={watched.subtitle}
               buttonText={watched.buttonText}
               categoryName={selectedCategory?.name ?? null}
               coverKind={coverKind}
@@ -373,6 +380,13 @@ export function ProductFormDrawer({
             label="Название*"
             {...register("title")}
             error={errors.title?.message}
+          />
+          <Input
+            fullWidth
+            label="Подпись"
+            placeholder="23-24 Марта"
+            {...register("subtitle")}
+            error={errors.subtitle?.message}
           />
           <Input
             fullWidth

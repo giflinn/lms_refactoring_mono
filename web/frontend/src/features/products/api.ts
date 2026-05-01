@@ -19,6 +19,8 @@ export type Product = {
   categoryId: string;
   category: ProductCategorySummary | null;
   title: string;
+  // Short caption shown under the title on cards / list rows. Null when blank.
+  subtitle: string | null;
   description: string;
   buttonText: string;
   // numeric column → comes back as a string. null = "по запросу".
@@ -44,6 +46,7 @@ export type ProductsList = {
 export type ProductInput = {
   categoryId: string;
   title: string;
+  subtitle: string | null;
   description: string;
   buttonText: string;
   // Pre-formatted decimal string ("1500" or "1500.00") or null for "по запросу".
@@ -151,6 +154,7 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
   // backend treats it as a partial patch where every present field overwrites.
   fd.append("categoryId", input.categoryId);
   fd.append("title", input.title);
+  fd.append("subtitle", input.subtitle ?? "");
   fd.append("description", input.description);
   fd.append("buttonText", input.buttonText);
   fd.append("price", input.price ?? "");

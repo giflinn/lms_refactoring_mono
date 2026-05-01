@@ -9,6 +9,8 @@ export const productFormSchema = z
   .object({
     categoryId: z.string().min(1, "Выберите категорию"),
     title: z.string().trim().min(1, "Введите название").max(120),
+    // Optional short caption — empty string acceptable, capped at 60 chars.
+    subtitle: z.string().trim().max(60, "Подпись слишком длинная"),
     description: z.string().trim().min(1, "Введите описание").max(2000),
     buttonText: z.string().trim().min(1, "Введите текст кнопки").max(40),
     priceOnRequest: z.boolean(),

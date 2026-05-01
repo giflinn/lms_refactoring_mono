@@ -5,7 +5,8 @@ import type { ProductCoverKind } from "../api";
 
 type Props = {
   title: string;
-  description: string;
+  // Short caption shown under the title on the cover overlay (e.g. "23-24 Марта").
+  subtitle: string;
   buttonText: string;
   categoryName: string | null;
   coverKind: ProductCoverKind;
@@ -19,7 +20,7 @@ type Props = {
 // to the active background and overlay the real values on top.
 export function ProductPreviewCard({
   title,
-  description,
+  subtitle,
   buttonText,
   categoryName,
   coverKind,
@@ -75,17 +76,9 @@ export function ProductPreviewCard({
               >
                 {title}
               </p>
-              {description.trim() && (
-                <p
-                  className="text-[13px] leading-tight text-white/85"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {description}
+              {subtitle.trim() && (
+                <p className="text-[15px] leading-tight text-purple-tertiary">
+                  {subtitle}
                 </p>
               )}
             </div>
