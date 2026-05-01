@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { StubPage } from "./pages/StubPage";
 import { ManagersPage } from "./features/managers/pages/ManagersPage";
 import { ClientsPage } from "./features/clients/pages/ClientsPage";
+import { ProductsPage } from "./features/products/pages/ProductsPage";
 
 export default function App() {
   return (
@@ -35,7 +36,7 @@ export default function App() {
             element={<StubPage title="Нотификации" />}
           />
           <Route path="/chats" element={<StubPage title="Чаты" />} />
-          <Route path="/products" element={<StubPage title="Товары" />} />
+          <Route path="/products" element={<ProductsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route

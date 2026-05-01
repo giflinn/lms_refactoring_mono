@@ -1,0 +1,451 @@
+import { Router } from "express";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  type SQL,
+} from "drizzle-orm";
+import { db } from "../db";
+import {
+  productCategories,
+  products,
+  productCoverKindEnum,
+} from "../db/schema";
+import { requireAuth } from "../middleware/auth";
+import { requireStaffAdmin } from "../middleware/requireRole";
+import {
+  deleteProductImage,
+  persistProductImage,
+  productImageUpload,
+} from "../services/productImageUpload";
+
+export const productsRouter = Router();
+
+const TITLE_MAX = 120;
+const BUTTON_MAX = 40;
+const DESCRIPTION_MAX = 2000;
+const MAX_DAYS_UNTIL_CANCEL = 365;
+
+type CoverKind = (typeof productCoverKindEnum.enumValues)[number];
+const COVER_KINDS: ReadonlySet<CoverKind> = new Set([
+  "preset",
+  "custom_bg",
+  "custom_full",
+]);
+
+type ProductRow = typeof products.$inferSelect;
+type CategorySummary = { id: string; name: string };
+
+function serialize(p: ProductRow, category: CategorySummary | null) {
+  return {
+    id: p.id,
+    categoryId: p.categoryId,
+    category,
+    title: p.title,
+    description: p.description,
+    buttonText: p.buttonText,
+    // numeric column comes back as string in pg; expose it as-is so the
+    // frontend can format. null = "по запросу".
+    price: p.price,
+    daysUntilCancel: p.daysUntilCancel,
+    isPromo: p.isPromo,
+    isActive: p.isActive,
+    isTopSearch: p.isTopSearch,
+    coverKind: p.coverKind,
+    coverImageUrl: p.coverImageUrl,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}
+
+function parseBool(v: unknown): boolean {
+  return v === true || v === "true" || v === "1";
+}
+
+function parsePrice(raw: unknown): { ok: true; value: string | null } | { ok: false } {
+  if (raw === null || raw === undefined || raw === "") {
+    return { ok: true, value: null };
+  }
+  const s = String(raw).trim().replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return { ok: false };
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0 || n > 9_999_999_999) return { ok: false };
+  return { ok: true, value: s };
+}
+
+// GET /products?q=&page=&pageSize=&categoryId=
+productsRouter.get(
+  "/products",
+  requireAuth,
+  requireStaffAdmin,
+  async (req, res, next) => {
+    try {
+      const q = String(req.query.q ?? "").trim();
+      const page = Math.max(1, Number(req.query.page ?? "1") || 1);
+      const pageSize = Math.min(
+        50,
+        Math.max(1, Number(req.query.pageSize ?? "10") || 10),
+      );
+      const categoryIdFilter =
+        typeof req.query.categoryId === "string" && req.query.categoryId
+          ? String(req.query.categoryId)
+          : null;
+
+      const conditions: SQL[] = [];
+      if (q) {
+        conditions.push(ilike(products.title, `%${q}%`));
+      }
+      if (categoryIdFilter) {
+        conditions.push(eq(products.categoryId, categoryIdFilter));
+      }
+      const where = conditions.length ? and(...conditions) : undefined;
+
+      const totalRows = await db
+        .select({ total: count() })
+        .from(products)
+        .where(where ?? undefined);
+      const total = Number(totalRows[0].total);
+
+      const rows = await db
+        .select({
+          product: products,
+          category: { id: productCategories.id, name: productCategories.name },
+        })
+        .from(products)
+        .leftJoin(
+          productCategories,
+          eq(productCategories.id, products.categoryId),
+        )
+        .where(where ?? undefined)
+        .orderBy(desc(products.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+
+      res.json({
+        products: rows.map((r) =>
+          serialize(r.product, r.category?.id ? r.category : null),
+        ),
+        page,
+        pageSize,
+        total,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+type CreateInput = {
+  categoryId: string;
+  title: string;
+  description: string;
+  buttonText: string;
+  price: string | null;
+  daysUntilCancel: number;
+  isPromo: boolean;
+  isActive: boolean;
+  isTopSearch: boolean;
+  coverKind: CoverKind;
+};
+
+// Shared body parsing for create + update. Returns either the parsed input
+// (with each present field) or an error code with HTTP status.
+function parseBody(
+  body: Record<string, unknown>,
+  partial: boolean,
+): { ok: true; data: Partial<CreateInput> } | { ok: false; status: number; error: string } {
+  const data: Partial<CreateInput> = {};
+
+  const has = (k: string) => body[k] !== undefined;
+  const required = (k: string, errCode: string) => {
+    if (!partial && !has(k)) {
+      return { ok: false as const, status: 400, error: errCode };
+    }
+    return null;
+  };
+
+  let err = required("categoryId", "category_required");
+  if (err) return err;
+  if (has("categoryId")) {
+    const v = String(body.categoryId).trim();
+    if (!v) return { ok: false, status: 400, error: "category_required" };
+    data.categoryId = v;
+  }
+
+  err = required("title", "title_required");
+  if (err) return err;
+  if (has("title")) {
+    const v = String(body.title).trim();
+    if (!v) return { ok: false, status: 400, error: "title_required" };
+    if (v.length > TITLE_MAX) {
+      return { ok: false, status: 400, error: "title_too_long" };
+    }
+    data.title = v;
+  }
+
+  err = required("description", "description_required");
+  if (err) return err;
+  if (has("description")) {
+    const v = String(body.description).trim();
+    if (!v) return { ok: false, status: 400, error: "description_required" };
+    if (v.length > DESCRIPTION_MAX) {
+      return { ok: false, status: 400, error: "description_too_long" };
+    }
+    data.description = v;
+  }
+
+  err = required("buttonText", "button_text_required");
+  if (err) return err;
+  if (has("buttonText")) {
+    const v = String(body.buttonText).trim();
+    if (!v) return { ok: false, status: 400, error: "button_text_required" };
+    if (v.length > BUTTON_MAX) {
+      return { ok: false, status: 400, error: "button_text_too_long" };
+    }
+    data.buttonText = v;
+  }
+
+  // price is optional even on create — null = "по запросу".
+  if (has("price")) {
+    const parsed = parsePrice(body.price);
+    if (!parsed.ok) {
+      return { ok: false, status: 400, error: "invalid_price" };
+    }
+    data.price = parsed.value;
+  } else if (!partial) {
+    data.price = null;
+  }
+
+  err = required("daysUntilCancel", "days_until_cancel_required");
+  if (err) return err;
+  if (has("daysUntilCancel")) {
+    const n = Number(body.daysUntilCancel);
+    if (!Number.isInteger(n) || n < 0 || n > MAX_DAYS_UNTIL_CANCEL) {
+      return { ok: false, status: 400, error: "invalid_days_until_cancel" };
+    }
+    data.daysUntilCancel = n;
+  }
+
+  if (has("isPromo")) data.isPromo = parseBool(body.isPromo);
+  if (has("isActive")) data.isActive = parseBool(body.isActive);
+  if (has("isTopSearch")) data.isTopSearch = parseBool(body.isTopSearch);
+
+  err = required("coverKind", "cover_kind_required");
+  if (err) return err;
+  if (has("coverKind")) {
+    const v = String(body.coverKind);
+    if (!COVER_KINDS.has(v as CoverKind)) {
+      return { ok: false, status: 400, error: "invalid_cover_kind" };
+    }
+    data.coverKind = v as CoverKind;
+  }
+
+  return { ok: true, data };
+}
+
+async function loadCategoryOrFail(categoryId: string) {
+  const rows = await db
+    .select({ id: productCategories.id, name: productCategories.name })
+    .from(productCategories)
+    .where(eq(productCategories.id, categoryId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+async function loadWithCategory(productId: string) {
+  const rows = await db
+    .select({
+      product: products,
+      category: { id: productCategories.id, name: productCategories.name },
+    })
+    .from(products)
+    .leftJoin(
+      productCategories,
+      eq(productCategories.id, products.categoryId),
+    )
+    .where(eq(products.id, productId))
+    .limit(1);
+  if (rows.length === 0) return null;
+  return {
+    product: rows[0].product,
+    category: rows[0].category?.id ? rows[0].category : null,
+  };
+}
+
+// POST /products — multipart/form-data; field "cover" is optional. coverKind
+// 'preset' → no file, 'custom_bg'/'custom_full' → file required.
+productsRouter.post(
+  "/products",
+  requireAuth,
+  requireStaffAdmin,
+  productImageUpload.single("cover"),
+  async (req, res, next) => {
+    try {
+      const body = req.body as Record<string, unknown>;
+      const parsed = parseBody(body, false);
+      if (!parsed.ok) {
+        res.status(parsed.status).json({ error: parsed.error });
+        return;
+      }
+      const data = parsed.data as CreateInput;
+
+      const category = await loadCategoryOrFail(data.categoryId);
+      if (!category) {
+        res.status(400).json({ error: "category_not_found" });
+        return;
+      }
+
+      const isCustom =
+        data.coverKind === "custom_bg" || data.coverKind === "custom_full";
+      if (isCustom && !req.file) {
+        res.status(400).json({ error: "cover_file_required" });
+        return;
+      }
+
+      const [created] = await db
+        .insert(products)
+        .values({
+          categoryId: data.categoryId,
+          title: data.title,
+          description: data.description,
+          buttonText: data.buttonText,
+          price: data.price,
+          daysUntilCancel: data.daysUntilCancel,
+          isPromo: data.isPromo ?? false,
+          isActive: data.isActive ?? true,
+          isTopSearch: data.isTopSearch ?? false,
+          coverKind: data.coverKind,
+        })
+        .returning();
+
+      let finalRow = created;
+      if (isCustom && req.file) {
+        const url = await persistProductImage(created.id, req.file);
+        const [updated] = await db
+          .update(products)
+          .set({ coverImageUrl: url, updatedAt: new Date() })
+          .where(eq(products.id, created.id))
+          .returning();
+        finalRow = updated;
+      }
+
+      res.json({ product: serialize(finalRow, category) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PATCH /products/:id — same multipart shape as create. Any subset of fields
+// may be present.
+productsRouter.patch(
+  "/products/:id",
+  requireAuth,
+  requireStaffAdmin,
+  productImageUpload.single("cover"),
+  async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const existing = await loadWithCategory(id);
+      if (!existing) {
+        res.status(404).json({ error: "product_not_found" });
+        return;
+      }
+
+      const parsed = parseBody(req.body as Record<string, unknown>, true);
+      if (!parsed.ok) {
+        res.status(parsed.status).json({ error: parsed.error });
+        return;
+      }
+      const data = parsed.data;
+
+      if (data.categoryId && data.categoryId !== existing.product.categoryId) {
+        const cat = await loadCategoryOrFail(data.categoryId);
+        if (!cat) {
+          res.status(400).json({ error: "category_not_found" });
+          return;
+        }
+      }
+
+      const nextKind: CoverKind = data.coverKind ?? existing.product.coverKind;
+      const kindChanged = data.coverKind && data.coverKind !== existing.product.coverKind;
+      const isCustom = nextKind === "custom_bg" || nextKind === "custom_full";
+
+      // If switching into a custom kind without a new file, we keep the old
+      // image (only the kind flag flipped). If there's no old image either,
+      // it's a bad request.
+      if (kindChanged && isCustom && !req.file && !existing.product.coverImageUrl) {
+        res.status(400).json({ error: "cover_file_required" });
+        return;
+      }
+
+      const patch: Partial<typeof products.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+      if (data.categoryId !== undefined) patch.categoryId = data.categoryId;
+      if (data.title !== undefined) patch.title = data.title;
+      if (data.description !== undefined) patch.description = data.description;
+      if (data.buttonText !== undefined) patch.buttonText = data.buttonText;
+      if (data.price !== undefined) patch.price = data.price;
+      if (data.daysUntilCancel !== undefined) patch.daysUntilCancel = data.daysUntilCancel;
+      if (data.isPromo !== undefined) patch.isPromo = data.isPromo;
+      if (data.isActive !== undefined) patch.isActive = data.isActive;
+      if (data.isTopSearch !== undefined) patch.isTopSearch = data.isTopSearch;
+      if (data.coverKind !== undefined) patch.coverKind = data.coverKind;
+
+      // Cover file changes: only persist if a file was uploaded AND we're in
+      // a custom kind. Switching to preset clears the image (and deletes the
+      // file from disk).
+      if (req.file && isCustom) {
+        const url = await persistProductImage(id, req.file);
+        patch.coverImageUrl = url;
+      } else if (nextKind === "preset" && existing.product.coverImageUrl) {
+        await deleteProductImage(id);
+        patch.coverImageUrl = null;
+      }
+
+      await db.update(products).set(patch).where(eq(products.id, id));
+
+      const refreshed = await loadWithCategory(id);
+      if (!refreshed) {
+        res.status(404).json({ error: "product_not_found" });
+        return;
+      }
+
+      res.json({
+        product: serialize(refreshed.product, refreshed.category),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// DELETE /products/:id — hard delete (no orders/FK exist yet). When orders
+// land we'll switch to soft-delete with deletedAt.
+productsRouter.delete(
+  "/products/:id",
+  requireAuth,
+  requireStaffAdmin,
+  async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const rows = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.id, id))
+        .limit(1);
+      if (rows.length === 0) {
+        res.status(404).json({ error: "product_not_found" });
+        return;
+      }
+      await db.delete(products).where(eq(products.id, id));
+      await deleteProductImage(id);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);

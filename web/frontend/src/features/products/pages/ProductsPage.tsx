@@ -1,0 +1,174 @@
+import { useMemo, useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { ProductsList } from "../components/ProductsList";
+import { ProductFormDrawer } from "../components/ProductFormDrawer";
+import { CategoriesDrawer } from "../components/CategoriesDrawer";
+import { DeleteProductDialog } from "../components/DeleteProductDialog";
+import { Pagination } from "../../../components/ui/Pagination";
+import { Select, type SelectOption } from "../../../components/ui/Select";
+import {
+  useCategories,
+  useDeleteProduct,
+  useProducts,
+} from "../queries";
+import { ApiError, type Product } from "../api";
+import { mapError } from "../errors";
+
+const PAGE_SIZE = 10;
+
+export function ProductsPage() {
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  const [editTarget, setEditTarget] = useState<Product | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleteError, setDeleteError] = useState<string | undefined>();
+
+  const list = useProducts({
+    q,
+    page,
+    pageSize: PAGE_SIZE,
+    categoryId: categoryFilter,
+  });
+  const categories = useCategories();
+  const remove = useDeleteProduct();
+
+  const pageCount = useMemo(() => {
+    if (!list.data) return 1;
+    return Math.max(1, Math.ceil(list.data.total / PAGE_SIZE));
+  }, [list.data]);
+
+  const categoryOptions = useMemo<SelectOption<string>[]>(
+    () =>
+      (categories.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+    [categories.data],
+  );
+
+  const noCategories =
+    !categories.isLoading && (categories.data?.length ?? 0) === 0;
+
+  function openCreate() {
+    setEditTarget(null);
+    setFormOpen(true);
+  }
+  function openEdit(p: Product) {
+    setEditTarget(p);
+    setFormOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteError(undefined);
+    try {
+      await remove.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setDeleteError(mapError(err.code).general);
+      } else {
+        setDeleteError("Нет соединения с сервером.");
+      }
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 pt-2">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="relative w-[300px]">
+            <Search
+              size={20}
+              strokeWidth={1.5}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-medium"
+            />
+            <input
+              type="text"
+              placeholder="Поиск"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+              className="h-11 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white pl-10 pr-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
+            />
+          </div>
+          <div className="w-[200px]">
+            <Select<string>
+              value={categoryFilter}
+              onChange={(v) => {
+                setCategoryFilter(v);
+                setPage(1);
+              }}
+              options={categoryOptions}
+              clearable
+              placeholder="Категория"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="h-11 cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-4 text-[14px] font-medium text-[#0E131F] hover:bg-grey-lighter"
+          >
+            Редактировать категории
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          disabled={noCategories}
+          title={noCategories ? "Сначала создайте категорию" : undefined}
+          className="flex h-11 cursor-pointer items-center gap-2 rounded-[8px] bg-purple-primary py-2 pl-4 pr-5 text-[14px] font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Plus size={20} strokeWidth={2} />
+          Добавить товар
+        </button>
+      </div>
+
+      {list.isError && (
+        <div className="rounded-[8px] border border-red-error/40 bg-red-error/5 p-4 text-[14px] text-red-error">
+          Не удалось загрузить список товаров.
+        </div>
+      )}
+
+      <ProductsList
+        products={list.data?.products ?? []}
+        loading={list.isLoading}
+        onEdit={openEdit}
+        onDelete={(p) => {
+          setDeleteError(undefined);
+          setDeleteTarget(p);
+        }}
+      />
+
+      <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+
+      <ProductFormDrawer
+        open={formOpen}
+        product={editTarget}
+        categories={categories.data ?? []}
+        presetCategoryId={categoryFilter}
+        onClose={() => {
+          setFormOpen(false);
+          setEditTarget(null);
+        }}
+      />
+
+      <CategoriesDrawer
+        open={drawerOpen}
+        categories={categories.data ?? []}
+        onClose={() => setDrawerOpen(false)}
+      />
+
+      <DeleteProductDialog
+        product={deleteTarget}
+        pending={remove.isPending}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+    </div>
+  );
+}

@@ -35,7 +35,24 @@ class ApiClient {
 
   // Multipart/form-data POST. Don't set Content-Type ourselves — fetch needs
   // to add the boundary parameter when given a FormData body.
-  async postFormData(
+  postFormData(
+    path: string,
+    body: FormData,
+    idToken?: string,
+  ): Promise<Response> {
+    return this.sendFormData("POST", path, body, idToken);
+  }
+
+  patchFormData(
+    path: string,
+    body: FormData,
+    idToken?: string,
+  ): Promise<Response> {
+    return this.sendFormData("PATCH", path, body, idToken);
+  }
+
+  private async sendFormData(
+    method: string,
     path: string,
     body: FormData,
     idToken?: string,
@@ -44,7 +61,7 @@ class ApiClient {
     if (idToken) headers.Authorization = `Bearer ${idToken}`;
     try {
       return await fetch(`${this.baseUrl}${path}`, {
-        method: "POST",
+        method,
         headers,
         body,
       });

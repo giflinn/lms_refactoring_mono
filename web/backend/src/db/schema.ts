@@ -7,6 +7,8 @@ import {
   integer,
   index,
   date,
+  numeric,
+  boolean,
   AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -56,6 +58,60 @@ export const users = pgTable("users", {
     .notNull()
     .defaultNow(),
 });
+
+// Cover rendering mode for a product card. 'preset' is the default purple
+// gradient with category badge + title + description + button overlay. With
+// 'custom_bg' the same overlay is drawn over a user-uploaded background.
+// 'custom_full' replaces the entire card with the user image — no overlay.
+export const productCoverKindEnum = pgEnum("product_cover_kind", [
+  "preset",
+  "custom_bg",
+  "custom_full",
+]);
+
+// Categories are folders for products. Mobile clients will group products by
+// category in a future iteration; admin manages the list from a side drawer.
+export const productCategories = pgTable("product_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Catalog item. Many fields will be added over time as the mobile app grows
+// (video link, telegram link, dates, etc.) — they're intentionally omitted
+// for now and added iteratively.
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => productCategories.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    buttonText: text("button_text").notNull(),
+    // NULL = "по запросу"; otherwise tenge with up to 2 decimal places (column
+    // is numeric to allow kopecks if a future product needs them, but the
+    // admin form currently only takes whole tenge).
+    price: numeric("price", { precision: 12, scale: 2 }),
+    daysUntilCancel: integer("days_until_cancel").notNull(),
+    isPromo: boolean("is_promo").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    isTopSearch: boolean("is_top_search").notNull().default(false),
+    coverKind: productCoverKindEnum("cover_kind").notNull().default("preset"),
+    // Path under /product-images/<id>.<ext>; null for coverKind='preset'.
+    coverImageUrl: text("cover_image_url"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("products_category_id_idx").on(t.categoryId)],
+);
 
 // Custom OTP table for the in-app password reset flow (Firebase only supports
 // magic-link reset; we implement OTP per design).

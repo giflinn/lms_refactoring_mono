@@ -6,7 +6,10 @@ import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
 import { managersRouter } from "./routes/managers";
 import { clientsRouter } from "./routes/clients";
+import { productCategoriesRouter } from "./routes/productCategories";
+import { productsRouter } from "./routes/products";
 import { AVATAR_DIR } from "./services/avatarUpload";
+import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
 
 const app = express();
 
@@ -14,6 +17,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/avatars", express.static(AVATAR_DIR));
+app.use("/product-images", express.static(PRODUCT_IMAGE_DIR));
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "lms-backend" });
@@ -27,6 +31,8 @@ app.use(authRouter);
 app.use(passwordResetRouter);
 app.use(managersRouter);
 app.use(clientsRouter);
+app.use(productCategoriesRouter);
+app.use(productsRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params
