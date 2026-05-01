@@ -1,9 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 
 // 6-digit numeric OTP. Domain is 10^6 — defense-in-depth comes from
-// per-code attempt limits and short TTL, not entropy alone.
+// per-code attempt limits and short TTL, not entropy alone. Uses CSPRNG
+// (crypto.randomInt) — never Math.random, which is predictable.
 export function generateOtpCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
 }
 
 // We store SHA-256(code + email) so a DB leak doesn't reveal active codes

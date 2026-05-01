@@ -1,11 +1,12 @@
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import multer from "multer";
+import { config } from "./config";
 import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
 import { AVATAR_DIR } from "./services/avatarUpload";
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -23,6 +24,29 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.use(authRouter);
 app.use(passwordResetRouter);
 
-app.listen(PORT, () => {
-  console.log(`[lms-backend] listening on http://localhost:${PORT}`);
+// Global error handler — must be last in the middleware chain. Express
+// identifies error handlers by the 4-argument signature, so all four params
+// are required even when unused. Routes call next(err) and end up here.
+app.use(
+  (err: unknown, _req: Request, res: Response, _next: NextFunction): void => {
+    if (res.headersSent) return;
+
+    // Multer surfaces client-side upload errors (file too big, bad mime) as
+    // exceptions; translate them to 400 instead of 500.
+    if (err instanceof multer.MulterError) {
+      res.status(400).json({ error: err.code });
+      return;
+    }
+    if (err instanceof Error && err.message === "unsupported_mime_type") {
+      res.status(400).json({ error: "unsupported_mime_type" });
+      return;
+    }
+
+    console.error("[lms-backend] unhandled error:", err);
+    res.status(500).json({ error: "internal_error" });
+  },
+);
+
+app.listen(config.port, () => {
+  console.log(`[lms-backend] listening on http://localhost:${config.port}`);
 });

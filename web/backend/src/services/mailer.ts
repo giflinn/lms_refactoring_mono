@@ -1,15 +1,12 @@
 import nodemailer, { Transporter } from "nodemailer";
+import { config } from "../config";
 
 let transporter: Transporter | null = null;
 
 function getTransporter(): Transporter {
   if (transporter) return transporter;
 
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
+  const { host, port, user, pass } = config.smtp;
   if (!host || !port || !user || !pass) {
     throw new Error(
       "SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in .env",
@@ -26,7 +23,7 @@ function getTransporter(): Transporter {
 }
 
 function getFromAddress(): string {
-  return process.env.SMTP_FROM ?? '"Slyamova Zhanna" <noreply@slyamova.kz>';
+  return config.smtp.from ?? '"Slyamova Zhanna" <noreply@slyamova.kz>';
 }
 
 export async function sendPasswordResetCode(
