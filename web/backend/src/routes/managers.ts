@@ -48,15 +48,19 @@ function visibleRoles(actorRole: StaffRole): StaffRole[] {
 }
 
 // Whether actor may create / update / reset / deactivate the given target row.
-// Returns an error code on rejection or null on success. We never act on self
-// through this endpoint (self-edit lives elsewhere) and senior managers may
-// only touch role=manager targets.
+// Returns an error code on rejection or null on success. Senior managers may
+// only touch role=manager targets (or themselves). Acting on self is opt-in
+// per endpoint via `allowSelf` — destructive ops (deactivate, password reset)
+// keep the default block; profile edits and avatar upload pass through.
 function canActOnTarget(
   actorId: string,
   actorRole: StaffRole,
   target: { id: string; role: StaffRole },
+  options: { allowSelf?: boolean } = {},
 ): string | null {
-  if (target.id === actorId) return "cannot_act_on_self";
+  if (target.id === actorId) {
+    return options.allowSelf ? null : "cannot_act_on_self";
+  }
   if (actorRole === "admin") return null;
   // actorRole === senior_manager
   if (target.role !== "manager") return "forbidden_role_target";
@@ -262,14 +266,14 @@ managersRouter.patch(
         return;
       }
 
-      const guardErr = canActOnTarget(actorId, actorRole, {
-        id: target.id,
-        role: target.role as StaffRole,
-      });
+      const guardErr = canActOnTarget(
+        actorId,
+        actorRole,
+        { id: target.id, role: target.role as StaffRole },
+        { allowSelf: true },
+      );
       if (guardErr) {
-        res.status(guardErr === "cannot_act_on_self" ? 400 : 403).json({
-          error: guardErr,
-        });
+        res.status(403).json({ error: guardErr });
         return;
       }
 
@@ -565,14 +569,14 @@ managersRouter.post(
         return;
       }
 
-      const guardErr = canActOnTarget(actorId, actorRole, {
-        id: target.id,
-        role: target.role as StaffRole,
-      });
+      const guardErr = canActOnTarget(
+        actorId,
+        actorRole,
+        { id: target.id, role: target.role as StaffRole },
+        { allowSelf: true },
+      );
       if (guardErr) {
-        res.status(guardErr === "cannot_act_on_self" ? 400 : 403).json({
-          error: guardErr,
-        });
+        res.status(403).json({ error: guardErr });
         return;
       }
 

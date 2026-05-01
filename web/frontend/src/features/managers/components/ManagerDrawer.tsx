@@ -140,7 +140,12 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
       let savedId: string;
       if (isEdit && manager) {
         const patch: Partial<ManagerInput> = { ...payload };
-        if (!isAdmin) delete patch.isSenior;
+        // Drop isSenior unless it's a real toggle change on a non-admin target
+        // by an admin actor — otherwise the backend role-gate rejects it.
+        const wasSenior = manager.role === "senior_manager";
+        const canToggleRole =
+          isAdmin && manager.role !== "admin" && payload.isSenior !== wasSenior;
+        if (!canToggleRole) delete patch.isSenior;
         await update.mutateAsync({ id: manager.id, patch });
         savedId = manager.id;
       } else {
@@ -273,7 +278,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
           error={errors.comment?.message}
         />
 
-        {isAdmin && (
+        {isAdmin && manager?.role !== "admin" && (
           <div className="flex items-center gap-4 py-2">
             <span className="text-[14px] font-medium text-grey-dark">
               Главный менеджер
