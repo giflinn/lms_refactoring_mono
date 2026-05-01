@@ -49,6 +49,7 @@ dependencies:
   url_launcher: ^6.3.1
   google_sign_in: 6.1.6
   go_router: ^14.0.0
+  flutter_svg: ^2.0.10
 
 # Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
 # 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's
@@ -83,6 +84,7 @@ flutter:
     - assets/icon.png
     - assets/eye_open.png
     - assets/eye_closed.png
+    - assets/icons/nav/
 
 flutter_launcher_icons:
   android: true

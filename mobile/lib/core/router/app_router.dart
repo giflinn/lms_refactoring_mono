@@ -10,8 +10,10 @@ import '../../features/auth/presentation/pages/forgot_password_new_pwd_page.dart
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
-import '../../features/home/presentation/pages/home_stub_page.dart';
+import '../../features/home/presentation/pages/client_shell_page.dart';
+import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../domain/app_user.dart';
+import '../domain/role.dart';
 
 /// Routes that the user can be on while signed-out. The redirect uses this
 /// to decide whether to bounce them to /login.
@@ -111,8 +113,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           // when authProvider has a non-null AppUser.
           return Consumer(
             builder: (context, ref, _) {
-              final user = ref.watch(authProvider).requireValue!;
-              return HomeStubPage(user: user);
+              final role = ref.watch(authProvider).requireValue!.role;
+              return role == Role.client
+                  ? const ClientShellPage()
+                  : const StaffShellPage();
             },
           );
         },
