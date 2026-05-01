@@ -76,16 +76,13 @@ function NavItemRow({ item }: { item: NavItem }) {
     <NavLink
       to={item.to}
       end={item.end}
-      className="flex w-[244px] items-center justify-end"
+      className="relative flex w-[244px] items-center justify-end"
     >
       {({ isActive }) => (
         <>
-          <div
-            className={clsx(
-              "h-[56px] w-1 shrink-0 rounded-r-[8px]",
-              isActive ? "bg-purple-primary" : "bg-transparent",
-            )}
-          />
+          {isActive && (
+            <div className="absolute left-0 top-1/2 h-[56px] w-1 -translate-y-1/2 rounded-r-[8px] bg-purple-primary" />
+          )}
           <div
             className={clsx(
               "flex w-[220px] items-center gap-2 rounded-[8px] px-6 py-4 transition-colors",
