@@ -37,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/coach-calendar", label: "Календарь Коуча", Icon: IconCalendar },
 ];
 
-const ICON_CLASS = "h-6 w-6 shrink-0";
+const ICON_CLASS = "h-5 w-5 shrink-0";
 
 export function Sidebar() {
   const { signOut } = useAuth();
@@ -49,9 +49,9 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-[268px] shrink-0 flex-col items-center gap-10 border-r border-[rgba(102,112,133,0.3)] bg-white pr-6 py-6 shadow-[6px_6px_27px_rgba(0,0,0,0.05)]">
+    <aside className="flex h-screen w-[220px] shrink-0 flex-col items-center gap-6 border-r border-[rgba(102,112,133,0.3)] bg-white pr-3 py-4 shadow-[6px_6px_27px_rgba(0,0,0,0.05)]">
       <Logo />
-      <nav className="flex w-full flex-1 flex-col gap-4">
+      <nav className="flex w-full flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => (
           <NavItemRow key={item.to} item={item} />
         ))}
@@ -59,11 +59,11 @@ export function Sidebar() {
       <button
         type="button"
         onClick={handleLogout}
-        className="flex w-[244px] cursor-pointer items-center justify-end"
+        className="flex w-[208px] cursor-pointer items-center justify-end"
       >
-        <div className="flex w-[220px] items-center gap-2 rounded-[8px] px-6 py-4 text-grey-dark hover:bg-grey-lighter transition-colors">
+        <div className="flex w-[192px] items-center gap-2 rounded-[8px] px-3 py-2.5 text-grey-dark hover:bg-grey-lighter transition-colors">
           <IconLogout className={ICON_CLASS} />
-          <span className="text-[16px] font-medium leading-6">Выйти</span>
+          <span className="text-[14px] font-medium leading-5">Выйти</span>
         </div>
       </button>
     </aside>
@@ -76,23 +76,23 @@ function NavItemRow({ item }: { item: NavItem }) {
     <NavLink
       to={item.to}
       end={item.end}
-      className="relative flex w-[244px] items-center justify-end"
+      className="relative flex w-[208px] items-center justify-end"
     >
       {({ isActive }) => (
         <>
           {isActive && (
-            <div className="absolute left-0 top-1/2 h-[56px] w-1 -translate-y-1/2 rounded-r-[8px] bg-purple-primary" />
+            <div className="absolute left-0 top-1/2 h-[40px] w-1 -translate-y-1/2 rounded-r-[8px] bg-purple-primary" />
           )}
           <div
             className={clsx(
-              "flex w-[220px] items-center gap-2 rounded-[8px] px-6 py-4 transition-colors",
+              "flex w-[192px] items-center gap-2 rounded-[8px] px-3 py-2.5 transition-colors",
               isActive
                 ? "bg-purple-primary text-white"
                 : "text-grey-dark hover:bg-grey-lighter",
             )}
           >
             <Icon className={ICON_CLASS} />
-            <span className="flex-1 text-[16px] font-medium leading-6">
+            <span className="flex-1 text-[14px] font-medium leading-5">
               {item.label}
             </span>
           </div>

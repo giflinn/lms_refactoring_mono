@@ -9,7 +9,7 @@ export function Button({ className, disabled, children, ...rest }: Props) {
       {...rest}
       disabled={disabled}
       className={clsx(
-        "w-full rounded-[8px] px-6 py-[14px] text-[18px] font-medium leading-tight transition-colors",
+        "w-full rounded-[8px] px-6 py-[10px] text-[14px] font-medium leading-tight transition-colors",
         disabled
           ? "bg-purple-tertiary text-white/60 cursor-not-allowed"
           : "bg-purple-dark text-white hover:opacity-90 active:opacity-80",

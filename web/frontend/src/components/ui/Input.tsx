@@ -7,7 +7,7 @@ import eyeClosed from "../../assets/eye_closed.png";
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label: string;
   error?: string;
-  type?: "text" | "email" | "password";
+  type?: "text" | "email" | "password" | "date";
   onClear?: () => void;
   fullWidth?: boolean;
 };

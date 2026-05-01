@@ -61,3 +61,8 @@ function makeGuard(allowed: readonly Role[]) {
 
 export const requireStaffAdmin = makeGuard(["senior_manager", "admin"] as const);
 export const requireAdmin = makeGuard(["admin"] as const);
+export const requireStaff = makeGuard([
+  "manager",
+  "senior_manager",
+  "admin",
+] as const);

@@ -1,6 +1,24 @@
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "./Avatar";
+import { useManagerDrawer } from "../features/managers/ManagerDrawerContext";
+import type { Manager } from "../features/managers/api";
+import type { User } from "../auth/api";
+
+function userToManager(u: User): Manager {
+  return {
+    id: u.id,
+    email: u.email,
+    role: u.role,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    phone: u.phone,
+    comment: u.comment,
+    managerCode: u.managerCode,
+    avatarUrl: u.avatarUrl,
+    createdAt: u.createdAt,
+  };
+}
 
 const ROUTE_TITLES: Record<string, string> = {
   "/": "Главная",
@@ -27,20 +45,29 @@ function titleFor(pathname: string): string {
 export function Header() {
   const { user } = useAuth();
   const { pathname } = useLocation();
+  const { openEdit } = useManagerDrawer();
   const title = titleFor(pathname);
 
   return (
-    <header className="flex items-center justify-between p-6">
-      <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.1143px] text-[#0E131F]">
+    <header className="flex items-center justify-between px-6 py-4">
+      <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.1143px] text-[#0E131F]">
         {title}
       </h1>
-      <Avatar
-        src={user?.avatarUrl}
-        firstName={user?.firstName}
-        lastName={user?.lastName}
-        email={user?.email}
-        size={60}
-      />
+      <button
+        type="button"
+        onClick={() => user && openEdit(userToManager(user))}
+        disabled={!user}
+        aria-label="Открыть профиль"
+        className="rounded-full transition-opacity enabled:cursor-pointer enabled:hover:opacity-80 disabled:cursor-default"
+      >
+        <Avatar
+          src={user?.avatarUrl}
+          firstName={user?.firstName}
+          lastName={user?.lastName}
+          email={user?.email}
+          size={40}
+        />
+      </button>
     </header>
   );
 }

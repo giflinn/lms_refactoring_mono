@@ -343,7 +343,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
         onClose={reset.isPending ? () => {} : () => setResetState({ mode: "idle" })}
       >
         <div className="flex w-[420px] flex-col gap-4 p-6">
-          <h3 className="text-[18px] font-semibold text-[#0E131F]">
+          <h3 className="text-[16px] font-semibold text-[#0E131F]">
             Сбросить пароль?
           </h3>
           <p className="text-[14px] leading-relaxed text-grey-medium">
@@ -355,7 +355,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
               type="button"
               disabled={reset.isPending}
               onClick={() => setResetState({ mode: "idle" })}
-              className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-6 py-3 text-[14px] font-medium text-[#0E131F] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-4 py-2 text-[14px] font-medium text-[#0E131F] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Отмена
             </button>
@@ -363,7 +363,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
               type="button"
               disabled={reset.isPending}
               onClick={confirmReset}
-              className="cursor-pointer rounded-[8px] bg-purple-primary px-6 py-3 text-[14px] font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="cursor-pointer rounded-[8px] bg-purple-primary px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {reset.isPending ? "Отправка…" : "Сбросить"}
             </button>
@@ -376,7 +376,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
         onClose={() => setResetState({ mode: "idle" })}
       >
         <div className="flex w-[420px] flex-col gap-4 p-6">
-          <h3 className="text-[18px] font-semibold text-[#0E131F]">
+          <h3 className="text-[16px] font-semibold text-[#0E131F]">
             Пароль сброшен
           </h3>
           <p className="text-[14px] leading-relaxed text-grey-medium">
@@ -386,7 +386,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
             <button
               type="button"
               onClick={() => setResetState({ mode: "idle" })}
-              className="cursor-pointer rounded-[8px] bg-purple-primary px-6 py-3 text-[14px] font-medium text-white"
+              className="cursor-pointer rounded-[8px] bg-purple-primary px-4 py-2 text-[14px] font-medium text-white"
             >
               Готово
             </button>

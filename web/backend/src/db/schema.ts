@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   index,
+  date,
   AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -14,6 +15,14 @@ export const userRoleEnum = pgEnum("user_role", [
   "manager",
   "senior_manager",
   "admin",
+]);
+
+// Manually assigned in the admin panel — not derived from purchase totals.
+// Default 'new' so freshly registered clients show up correctly.
+export const clientCategoryEnum = pgEnum("client_category", [
+  "new",
+  "regular",
+  "vip",
 ]);
 
 export const users = pgTable("users", {
@@ -31,9 +40,12 @@ export const users = pgTable("users", {
   // depends on the table itself, so we use the AnyPgColumn helper.
   managerId: uuid("manager_id").references((): AnyPgColumn => users.id),
   avatarUrl: text("avatar_url"),
-  // Free-form note shown in the staff list (Figma "Комментарий" column).
-  // Only meaningful for staff rows; clients leave it null.
+  // Free-form note shown in the admin UI (staff list comment column for
+  // managers, drawer field for clients).
   comment: text("comment"),
+  // Client-only fields. Null on staff rows.
+  birthDate: date("birth_date"),
+  clientCategory: clientCategoryEnum("client_category").notNull().default("new"),
   // Soft-delete marker for staff. When non-null the user is hidden from the
   // managers list, the resolveManagerId fallback, and is `disabled` in Firebase.
   deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),

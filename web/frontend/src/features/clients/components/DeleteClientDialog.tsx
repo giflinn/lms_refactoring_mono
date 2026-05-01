@@ -1,34 +1,35 @@
 import { Modal } from "../../../components/ui/Modal";
-import type { Manager } from "../api";
+import type { Client } from "../api";
 
 type Props = {
-  manager: Manager | null;
+  client: Client | null;
   pending: boolean;
   error?: string;
   onConfirm: () => void;
   onClose: () => void;
 };
 
-export function DeactivateDialog({
-  manager,
+export function DeleteClientDialog({
+  client,
   pending,
   error,
   onConfirm,
   onClose,
 }: Props) {
   return (
-    <Modal open={manager !== null} onClose={pending ? () => {} : onClose}>
+    <Modal open={client !== null} onClose={pending ? () => {} : onClose}>
       <div className="flex w-[420px] flex-col gap-4 p-6">
         <h3 className="text-[16px] font-semibold text-[#0E131F]">
-          Удалить менеджера?
+          Удалить клиента
         </h3>
         <p className="text-[14px] leading-relaxed text-grey-medium">
-          Менеджер потеряет доступ в систему. Его клиенты будут равномерно
-          распределены между другими активными менеджерами.
+          Вы уверены, что хотите удалить клиента{" "}
+          <span className="text-grey-dark">
+            {client ? `${client.firstName} ${client.lastName}` : ""}
+          </span>
+          ? Доступ в мобильное приложение будет заблокирован.
         </p>
-        {error && (
-          <p className="text-[13px] text-red-error">{error}</p>
-        )}
+        {error && <p className="text-[13px] text-red-error">{error}</p>}
         <div className="mt-2 flex items-center justify-end gap-2">
           <button
             type="button"

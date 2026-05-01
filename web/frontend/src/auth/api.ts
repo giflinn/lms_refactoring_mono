@@ -10,6 +10,7 @@ export type User = {
   firstName: string;
   lastName: string;
   phone: string | null;
+  comment: string | null;
   managerCode: string | null;
   managerId: string | null;
   avatarUrl: string | null;

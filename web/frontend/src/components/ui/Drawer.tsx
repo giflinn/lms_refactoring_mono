@@ -30,7 +30,7 @@ export function Drawer({ open, title, onClose, children, footer }: Props) {
       />
       <aside className="flex h-full w-[500px] flex-col bg-white shadow-[-6px_0_27px_rgba(0,0,0,0.05)]">
         <header className="flex items-center justify-between px-6 py-4">
-          <h2 className="text-[18px] font-medium text-[#0E131F]">{title}</h2>
+          <h2 className="text-[16px] font-semibold text-[#0E131F]">{title}</h2>
           <button
             type="button"
             onClick={onClose}

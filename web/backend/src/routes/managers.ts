@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, count, desc, eq, inArray, isNull, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, ilike, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -35,6 +35,7 @@ function serialize(u: typeof users.$inferSelect) {
     comment: u.comment,
     managerCode: u.managerCode,
     avatarUrl: u.avatarUrl,
+    deactivatedAt: u.deactivatedAt,
     createdAt: u.createdAt,
   };
 }
@@ -82,11 +83,19 @@ managersRouter.get(
         Math.max(1, Number(req.query.pageSize ?? "10") || 10),
       );
 
+      const statusRaw = String(req.query.status ?? "active").toLowerCase();
+      const status: "active" | "deactivated" | "all" =
+        statusRaw === "deactivated" || statusRaw === "all"
+          ? statusRaw
+          : "active";
+
       const roles = visibleRoles(actorRole);
-      const conditions = [
-        inArray(users.role, roles),
-        isNull(users.deactivatedAt),
-      ];
+      const conditions = [inArray(users.role, roles)];
+      if (status === "active") {
+        conditions.push(isNull(users.deactivatedAt));
+      } else if (status === "deactivated") {
+        conditions.push(isNotNull(users.deactivatedAt));
+      }
       if (q) {
         const like = `%${q}%`;
         conditions.push(
@@ -530,6 +539,65 @@ managersRouter.delete(
         res.status(409).json({ error: err.code });
         return;
       }
+      next(err);
+    }
+  },
+);
+
+// POST /managers/:id/reactivate — undo a soft-delete: clear deactivatedAt and
+// re-enable the Firebase account. Note: clients reassigned during deactivation
+// are NOT moved back; they stay with their new managers.
+managersRouter.post(
+  "/managers/:id/reactivate",
+  requireAuth,
+  requireStaffAdmin,
+  async (req, res, next) => {
+    try {
+      const actorRole = req.actorRole as StaffRole;
+      const targetId = req.params.id;
+
+      const rows = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, targetId))
+        .limit(1);
+      if (rows.length === 0) {
+        res.status(404).json({ error: "manager_not_found" });
+        return;
+      }
+      const target = rows[0];
+      if (!STAFF_ROLES.includes(target.role as StaffRole)) {
+        res.status(404).json({ error: "manager_not_found" });
+        return;
+      }
+      if (!target.deactivatedAt) {
+        res.status(409).json({ error: "not_deactivated" });
+        return;
+      }
+      // Senior managers may only reactivate ordinary managers.
+      if (actorRole === "senior_manager" && target.role !== "manager") {
+        res.status(403).json({ error: "forbidden_role_target" });
+        return;
+      }
+
+      const [updated] = await db
+        .update(users)
+        .set({ deactivatedAt: null })
+        .where(eq(users.id, target.id))
+        .returning();
+
+      try {
+        await firebaseAuth.updateUser(target.firebaseUid, { disabled: false });
+      } catch (fbErr) {
+        console.error(
+          "[managers] firebase enable failed for",
+          target.firebaseUid,
+          fbErr,
+        );
+      }
+
+      res.json({ manager: serialize(updated) });
+    } catch (err) {
       next(err);
     }
   },

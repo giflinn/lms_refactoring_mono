@@ -72,8 +72,8 @@ export function LoginPage() {
         onSubmit={handleSubmit}
         className="flex w-[332px] flex-col rounded-[12px] overflow-hidden bg-white shadow-[0_4px_8px_-2px_rgba(16,24,40,0.05),0_2px_4px_-2px_rgba(16,24,40,0.05)]"
       >
-        <div className="flex h-[54px] items-center bg-grey-lighter px-4">
-          <h1 className="text-[18px] font-semibold text-grey-dark">Вход</h1>
+        <div className="flex h-[44px] items-center bg-grey-lighter px-4">
+          <h1 className="text-[16px] font-semibold text-grey-dark">Вход</h1>
         </div>
         <div className="flex flex-col gap-4 p-4">
           <Input

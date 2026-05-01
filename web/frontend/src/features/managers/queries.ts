@@ -8,10 +8,12 @@ import {
   createManager,
   deactivateManager,
   listManagers,
+  reactivateManager,
   resetManagerPassword,
   updateManager,
   uploadManagerAvatar,
   type ManagerInput,
+  type ManagerStatusFilter,
 } from "./api";
 
 const MANAGERS_KEY = "managers" as const;
@@ -26,6 +28,7 @@ export function useManagers(params: {
   q?: string;
   page: number;
   pageSize: number;
+  status?: ManagerStatusFilter;
 }) {
   return useQuery({
     queryKey: [MANAGERS_KEY, params] as const,
@@ -79,6 +82,17 @@ export function useDeactivateManager() {
     mutationFn: async (id: string) => {
       const token = await getIdToken();
       await deactivateManager(token, id);
+    },
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useReactivateManager() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const token = await getIdToken();
+      return reactivateManager(token, id);
     },
     onSuccess: () => invalidate(),
   });

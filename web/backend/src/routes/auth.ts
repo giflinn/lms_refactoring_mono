@@ -64,6 +64,7 @@ function serializeUser(u: typeof users.$inferSelect) {
     firstName: u.firstName,
     lastName: u.lastName,
     phone: u.phone,
+    comment: u.comment,
     managerCode: u.managerCode,
     managerId: u.managerId,
     avatarUrl: u.avatarUrl,

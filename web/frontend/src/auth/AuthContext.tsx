@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = await fbUser.getIdToken();
         const me = await fetchMe(token);
-        if (me && me.role !== "client") {
+        if (me && (me.role === "senior_manager" || me.role === "admin")) {
           setUser(me);
         } else {
           await firebaseSignOut(auth);
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     const token = await cred.user.getIdToken();
     const me = await fetchMe(token);
-    if (!me || me.role === "client") {
+    if (!me || (me.role !== "senior_manager" && me.role !== "admin")) {
       await firebaseSignOut(auth);
       throw new AccessDeniedError();
     }
