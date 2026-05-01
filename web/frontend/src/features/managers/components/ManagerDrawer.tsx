@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Copy } from "lucide-react";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Modal } from "../../../components/ui/Modal";
 import { Input } from "../../../components/ui/Input";
@@ -38,9 +39,10 @@ const EMPTY: ManagerFormValues = {
 };
 
 export function ManagerDrawer({ open, manager, onClose }: Props) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEdit = manager !== null;
+  const isSelf = isEdit && user?.id === manager.id;
 
   const create = useCreateManager();
   const update = useUpdateManager();
@@ -55,7 +57,19 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
   >({ mode: "idle" });
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function copyCode() {
+    if (!manager?.managerCode) return;
+    try {
+      await navigator.clipboard.writeText(manager.managerCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 1500);
+    } catch {
+      // Clipboard API can fail on insecure contexts; nothing to recover.
+    }
+  }
 
   const {
     register,
@@ -154,6 +168,9 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
       }
       if (pendingFile) {
         await uploadAvatar.mutateAsync({ id: savedId, file: pendingFile });
+      }
+      if (isSelf) {
+        await refreshUser();
       }
       onClose();
     } catch (err) {
@@ -271,6 +288,32 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
           {...register("phone")}
           error={errors.phone?.message}
         />
+
+        {isEdit && manager?.managerCode && (
+          <div className="flex w-full flex-col gap-1">
+            <label className="py-1 text-[14px] font-medium text-grey-dark">
+              Код менеджера
+            </label>
+            <div className="flex h-[44px] items-center gap-2 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-grey-lighter px-3 py-2.5">
+              <span className="flex-1 min-w-0 text-[14px] font-medium tracking-[2px] text-grey-dark">
+                {manager.managerCode}
+              </span>
+              <button
+                type="button"
+                onClick={copyCode}
+                className="cursor-pointer text-grey-medium hover:text-grey-dark transition-colors"
+                aria-label={codeCopied ? "Скопировано" : "Скопировать код"}
+              >
+                {codeCopied ? (
+                  <Check size={18} strokeWidth={2} className="text-purple-primary" />
+                ) : (
+                  <Copy size={18} strokeWidth={1.5} />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         <Textarea
           label="Комментарий"
           rows={5}

@@ -18,6 +18,10 @@ type AuthState = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  // Re-fetches the DB row for the currently authenticated user. Use after a
+  // mutation that changes the user's own profile (e.g. self-edit) so the
+  // header avatar / name reflect the change without a full reload.
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -74,8 +78,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    const fbUser = auth.currentUser;
+    if (!fbUser) return;
+    const token = await fbUser.getIdToken();
+    const me = await fetchMe(token);
+    if (me && me.role !== "client") setUser(me);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, signOut, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
