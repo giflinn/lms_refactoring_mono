@@ -1,6 +1,7 @@
 import { Trash2, Star } from "lucide-react";
 import clsx from "clsx";
 import { Avatar } from "../../../components/Avatar";
+import { useAuth } from "../../../auth/AuthContext";
 import type { Manager } from "../api";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function ManagersTable({ managers, onEdit, onDeactivate }: Props) {
+  const { user } = useAuth();
   return (
     <div className="w-full overflow-hidden rounded-[12px] border border-[rgba(102,112,133,0.3)] bg-white shadow-[0_4px_8px_-2px_rgba(16,24,40,0.05),0_2px_4px_-2px_rgba(16,24,40,0.05)]">
       <div className="flex items-center gap-6 bg-background px-6 py-4 text-[16px] font-medium text-grey-dark">
@@ -29,6 +31,7 @@ export function ManagersTable({ managers, onEdit, onDeactivate }: Props) {
               key={m.id}
               manager={m}
               striped={i % 2 === 1}
+              isSelf={user?.id === m.id}
               onEdit={() => onEdit(m)}
               onDeactivate={() => onDeactivate(m)}
             />
@@ -42,11 +45,13 @@ export function ManagersTable({ managers, onEdit, onDeactivate }: Props) {
 function ManagerRow({
   manager,
   striped,
+  isSelf,
   onEdit,
   onDeactivate,
 }: {
   manager: Manager;
   striped: boolean;
+  isSelf: boolean;
   onEdit: () => void;
   onDeactivate: () => void;
 }) {
@@ -98,14 +103,16 @@ function ManagerRow({
         >
           Редактировать
         </button>
-        <button
-          type="button"
-          onClick={onDeactivate}
-          aria-label="Удалить менеджера"
-          className="cursor-pointer rounded-[8px] p-2.5 text-grey-dark hover:bg-grey-lighter transition-colors"
-        >
-          <Trash2 size={24} strokeWidth={1.5} />
-        </button>
+        {!isSelf && (
+          <button
+            type="button"
+            onClick={onDeactivate}
+            aria-label="Удалить менеджера"
+            className="cursor-pointer rounded-[8px] p-2.5 text-grey-dark hover:bg-grey-lighter transition-colors"
+          >
+            <Trash2 size={24} strokeWidth={1.5} />
+          </button>
+        )}
       </div>
     </div>
   );

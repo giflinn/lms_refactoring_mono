@@ -249,7 +249,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
                 ? "Изменить фото"
                 : "Добавить фото"}
             </button>
-            {isEdit && manager && (
+            {isEdit && manager && !isSelf && (
               <button
                 type="button"
                 onClick={() => setResetState({ mode: "confirm" })}
