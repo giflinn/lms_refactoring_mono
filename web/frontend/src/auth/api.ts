@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL;
+import { apiClient } from "../api/client";
 
 export type Role = "client" | "manager" | "senior_manager" | "admin";
 
@@ -11,9 +11,7 @@ export type User = {
 };
 
 export async function fetchMe(idToken: string): Promise<User | null> {
-  const res = await fetch(`${API_URL}/me`, {
-    headers: { Authorization: `Bearer ${idToken}` },
-  });
+  const res = await apiClient.get("/me", idToken);
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`GET /me failed: ${res.status}`);

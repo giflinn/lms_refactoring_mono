@@ -1,23 +1,31 @@
-import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext";
+import { RequireAuth, RequireGuest } from "./auth/guards";
 import { LoginPage } from "./pages/LoginPage";
 import { HomeStubPage } from "./pages/HomeStubPage";
-
-function AppContent() {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-grey-medium">
-        Загрузка…
-      </div>
-    );
-  }
-  return user ? <HomeStubPage /> : <LoginPage />;
-}
 
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <RequireGuest>
+              <LoginPage />
+            </RequireGuest>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <HomeStubPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </AuthProvider>
   );
 }
