@@ -25,6 +25,14 @@ class ApiClient {
     return this.send("POST", path, { idToken, body });
   }
 
+  patchJson(path: string, body: unknown, idToken?: string): Promise<Response> {
+    return this.send("PATCH", path, { idToken, body });
+  }
+
+  delete(path: string, idToken?: string): Promise<Response> {
+    return this.send("DELETE", path, { idToken });
+  }
+
   private async send(
     method: string,
     path: string,

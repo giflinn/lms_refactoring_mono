@@ -9,6 +9,7 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   error?: string;
   type?: "text" | "email" | "password";
   onClear?: () => void;
+  fullWidth?: boolean;
 };
 
 export function Input({
@@ -18,6 +19,7 @@ export function Input({
   onClear,
   value,
   className,
+  fullWidth,
   ...rest
 }: Props) {
   const [reveal, setReveal] = useState(false);
@@ -26,7 +28,7 @@ export function Input({
   const hasValue = typeof value === "string" && value.length > 0;
 
   return (
-    <label className="flex flex-col gap-1 w-[300px]">
+    <label className={clsx("flex flex-col gap-1", fullWidth ? "w-full" : "w-[300px]")}>
       <span className="py-1 text-[14px] font-medium text-grey-dark">
         {label}
       </span>

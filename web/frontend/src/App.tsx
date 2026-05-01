@@ -4,6 +4,7 @@ import { RequireAuth, RequireGuest } from "./auth/guards";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { StubPage } from "./pages/StubPage";
+import { ManagersPage } from "./features/managers/pages/ManagersPage";
 
 export default function App() {
   return (
@@ -34,7 +35,7 @@ export default function App() {
           />
           <Route path="/chats" element={<StubPage title="Чаты" />} />
           <Route path="/products" element={<StubPage title="Товары" />} />
-          <Route path="/managers" element={<StubPage title="Менеджеры" />} />
+          <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<StubPage title="Клиенты" />} />
           <Route
             path="/coach-calendar"
