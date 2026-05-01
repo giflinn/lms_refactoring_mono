@@ -202,11 +202,14 @@ class _Body extends ConsumerWidget {
 
     return ListView(
       padding: const EdgeInsets.only(top: 16, bottom: 24),
-      children: _groupedRows(results),
+      children: _groupedRows(context, results),
     );
   }
 
-  static List<Widget> _groupedRows(List<Product> products) {
+  static List<Widget> _groupedRows(
+    BuildContext context,
+    List<Product> products,
+  ) {
     // Group by category (preserving server order — newest first per category).
     final byId = <String, List<Product>>{};
     final names = <String, String>{};
@@ -224,7 +227,15 @@ class _Body extends ConsumerWidget {
     final widgets = <Widget>[];
     for (final id in order) {
       widgets.add(_SectionHeader(label: names[id]!));
-      widgets.addAll(byId[id]!.map((p) => ProductRow(product: p)));
+      widgets.addAll(byId[id]!.map(
+        (p) => ProductRow(
+          product: p,
+          onTap: () => context.push(
+            '/client/products/${p.id}',
+            extra: p,
+          ),
+        ),
+      ));
       widgets.add(const SizedBox(height: 8));
     }
     return widgets;
@@ -281,7 +292,14 @@ class _PopularList extends ConsumerWidget {
                   ),
                 ),
               ),
-            for (final p in products) ProductRow(product: p),
+            for (final p in products)
+              ProductRow(
+                product: p,
+                onTap: () => context.push(
+                  '/client/products/${p.id}',
+                  extra: p,
+                ),
+              ),
           ],
         );
       },
@@ -303,7 +321,16 @@ class _PopularListInline extends ConsumerWidget {
       data: (products) {
         if (products.isEmpty) return const SizedBox.shrink();
         return Column(
-          children: [for (final p in products) ProductRow(product: p)],
+          children: [
+            for (final p in products)
+              ProductRow(
+                product: p,
+                onTap: () => context.push(
+                  '/client/products/${p.id}',
+                  extra: p,
+                ),
+              ),
+          ],
         );
       },
       loading: () => const Padding(

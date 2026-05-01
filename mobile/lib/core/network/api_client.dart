@@ -48,6 +48,12 @@ class ApiClient {
     return _send(req);
   }
 
+  Future<http.Response> delete(String path, {String? idToken}) {
+    final req = http.Request('DELETE', _uri(path));
+    req.headers.addAll(_headers(idToken));
+    return _send(req);
+  }
+
   /// Caller builds the multipart request (adding fields/files), this just
   /// sends it through the same timeout/network-error handling.
   Future<http.Response> sendMultipart(http.MultipartRequest req) {

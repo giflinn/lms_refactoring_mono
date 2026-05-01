@@ -9,6 +9,7 @@ import { clientsRouter } from "./routes/clients";
 import { productCategoriesRouter } from "./routes/productCategories";
 import { productsRouter } from "./routes/products";
 import { clientCatalogRouter } from "./routes/clientCatalog";
+import { favoritesRouter } from "./routes/favorites";
 import { AVATAR_DIR } from "./services/avatarUpload";
 import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
 
@@ -35,6 +36,7 @@ app.use(clientsRouter);
 app.use(productCategoriesRouter);
 app.use(productsRouter);
 app.use(clientCatalogRouter);
+app.use(favoritesRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params

@@ -88,6 +88,7 @@ flutter:
     - assets/icons/catalog/
     - assets/icons/search/
     - assets/icons/logo/
+    - assets/icons/favorites/
     - assets/product_cover/
 
 flutter_launcher_icons:

@@ -9,6 +9,7 @@ import {
   date,
   numeric,
   boolean,
+  primaryKey,
   AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -115,6 +116,26 @@ export const products = pgTable(
       .defaultNow(),
   },
   (t) => [index("products_category_id_idx").on(t.categoryId)],
+);
+
+// Per-user catalog favorites. Composite PK keeps "one row per (user, product)"
+// at the schema level, so POST /favorites is naturally idempotent via
+// ON CONFLICT DO NOTHING. Both FKs cascade — when a user or product is
+// deleted, their favorites disappear automatically.
+export const productFavorites = pgTable(
+  "product_favorites",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.productId] })],
 );
 
 // Custom OTP table for the in-app password reset flow (Firebase only supports

@@ -130,7 +130,12 @@ class _Body extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 8, bottom: 24),
         children: [
-          if (promo.isNotEmpty) PromoCarousel(products: promo, api: api),
+          if (promo.isNotEmpty)
+            PromoCarousel(
+              products: promo,
+              api: api,
+              onTap: (p) => _openDetail(context, p),
+            ),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Text(
@@ -155,10 +160,18 @@ class _Body extends ConsumerWidget {
           if (visibleProducts.isEmpty)
             const _EmptyCatalog()
           else
-            for (final p in visibleProducts) ProductRow(product: p),
+            for (final p in visibleProducts)
+              ProductRow(
+                product: p,
+                onTap: () => _openDetail(context, p),
+              ),
         ],
       ),
     );
+  }
+
+  static void _openDetail(BuildContext context, Product product) {
+    context.push('/client/products/${product.id}', extra: product);
   }
 }
 

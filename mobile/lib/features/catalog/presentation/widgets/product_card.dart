@@ -14,14 +14,17 @@ class ProductCard extends StatelessWidget {
   final Product product;
   final CatalogApi api;
   final double size;
-  final VoidCallback? onCtaTap;
+  // Single tap handler for both the card surface and the CTA button — both
+  // lead to the product detail screen, so threading two callbacks through the
+  // tree just to call the same function would be churn.
+  final VoidCallback? onTap;
 
   const ProductCard({
     super.key,
     required this.product,
     required this.api,
     this.size = 312,
-    this.onCtaTap,
+    this.onTap,
   });
 
   @override
@@ -32,7 +35,7 @@ class ProductCard extends StatelessWidget {
     // Wrap the clip in a Container so the BoxShadow + border render outside
     // the rounded mask. Figma `4:3114`: 1px white@10% border + drop shadow
     // 0/30/34/-20 in #2D033B (purple-gradient-bottom).
-    return Container(
+    final card = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -60,6 +63,12 @@ class ProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    if (onTap == null) return card;
+    return GestureDetector(
+      onTap: onTap,
+      child: card,
     );
   }
 
@@ -114,7 +123,7 @@ class ProductCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 16),
-              _CtaButton(label: product.buttonText, onTap: onCtaTap),
+              _CtaButton(label: product.buttonText, onTap: onTap),
             ],
           ),
         ),

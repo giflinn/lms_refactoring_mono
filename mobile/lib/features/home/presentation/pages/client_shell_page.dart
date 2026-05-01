@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
+import '../../../catalog/presentation/pages/favorites_page.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
 import '../widgets/role_bottom_nav.dart';
 import 'under_construction_page.dart';
@@ -49,14 +50,15 @@ class _ClientShellPageState extends ConsumerState<ClientShellPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Home tab manages its own header (brand logotype + search icon). Other
-    // tabs are still placeholders, so they keep the generic AppBar with a
-    // logout affordance — that'll move into "Кабинет" once it ships.
-    final isHome = _index == 0;
+    // Tabs that own their full header (logotype + search/title) keep the
+    // Scaffold's appBar null — they'd otherwise stack a redundant AppBar on
+    // top of their own. Tabs still under construction keep the generic
+    // AppBar + logout affordance.
+    final ownsHeader = _index == 0 || _index == 3;
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: isHome
+        appBar: ownsHeader
             ? null
             : AppBar(
                 backgroundColor: Colors.transparent,
@@ -82,8 +84,10 @@ class _ClientShellPageState extends ConsumerState<ClientShellPage> {
           index: _index,
           children: [
             const CatalogHomePage(),
-            for (var i = 1; i < _items.length; i++)
-              UnderConstructionPage(title: _items[i].label),
+            UnderConstructionPage(title: _items[1].label),
+            UnderConstructionPage(title: _items[2].label),
+            FavoritesPage(onGoToCatalog: () => setState(() => _index = 0)),
+            UnderConstructionPage(title: _items[4].label),
           ],
         ),
         bottomNavigationBar: RoleBottomNav(

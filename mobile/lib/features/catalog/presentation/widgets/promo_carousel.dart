@@ -10,14 +10,14 @@ import 'product_card.dart';
 class PromoCarousel extends StatefulWidget {
   final List<Product> products;
   final CatalogApi api;
-  final void Function(Product product)? onCtaTap;
+  final void Function(Product product)? onTap;
   final Duration interval;
 
   const PromoCarousel({
     super.key,
     required this.products,
     required this.api,
-    this.onCtaTap,
+    this.onTap,
     this.interval = const Duration(seconds: 5),
   });
 
@@ -31,7 +31,11 @@ class _PromoCarouselState extends State<PromoCarousel> {
   // ~344 px → 24-25 px peek of each neighbor. Matches Figma 4:3114 layout
   // (which used 312 / 360 = 86.7%) but stays proportional on wider screens.
   static const _viewportFraction = 0.875;
-  static const _gap = 4.0;
+  // Per-page horizontal padding splits this in half on each side, so the
+  // visible breathing room between adjacent cards equals _gap. 4 looked
+  // crowded ("слипались"); 8 keeps cards nearly the same size but doubles
+  // the gap.
+  static const _gap = 8.0;
   // Just enough breathing room for the +30 y / 34 blur shadow to render
   // without visually slamming into the next ListView item. The actual shadow
   // extends ~47px below; clipBehavior: Clip.none on the PageView lets the
@@ -120,9 +124,9 @@ class _PromoCarouselState extends State<PromoCarousel> {
                     product: product,
                     api: widget.api,
                     size: cardW,
-                    onCtaTap: widget.onCtaTap == null
+                    onTap: widget.onTap == null
                         ? null
-                        : () => widget.onCtaTap!(product),
+                        : () => widget.onTap!(product),
                   ),
                 ),
               );
