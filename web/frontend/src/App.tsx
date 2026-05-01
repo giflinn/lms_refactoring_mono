@@ -1,8 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequireGuest } from "./auth/guards";
+import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
-import { HomeStubPage } from "./pages/HomeStubPage";
+import { StubPage } from "./pages/StubPage";
 
 export default function App() {
   return (
@@ -17,13 +18,29 @@ export default function App() {
           }
         />
         <Route
-          path="/"
           element={
             <RequireAuth>
-              <HomeStubPage />
+              <AppShell />
             </RequireAuth>
           }
-        />
+        >
+          <Route path="/" element={<StubPage title="Главная" />} />
+          <Route path="/reports" element={<StubPage title="Отчеты" />} />
+          <Route path="/orders" element={<StubPage title="Заказы" />} />
+          <Route path="/cancellations" element={<StubPage title="Отмены" />} />
+          <Route
+            path="/notifications"
+            element={<StubPage title="Нотификации" />}
+          />
+          <Route path="/chats" element={<StubPage title="Чаты" />} />
+          <Route path="/products" element={<StubPage title="Товары" />} />
+          <Route path="/managers" element={<StubPage title="Менеджеры" />} />
+          <Route path="/clients" element={<StubPage title="Клиенты" />} />
+          <Route
+            path="/coach-calendar"
+            element={<StubPage title="Календарь Коуча" />}
+          />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

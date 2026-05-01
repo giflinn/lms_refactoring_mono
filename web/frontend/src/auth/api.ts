@@ -7,6 +7,12 @@ export type User = {
   firebaseUid: string;
   email: string;
   role: Role;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  managerCode: string | null;
+  managerId: string | null;
+  avatarUrl: string | null;
   createdAt: string;
 };
 
