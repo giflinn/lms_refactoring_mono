@@ -31,6 +31,12 @@ export const users = pgTable("users", {
   // depends on the table itself, so we use the AnyPgColumn helper.
   managerId: uuid("manager_id").references((): AnyPgColumn => users.id),
   avatarUrl: text("avatar_url"),
+  // Free-form note shown in the staff list (Figma "Комментарий" column).
+  // Only meaningful for staff rows; clients leave it null.
+  comment: text("comment"),
+  // Soft-delete marker for staff. When non-null the user is hidden from the
+  // managers list, the resolveManagerId fallback, and is `disabled` in Firebase.
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
   // Audit timestamp for legal/compliance: when user accepted the offer + privacy
   // policy. Nullable so existing seeded admins (who never saw the form) stay null.
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),

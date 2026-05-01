@@ -4,6 +4,7 @@ import multer from "multer";
 import { config } from "./config";
 import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
+import { managersRouter } from "./routes/managers";
 import { AVATAR_DIR } from "./services/avatarUpload";
 
 const app = express();
@@ -23,6 +24,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 
 app.use(authRouter);
 app.use(passwordResetRouter);
+app.use(managersRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params

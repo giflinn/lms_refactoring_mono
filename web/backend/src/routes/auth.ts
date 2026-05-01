@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -31,6 +31,7 @@ async function resolveManagerId(
         and(
           eq(users.managerCode, managerCode),
           inArray(users.role, [...STAFF_ROLES]),
+          isNull(users.deactivatedAt),
         ),
       )
       .limit(1);
@@ -43,7 +44,12 @@ async function resolveManagerId(
   const fallback = await db
     .select({ id: users.id })
     .from(users)
-    .where(inArray(users.role, [...STAFF_ROLES]))
+    .where(
+      and(
+        inArray(users.role, [...STAFF_ROLES]),
+        isNull(users.deactivatedAt),
+      ),
+    )
     .orderBy(asc(users.createdAt))
     .limit(1);
   return { managerId: fallback[0]?.id ?? null, error: null };
@@ -187,6 +193,7 @@ authRouter.get("/auth/manager-code-valid", async (req, res, next) => {
         and(
           eq(users.managerCode, code),
           inArray(users.role, [...STAFF_ROLES]),
+          isNull(users.deactivatedAt),
         ),
       )
       .limit(1);

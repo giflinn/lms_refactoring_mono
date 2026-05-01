@@ -58,3 +58,78 @@ function passwordResetHtml(code: string): string {
 </html>
   `.trim();
 }
+
+export async function sendStaffInvite(
+  to: string,
+  password: string,
+): Promise<void> {
+  await getTransporter().sendMail({
+    from: getFromAddress(),
+    to,
+    subject: "Доступ в админ-панель — Slyamova Zhanna",
+    text:
+      `Для вас создана учётная запись в админ-панели Slyamova Zhanna.\n\n` +
+      `Логин: ${to}\n` +
+      `Временный пароль: ${password}\n\n` +
+      `Рекомендуем сменить пароль после первого входа.`,
+    html: staffCredentialsHtml({
+      heading: "Добро пожаловать в админ-панель",
+      lead: "Для вас создана учётная запись. Используйте данные ниже для входа и смените пароль после первого входа.",
+      email: to,
+      password,
+    }),
+  });
+}
+
+export async function sendStaffPasswordReset(
+  to: string,
+  password: string,
+): Promise<void> {
+  await getTransporter().sendMail({
+    from: getFromAddress(),
+    to,
+    subject: "Новый пароль — Slyamova Zhanna",
+    text:
+      `Ваш пароль в админ-панели Slyamova Zhanna был сброшен администратором.\n\n` +
+      `Логин: ${to}\n` +
+      `Новый пароль: ${password}\n\n` +
+      `Рекомендуем сменить пароль после первого входа.`,
+    html: staffCredentialsHtml({
+      heading: "Пароль сброшен",
+      lead: "Ваш пароль в админ-панели был сброшен администратором. Используйте новые данные для входа.",
+      email: to,
+      password,
+    }),
+  });
+}
+
+function staffCredentialsHtml({
+  heading,
+  lead,
+  email,
+  password,
+}: {
+  heading: string;
+  lead: string;
+  email: string;
+  password: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: -apple-system, sans-serif; background: #f6f6f6; padding: 24px;">
+    <div style="max-width: 480px; margin: 0 auto; background: white; border-radius: 12px; padding: 32px;">
+      <h2 style="color: #2D033B; margin: 0 0 16px;">${heading}</h2>
+      <p style="color: #50555C; font-size: 15px;">${lead}</p>
+      <div style="background: #F9F9F9; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="color: #667085; font-size: 13px; margin: 0 0 4px;">Логин</p>
+        <p style="color: #0E131F; font-size: 15px; font-weight: 600; margin: 0 0 12px;">${email}</p>
+        <p style="color: #667085; font-size: 13px; margin: 0 0 4px;">Пароль</p>
+        <p style="color: #810CA8; font-size: 18px; font-weight: 600; font-family: 'SF Mono', Menlo, monospace; margin: 0;">${password}</p>
+      </div>
+      <p style="color: #667085; font-size: 13px;">Рекомендуем сменить пароль после первого входа.</p>
+    </div>
+  </body>
+</html>
+  `.trim();
+}
