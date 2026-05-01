@@ -44,3 +44,23 @@ Backend: http://localhost:3000 — frontend: http://localhost:5173
 cd mobile
 flutter run
 ```
+
+## Sharing the admin on the local network
+
+To let a colleague on the same Wi-Fi open the admin panel:
+
+```bash
+./share-admin.sh on      # binds Vite to 0.0.0.0 + points the browser bundle at the Mac's LAN IP
+./share-admin.sh off     # restores localhost-only
+./share-admin.sh         # status
+```
+
+`on` writes the LAN IP into `web/frontend/.env.local` (gitignored, takes
+precedence over `.env`) and runs Vite under a temporary pm2 process named
+`lms-frontend-share`. It also prints the matching `--dart-define=API_URL=…`
+line for Flutter on a physical device (and copies it to the clipboard), so the
+phone connected to the same Wi-Fi can use the same backend. `off` deletes
+`.env.local` and brings the original `lms-frontend` process back.
+
+Cafe Wi-Fi often isolates clients — if the colleague can't open the printed
+URL, hotspot from a phone and put both laptops on it.
