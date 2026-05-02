@@ -120,7 +120,7 @@ export function WeekGrid({
           {showNowLine && (
             <div
               style={{ top: `${nowTopPx}px` }}
-              className="absolute right-2 -translate-y-1/2 rounded-full bg-red-error px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white"
+              className="absolute right-2 -translate-y-1/2 rounded-full bg-purple-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white"
             >
               {`${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`}
             </div>
@@ -144,9 +144,9 @@ export function WeekGrid({
         {showNowLine && (
           <div
             style={{ top: `${nowTopPx}px`, left: 60 }}
-            className="pointer-events-none absolute right-0 h-px bg-red-error"
+            className="pointer-events-none absolute right-0 h-px bg-purple-primary"
           >
-            <div className="absolute -top-[3px] -left-[3px] h-[7px] w-[7px] rounded-full bg-red-error" />
+            <div className="absolute -top-[3px] -left-[3px] h-[7px] w-[7px] rounded-full bg-purple-primary" />
           </div>
         )}
       </div>
