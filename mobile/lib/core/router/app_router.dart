@@ -57,7 +57,17 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       return auth.when(
         loading: () => loc == '/splash' ? null : '/splash',
-        error: (_, _) => loc == '/login' ? null : '/login',
+        // Bootstrap `fetchMe` failed (no network on cold start). Keep the user
+        // on /splash so they see the retry UI. Don't bounce them off auth
+        // routes — sign-in pages handle their own per-call errors locally.
+        error: (_, _) {
+          if (loc == '/splash' ||
+              loc == '/complete-profile' ||
+              _authRoutes.contains(loc)) {
+            return null;
+          }
+          return '/splash';
+        },
         data: (user) {
           // Allow /complete-profile through regardless — it's the bridge from
           // Google sign-in to a fully-synced user.
