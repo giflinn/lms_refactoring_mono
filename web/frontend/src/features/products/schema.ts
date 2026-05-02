@@ -29,6 +29,10 @@ export const productFormSchema = z
     isPromo: z.boolean(),
     isActive: z.boolean(),
     isTopSearch: z.boolean(),
+    // Booking section. When false the consultation fields are ignored.
+    bookingEnabled: z.boolean(),
+    durationMinutes: z.string(),
+    slotTypeIds: z.array(z.string()),
   })
   .superRefine((vals, ctx) => {
     if (!vals.priceOnRequest) {
@@ -44,6 +48,38 @@ export const productFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["priceTenge"],
           message: "Введите целое число тенге",
+        });
+      }
+    }
+    if (vals.bookingEnabled) {
+      const v = vals.durationMinutes.trim();
+      if (!v) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["durationMinutes"],
+          message: "Укажите длительность",
+        });
+      } else if (!/^\d+$/.test(v)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["durationMinutes"],
+          message: "Введите целое число минут",
+        });
+      } else {
+        const n = Number(v);
+        if (n <= 0 || n > 600) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["durationMinutes"],
+            message: "От 1 до 600 минут",
+          });
+        }
+      }
+      if (vals.slotTypeIds.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["slotTypeIds"],
+          message: "Выберите хотя бы один тип слота",
         });
       }
     }

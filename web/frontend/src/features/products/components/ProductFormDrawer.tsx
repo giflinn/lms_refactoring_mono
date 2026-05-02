@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import clsx from "clsx";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Input } from "../../../components/ui/Input";
 import { Textarea } from "../../../components/ui/Textarea";
@@ -20,6 +21,7 @@ import {
   type ProductInput,
 } from "../api";
 import { useCreateProduct, useUpdateProduct } from "../queries";
+import { useSlotTypes } from "../../coachCalendar/queries";
 import { mapError } from "../errors";
 
 type Props = {
@@ -43,6 +45,9 @@ const EMPTY: ProductFormValues = {
   isPromo: false,
   isActive: true,
   isTopSearch: false,
+  bookingEnabled: false,
+  durationMinutes: "",
+  slotTypeIds: [],
 };
 
 const apiBase = import.meta.env.VITE_API_URL as string;
@@ -72,6 +77,11 @@ export function ProductFormDrawer({
 
   const create = useCreateProduct();
   const update = useUpdateProduct();
+  const slotTypesQ = useSlotTypes();
+  const activeSlotTypes = useMemo(
+    () => (slotTypesQ.data ?? []).filter((t) => t.archivedAt === null),
+    [slotTypesQ.data],
+  );
 
   const [generalError, setGeneralError] = useState<string | undefined>();
   const [coverKind, setCoverKind] = useState<ProductCoverKind>("preset");
@@ -119,6 +129,10 @@ export function ProductFormDrawer({
         isPromo: product.isPromo,
         isActive: product.isActive,
         isTopSearch: product.isTopSearch,
+        bookingEnabled: product.durationMinutes != null,
+        durationMinutes:
+          product.durationMinutes != null ? String(product.durationMinutes) : "",
+        slotTypeIds: product.slotTypeIds,
       });
     } else {
       setCoverKind("preset");
@@ -202,6 +216,14 @@ export function ProductFormDrawer({
         setError("daysUntilCancel", { message: fields.daysUntilCancel });
         handled = true;
       }
+      if (fields.durationMinutes) {
+        setError("durationMinutes", { message: fields.durationMinutes });
+        handled = true;
+      }
+      if (fields.slotTypeIds) {
+        setError("slotTypeIds", { message: fields.slotTypeIds });
+        handled = true;
+      }
       if (fields.coverFile) {
         setCoverError(fields.coverFile);
         handled = true;
@@ -233,6 +255,10 @@ export function ProductFormDrawer({
       buttonText: values.buttonText.trim(),
       price: values.priceOnRequest ? null : values.priceTenge.trim(),
       daysUntilCancel: Number(values.daysUntilCancel),
+      durationMinutes: values.bookingEnabled
+        ? Number(values.durationMinutes)
+        : null,
+      slotTypeIds: values.bookingEnabled ? values.slotTypeIds : [],
       isPromo: values.isPromo,
       isActive: values.isActive,
       isTopSearch: values.isTopSearch,
@@ -430,6 +456,96 @@ export function ProductFormDrawer({
               error={errors.daysUntilCancel?.message}
             />
           </div>
+
+          <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
+            <label className="flex cursor-pointer items-center justify-between gap-2">
+              <span className="text-[14px] font-medium text-grey-dark">
+                Бронирование времени коача
+              </span>
+              <Toggle
+                checked={watched.bookingEnabled}
+                onChange={(v) => {
+                  setValue("bookingEnabled", v, { shouldValidate: true });
+                  // Clear paired errors when the toggle flips off so the form
+                  // doesn't show stale messages for hidden fields.
+                  if (!v) {
+                    setValue("durationMinutes", "");
+                    setValue("slotTypeIds", []);
+                  }
+                }}
+              />
+            </label>
+            {watched.bookingEnabled && (
+              <>
+                <Input
+                  fullWidth
+                  label="Длительность, мин*"
+                  inputMode="numeric"
+                  placeholder="60"
+                  {...register("durationMinutes")}
+                  error={errors.durationMinutes?.message}
+                />
+                <div className="flex flex-col gap-2">
+                  <span className="text-[12px] font-medium text-grey-medium">
+                    Типы слотов*
+                  </span>
+                  {activeSlotTypes.length === 0 ? (
+                    <p className="text-[12px] text-grey-medium">
+                      Нет активных типов. Создайте их в разделе «Календарь
+                      Коуча».
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {activeSlotTypes.map((t) => {
+                        const checked = watched.slotTypeIds.includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              const next = checked
+                                ? watched.slotTypeIds.filter(
+                                    (id) => id !== t.id,
+                                  )
+                                : [...watched.slotTypeIds, t.id];
+                              setValue("slotTypeIds", next, {
+                                shouldValidate: true,
+                              });
+                            }}
+                            style={
+                              checked
+                                ? {
+                                    backgroundColor: `${t.color}1F`,
+                                    borderColor: t.color,
+                                    color: t.color,
+                                  }
+                                : undefined
+                            }
+                            className={clsx(
+                              "flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition",
+                              !checked &&
+                                "border-[rgba(102,112,133,0.3)] bg-white text-grey-dark hover:bg-grey-lighter",
+                            )}
+                          >
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: t.color }}
+                            />
+                            {t.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {errors.slotTypeIds && (
+                    <p className="text-[12px] text-red-error">
+                      {errors.slotTypeIds.message as string}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
 
         {generalError && (
           <p className="text-[13px] text-red-error">{generalError}</p>

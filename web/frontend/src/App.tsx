@@ -7,6 +7,7 @@ import { StubPage } from "./pages/StubPage";
 import { ManagersPage } from "./features/managers/pages/ManagersPage";
 import { ClientsPage } from "./features/clients/pages/ClientsPage";
 import { ProductsPage } from "./features/products/pages/ProductsPage";
+import { CoachCalendarPage } from "./features/coachCalendar/pages/CoachCalendarPage";
 
 export default function App() {
   return (
@@ -39,10 +40,7 @@ export default function App() {
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<ClientsPage />} />
-          <Route
-            path="/coach-calendar"
-            element={<StubPage title="Календарь Коуча" />}
-          />
+          <Route path="/coach-calendar" element={<CoachCalendarPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

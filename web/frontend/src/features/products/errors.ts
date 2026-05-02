@@ -6,6 +6,8 @@ export type Fields = {
   buttonText?: string;
   price?: string;
   daysUntilCancel?: string;
+  durationMinutes?: string;
+  slotTypeIds?: string;
   coverFile?: string;
 };
 
@@ -42,6 +44,26 @@ const FIELD_MESSAGES: Record<string, { field: keyof Fields; message: string }> =
     field: "daysUntilCancel",
     message: "Введите целое число от 0 до 365.",
   },
+  invalid_duration_minutes: {
+    field: "durationMinutes",
+    message: "Длительность должна быть от 1 до 600 минут.",
+  },
+  invalid_slot_type_ids: {
+    field: "slotTypeIds",
+    message: "Не удалось разобрать список типов слотов.",
+  },
+  slot_types_required: {
+    field: "slotTypeIds",
+    message: "Выберите хотя бы один тип слота.",
+  },
+  slot_type_archived: {
+    field: "slotTypeIds",
+    message: "Один из выбранных типов архивирован — обновите выбор.",
+  },
+  slot_type_not_found: {
+    field: "slotTypeIds",
+    message: "Тип слота не найден — обновите страницу.",
+  },
   cover_file_required: {
     field: "coverFile",
     message: "Загрузите изображение.",
@@ -59,6 +81,8 @@ const FIELD_MESSAGES: Record<string, { field: keyof Fields; message: string }> =
 const GENERAL_MESSAGES: Record<string, string> = {
   forbidden: "Недостаточно прав для этого действия.",
   product_not_found: "Товар не найден.",
+  booking_fields_must_pair:
+    "Длительность и типы слотов нужно сохранять вместе.",
   category_has_products:
     "В категории есть товары — перенесите их в другую категорию или удалите.",
   name_required: "Введите название.",

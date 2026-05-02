@@ -26,6 +26,10 @@ export type Product = {
   // numeric column → comes back as a string. null = "по запросу".
   price: string | null;
   daysUntilCancel: number;
+  // null = ordinary product, no booking. Non-null = consultation length.
+  durationMinutes: number | null;
+  // m2m with slot_types. Empty when durationMinutes is null.
+  slotTypeIds: string[];
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -52,6 +56,10 @@ export type ProductInput = {
   // Pre-formatted decimal string ("1500" or "1500.00") or null for "по запросу".
   price: string | null;
   daysUntilCancel: number;
+  // null = no booking. Backend pairs this with slotTypeIds: both must be sent
+  // together and a non-null duration requires at least one type.
+  durationMinutes: number | null;
+  slotTypeIds: string[];
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -159,6 +167,11 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
   fd.append("buttonText", input.buttonText);
   fd.append("price", input.price ?? "");
   fd.append("daysUntilCancel", String(input.daysUntilCancel));
+  fd.append(
+    "durationMinutes",
+    input.durationMinutes != null ? String(input.durationMinutes) : "",
+  );
+  fd.append("slotTypeIds", JSON.stringify(input.slotTypeIds));
   fd.append("isPromo", input.isPromo ? "true" : "false");
   fd.append("isActive", input.isActive ? "true" : "false");
   fd.append("isTopSearch", input.isTopSearch ? "true" : "false");
