@@ -3,9 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/domain/app_user.dart';
 import '../../../../core/log.dart';
+import '../../../catalog/presentation/controller/favorite_ids_controller.dart';
+import '../../../catalog/presentation/controller/favorite_products_controller.dart';
+import '../../../catalog/presentation/controller/home_controller.dart';
 import '../../data/auth_api.dart';
 import '../../data/auth_api_provider.dart';
 import '../../domain/registration_data.dart';
+
+// Catalog/favorites providers are imported here so signOut() can invalidate
+// them when the session ends. Crosses the "no presentation imports across
+// features" guideline deliberately — the alternatives (a clearables registry
+// or routing-side invalidation) are heavier for one-three-providers cleanup.
+// If a third feature ever needs the same lifecycle hook, promote to a small
+// core/lifecycle/ helper.
 
 final authProvider =
     AsyncNotifierProvider<AuthController, AppUser?>(AuthController.new);
@@ -246,6 +256,11 @@ class AuthController extends AsyncNotifier<AppUser?> {
       logd('signOut: google signOut failed (likely not a google user)', e);
     }
     await fb.FirebaseAuth.instance.signOut();
+    // Clear cross-session caches so the next user doesn't inherit hearts /
+    // catalog snapshot from this session.
+    ref.invalidate(favoriteIdsProvider);
+    ref.invalidate(favoriteProductsProvider);
+    ref.invalidate(homeCatalogProvider);
     state = const AsyncData(null);
   }
 }

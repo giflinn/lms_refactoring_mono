@@ -64,4 +64,32 @@ class CatalogApi {
         .map(Product.fromJson)
         .toList();
   }
+
+  /// Available booking windows for [productId] inside [from]..[to]. The server
+  /// already slices each coach slot into product-duration chunks, so the
+  /// mobile only groups by day for rendering. ISO timestamps are sent in UTC.
+  Future<List<AvailableStart>> fetchAvailableStarts({
+    required String idToken,
+    required String productId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromQ = Uri.encodeQueryComponent(from.toUtc().toIso8601String());
+    final toQ = Uri.encodeQueryComponent(to.toUtc().toIso8601String());
+    final res = await _client.get(
+      '/catalog/products/$productId/slots?from=$fromQ&to=$toQ',
+      idToken: idToken,
+    );
+    if (res.statusCode != 200) {
+      throw HttpException(
+        'GET /catalog/products/$productId/slots failed: '
+        '${res.statusCode} ${res.body}',
+      );
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return (data['starts'] as List)
+        .cast<Map<String, dynamic>>()
+        .map(AvailableStart.fromJson)
+        .toList();
+  }
 }

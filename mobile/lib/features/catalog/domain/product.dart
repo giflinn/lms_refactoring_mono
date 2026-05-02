@@ -45,6 +45,11 @@ class Product {
   final String buttonText;
   final String? price; // null = "по запросу"
   final int daysUntilCancel;
+  // null = ordinary product (digital good / non-bookable). Non-null = the
+  // product consumes a coach slot of this length when purchased.
+  final int? durationMinutes;
+  // Slot types this product can be booked against. Empty when not bookable.
+  final List<String> slotTypeIds;
   final bool isPromo;
   final bool isTopSearch;
   final ProductCoverKind coverKind;
@@ -62,14 +67,19 @@ class Product {
     required this.buttonText,
     required this.price,
     required this.daysUntilCancel,
+    required this.durationMinutes,
+    required this.slotTypeIds,
     required this.isPromo,
     required this.isTopSearch,
     required this.coverKind,
     required this.coverImageUrl,
   });
 
+  bool get isBookable => durationMinutes != null && slotTypeIds.isNotEmpty;
+
   factory Product.fromJson(Map<String, dynamic> json) {
     final cat = json['category'] as Map<String, dynamic>?;
+    final dur = json['durationMinutes'];
     return Product(
       id: json['id'] as String,
       categoryId: json['categoryId'] as String,
@@ -80,10 +90,30 @@ class Product {
       buttonText: json['buttonText'] as String,
       price: json['price'] as String?,
       daysUntilCancel: (json['daysUntilCancel'] as num).toInt(),
+      durationMinutes: dur == null ? null : (dur as num).toInt(),
+      slotTypeIds:
+          (json['slotTypeIds'] as List?)?.cast<String>() ?? const <String>[],
       isPromo: json['isPromo'] as bool? ?? false,
       isTopSearch: json['isTopSearch'] as bool? ?? false,
       coverKind: _coverKindFromString(json['coverKind'] as String),
       coverImageUrl: json['coverImageUrl'] as String?,
+    );
+  }
+}
+
+/// One bookable start window inside a coach slot, already sliced to match the
+/// product's durationMinutes by the server. The mobile UI groups these by day
+/// and renders them as time pills.
+class AvailableStart {
+  final DateTime startsAt;
+  final DateTime endsAt;
+
+  const AvailableStart({required this.startsAt, required this.endsAt});
+
+  factory AvailableStart.fromJson(Map<String, dynamic> json) {
+    return AvailableStart(
+      startsAt: DateTime.parse(json['startsAt'] as String),
+      endsAt: DateTime.parse(json['endsAt'] as String),
     );
   }
 }

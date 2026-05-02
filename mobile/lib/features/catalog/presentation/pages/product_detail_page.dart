@@ -6,21 +6,61 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../domain/product.dart';
 import '../controller/favorite_ids_controller.dart';
+import '../widgets/product_action_bar.dart';
+import '../widgets/product_booking_section.dart';
+import '../widgets/product_cover.dart';
 
-/// Product detail screen. Composition:
+/// Product detail screen. Composes:
 ///   Top bar : back arrow (left), heart toggle (right) — both white.
-///   Body    : title, "Описание" + description, scrollable.
-///   Bottom  : pinned action bar with subtitle + price + disabled CTA.
+///   Body    : cover image, title, optional booking section, description.
+///   Bottom  : pinned action bar with subtitle + price + CTA.
 ///
-/// The page expects [product] in the route's `extra`. There's no fetch-by-id
-/// fallback — all entry points (cards, rows, favorites list) push from a
-/// loaded Product, so the round-trip is unnecessary.
-class ProductDetailPage extends ConsumerWidget {
+/// The page expects [product] in the route's `extra`. State for the booking
+/// flow (selected month / day / start) lives here so the action bar can react
+/// to the same selection without prop-drilling another controller.
+class ProductDetailPage extends ConsumerStatefulWidget {
   final Product product;
   const ProductDetailPage({super.key, required this.product});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProductDetailPage> createState() => _ProductDetailPageState();
+}
+
+class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
+  late DateTime _selectedMonth; // local first-of-month at 00:00
+  DateTime? _selectedDay; // local midnight of the picked day
+  AvailableStart? _selectedStart;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month, 1);
+  }
+
+  void _onMonthPicked(DateTime month) {
+    setState(() {
+      _selectedMonth = month;
+      _selectedDay = null;
+      _selectedStart = null;
+    });
+  }
+
+  void _onDayPicked(DateTime day) {
+    setState(() {
+      _selectedDay = day;
+      _selectedStart = null;
+    });
+  }
+
+  void _onStartPicked(AvailableStart start) {
+    setState(() {
+      _selectedStart = start;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -28,9 +68,20 @@ class ProductDetailPage extends ConsumerWidget {
           bottom: false,
           child: Column(
             children: [
-              _TopBar(productId: product.id),
-              Expanded(child: _Body(product: product)),
-              _ActionBar(product: product),
+              _TopBar(productId: widget.product.id),
+              Expanded(child: _Body(
+                product: widget.product,
+                selectedMonth: _selectedMonth,
+                selectedDay: _selectedDay,
+                selectedStart: _selectedStart,
+                onMonthPicked: _onMonthPicked,
+                onDayPicked: _onDayPicked,
+                onStartPicked: _onStartPicked,
+              )),
+              ProductActionBar(
+                product: widget.product,
+                selectedStart: _selectedStart,
+              ),
             ],
           ),
         ),
@@ -101,7 +152,22 @@ class _TopBar extends ConsumerWidget {
 
 class _Body extends StatelessWidget {
   final Product product;
-  const _Body({required this.product});
+  final DateTime selectedMonth;
+  final DateTime? selectedDay;
+  final AvailableStart? selectedStart;
+  final ValueChanged<DateTime> onMonthPicked;
+  final ValueChanged<DateTime> onDayPicked;
+  final ValueChanged<AvailableStart> onStartPicked;
+
+  const _Body({
+    required this.product,
+    required this.selectedMonth,
+    required this.selectedDay,
+    required this.selectedStart,
+    required this.onMonthPicked,
+    required this.onDayPicked,
+    required this.onStartPicked,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +178,8 @@ class _Body extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ProductCover(product: product),
+          const SizedBox(height: 16),
           Text(
             product.title,
             style: const TextStyle(
@@ -122,6 +190,18 @@ class _Body extends StatelessWidget {
               letterSpacing: -0.4,
             ),
           ),
+          if (product.isBookable) ...[
+            const SizedBox(height: 16),
+            ProductBookingSection(
+              product: product,
+              selectedMonth: selectedMonth,
+              selectedDay: selectedDay,
+              selectedStart: selectedStart,
+              onMonthPicked: onMonthPicked,
+              onDayPicked: onDayPicked,
+              onStartPicked: onStartPicked,
+            ),
+          ],
           if (hasDescription) ...[
             const SizedBox(height: 16),
             const Text(
@@ -150,148 +230,4 @@ class _Body extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ActionBar extends StatelessWidget {
-  final Product product;
-  const _ActionBar({required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasSubtitle =
-        product.subtitle != null && product.subtitle!.trim().isNotEmpty;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.purplePrimary,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            offset: const Offset(0, -16),
-            blurRadius: 17,
-          ),
-        ],
-      ),
-      padding: EdgeInsets.fromLTRB(
-        12,
-        12,
-        12,
-        bottomInset > 0 ? bottomInset : 12,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (hasSubtitle)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      product.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.purpleTertiary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        height: 1.34,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ),
-                Text(
-                  _formatPrice(product.price),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: product.price == null
-                        ? AppColors.purpleTertiary
-                        : AppColors.yellowPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          const _BuyButton(),
-        ],
-      ),
-    );
-  }
-}
-
-class _BuyButton extends StatelessWidget {
-  const _BuyButton();
-
-  @override
-  Widget build(BuildContext context) {
-    // Disabled until checkout ships. Keep the gradient look but dim it and
-    // skip the InkWell — taps go nowhere.
-    return Opacity(
-      opacity: 0.6,
-      child: Container(
-        height: 54,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.yellowGradientTop,
-              AppColors.yellowGradientBottom,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Text(
-          'Купить сейчас',
-          style: TextStyle(
-            color: AppColors.purpleDark,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            height: 1.34,
-            letterSpacing: -0.4,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// "10000" → "10 000 ₸". Numeric column comes back as a string with up to 2
-// decimals; we strip a trailing ".00" since the admin form is whole-tenge
-// only today, but keep non-zero decimals if a future product has them.
-String _formatPrice(String? raw) {
-  if (raw == null) return 'По запросу';
-  final value = num.tryParse(raw);
-  if (value == null) return '$raw ₸';
-  String body;
-  if (value == value.truncate()) {
-    body = _withThousandSpaces(value.toInt().toString());
-  } else {
-    final fixed = value.toStringAsFixed(2);
-    final parts = fixed.split('.');
-    body = '${_withThousandSpaces(parts[0])},${parts[1]}';
-  }
-  return '$body ₸';
-}
-
-String _withThousandSpaces(String digits) {
-  return digits.replaceAllMapped(
-    RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-    (m) => '${m[1]} ',
-  );
 }
