@@ -75,7 +75,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "--dart-define=API_URL=http://192.168.1.70:3000"
+            argument = "--dart-define=API_URL=https://dev.zhannaslyamova.net/api"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

@@ -113,7 +113,7 @@ Web styling: **Tailwind v4 + `@tailwindcss/vite`**, CSS-first config. Tokens bec
 
 - **No dev/staging/prod split in code.** Single `.env` per machine, single `docker-compose.yml`, single deploy target. Don't introduce `config.dev.ts` / `config.prod.ts`, per-env Docker overrides, or `NODE_ENV` branching.
 - **No CI/CD.** No GitHub Actions, no husky/lint-staged, no pre-commit hooks. Don't propose them.
-- Deploy target is a VPS (manual `ssh + git pull + restart`). Avoid Vercel/Netlify-specific config.
+- Deploy target: AWS EC2 at `dev.zhannaslyamova.net` (`16.61.90.51`). Amazon Linux 2023 t2.micro, single host: Nginx serves the React static bundle, proxies `/api/` → backend on `:3000` (pm2), Postgres in Docker. SSL via Let's Encrypt. **Operational runbook: `.claude/skills/prod/SKILL.md`** — read before any deploy / log dive / DB op.
 - Pre-launch exception: a separate `lms-zhs-dev` Firebase project exists but is unused. Before the first store release, switch dev work to it so test users don't pollute prod (Firebase UIDs cannot be migrated between projects).
 
 ## Keeping this file fresh

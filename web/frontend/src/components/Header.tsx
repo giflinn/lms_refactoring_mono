@@ -17,6 +17,7 @@ function userToManager(u: User): Manager {
     managerCode: u.managerCode,
     avatarUrl: u.avatarUrl,
     createdAt: u.createdAt,
+    deactivatedAt: null,
   };
 }
 
