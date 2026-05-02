@@ -99,6 +99,16 @@ Always edit `schema.ts` first, then `db:generate` — never hand-write migration
 - **Google Sign-In iOS plist + URL scheme:** `mobile/ios/Runner/GoogleService-Info.plist` must contain `CLIENT_ID` + `REVERSED_CLIENT_ID` (re-download from Firebase Console after enabling Google provider). The `REVERSED_CLIENT_ID` must also be registered in `Info.plist` under `CFBundleURLTypes` → `CFBundleURLSchemes`.
 - **New Google users land on `complete_profile_page.dart`** to fill phone + manager code + terms (Google doesn't give us those). Existing users skip it and go straight to home.
 
+## File size and decomposition
+
+Soft cap **~300 lines** per file, hard signal at **~500**. When a file accumulates many sibling private widgets/classes/helpers, split it before adding more — the trigger is *length*, not "could-be-reused".
+
+- **Flutter pages** (`mobile/lib/features/<x>/presentation/pages/*.dart`) should compose + hold state, not implement widgets. Extract subwidgets into `mobile/lib/features/<x>/presentation/widgets/<name>.dart`. Shared formatting helpers (Russian months, date formatting) go into `features/<x>/domain/` next to existing value objects.
+- **React pages and drawers** (`web/frontend/src/features/<x>/components/*.tsx`, `pages/*.tsx`) — extract subcomponents into neighbor files. The page should be orchestration; reusable bits go beside it.
+- **Backend route files** (`web/backend/src/routes/*.ts`) — extract complex validation/parsing/sub-feature logic into `services/`. A route handler stays thin: parse → validate → DB → respond. Per-route helper functions are fine inline; cross-route ones move to `services/`.
+
+Keep helpers inline until a second caller exists (per the global "three similar lines beats premature abstraction" rule). The guidance above only fires when the file gets long — small files don't need pre-emptive splitting.
+
 ## Design system rule
 
 There is one design source of truth: Figma + `design/tokens.json`. Mobile (Flutter) and web (React) cannot share component code, but they share tokens and naming conventions.
