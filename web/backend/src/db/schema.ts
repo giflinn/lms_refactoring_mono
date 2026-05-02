@@ -6,12 +6,15 @@ import {
   timestamp,
   integer,
   index,
+  uniqueIndex,
+  check,
   date,
   numeric,
   boolean,
   primaryKey,
   AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const userRoleEnum = pgEnum("user_role", [
   "client",
@@ -102,6 +105,10 @@ export const products = pgTable(
     // admin form currently only takes whole tenge).
     price: numeric("price", { precision: 12, scale: 2 }),
     daysUntilCancel: integer("days_until_cancel").notNull(),
+    // Bookable consultation length in minutes. NULL = ordinary product (no
+    // calendar slot consumed). When non-NULL, at least one row in
+    // product_slot_types must exist (enforced in the route layer).
+    durationMinutes: integer("duration_minutes"),
     isPromo: boolean("is_promo").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     isTopSearch: boolean("is_top_search").notNull().default(false),
@@ -136,6 +143,105 @@ export const productFavorites = pgTable(
       .defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.productId] })],
+);
+
+// Slot types group coach availability by purpose (e.g. "Для денежной
+// прокачки", "Утренние консультации"). A slot belongs to exactly one type;
+// a product references one or many types via product_slot_types (added in a
+// later phase) to declare which slots it can be booked against.
+//
+// Soft-deleted via archived_at so historical slots/bookings keep a valid
+// reference. Name is unique only among non-archived rows — partial unique
+// index lets staff delete a type and later create a new one with the same
+// name.
+export const slotTypes = pgTable(
+  "slot_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    // Hex color used to differentiate types on the coach calendar grid.
+    // Validated in the route layer against ^#[0-9A-Fa-f]{6}$.
+    color: text("color").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("slot_types_name_active_uniq")
+      .on(t.name)
+      .where(sql`${t.archivedAt} IS NULL`),
+  ],
+);
+
+// M2M between products and slot types: declares which slot types a bookable
+// product can consume. When the buyer picks a sub-range on mobile, only slots
+// of these types qualify. Cascade on product delete; slot_types use
+// soft-delete (archived_at) so 'restrict' here is a safety net that should
+// never fire in practice.
+export const productSlotTypes = pgTable(
+  "product_slot_types",
+  {
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    slotTypeId: uuid("slot_type_id")
+      .notNull()
+      .references(() => slotTypes.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productId, t.slotTypeId] }),
+    index("product_slot_types_slot_type_id_idx").on(t.slotTypeId),
+  ],
+);
+
+export const coachSlotStatusEnum = pgEnum("coach_slot_status", [
+  "active",
+  "cancelled",
+]);
+
+// A block of coach availability tagged with a slot_type. Mobile bookings will
+// later carve sub-ranges out of a slot — that's why a slot doesn't carry a
+// duration, just a [starts_at, ends_at) range and a type. Status 'cancelled'
+// is soft-delete; cancelled slots disappear from the calendar but stay in the
+// table for audit and any historical bookings.
+//
+// Overlap prevention is enforced in the route layer (lt/gt query inside a
+// transaction). Single coach + ~5 staff users means race conditions are
+// vanishingly unlikely; if mobile bookings later create real concurrency,
+// promote to a Postgres EXCLUDE constraint via a custom migration.
+export const coachSlots = pgTable(
+  "coach_slots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slotTypeId: uuid("slot_type_id")
+      .notNull()
+      .references(() => slotTypes.id, { onDelete: "restrict" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    status: coachSlotStatusEnum("status").notNull().default("active"),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "coach_slots_ends_after_starts",
+      sql`${t.endsAt} > ${t.startsAt}`,
+    ),
+    index("coach_slots_starts_at_idx").on(t.startsAt),
+    index("coach_slots_slot_type_id_idx").on(t.slotTypeId),
+  ],
 );
 
 // Custom OTP table for the in-app password reset flow (Firebase only supports

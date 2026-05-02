@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
   type SQL,
 } from "drizzle-orm";
 import { db } from "../db";
@@ -12,6 +13,8 @@ import {
   productCategories,
   products,
   productCoverKindEnum,
+  productSlotTypes,
+  slotTypes,
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireStaffAdmin } from "../middleware/requireRole";
@@ -28,6 +31,9 @@ const SUBTITLE_MAX = 60;
 const BUTTON_MAX = 40;
 const DESCRIPTION_MAX = 2000;
 const MAX_DAYS_UNTIL_CANCEL = 365;
+// Soft cap on a single coaching session length. 10h fits any sane format
+// (immersions, day-long retreats); above this is almost certainly a typo.
+const MAX_DURATION_MINUTES = 600;
 
 type CoverKind = (typeof productCoverKindEnum.enumValues)[number];
 const COVER_KINDS: ReadonlySet<CoverKind> = new Set([
@@ -39,7 +45,11 @@ const COVER_KINDS: ReadonlySet<CoverKind> = new Set([
 type ProductRow = typeof products.$inferSelect;
 type CategorySummary = { id: string; name: string };
 
-function serialize(p: ProductRow, category: CategorySummary | null) {
+function serialize(
+  p: ProductRow,
+  category: CategorySummary | null,
+  slotTypeIds: string[],
+) {
   return {
     id: p.id,
     categoryId: p.categoryId,
@@ -52,6 +62,8 @@ function serialize(p: ProductRow, category: CategorySummary | null) {
     // frontend can format. null = "по запросу".
     price: p.price,
     daysUntilCancel: p.daysUntilCancel,
+    durationMinutes: p.durationMinutes,
+    slotTypeIds,
     isPromo: p.isPromo,
     isActive: p.isActive,
     isTopSearch: p.isTopSearch,
@@ -60,6 +72,28 @@ function serialize(p: ProductRow, category: CategorySummary | null) {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
+}
+
+// Loads m2m slot-type bindings for a given set of products in one query.
+// Returns a Map keyed by productId. Empty map when productIds is empty.
+async function loadSlotTypeIdsForProducts(
+  productIds: string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (productIds.length === 0) return out;
+  const rows = await db
+    .select({
+      productId: productSlotTypes.productId,
+      slotTypeId: productSlotTypes.slotTypeId,
+    })
+    .from(productSlotTypes)
+    .where(inArray(productSlotTypes.productId, productIds));
+  for (const r of rows) {
+    const list = out.get(r.productId);
+    if (list) list.push(r.slotTypeId);
+    else out.set(r.productId, [r.slotTypeId]);
+  }
+  return out;
 }
 
 function parseBool(v: unknown): boolean {
@@ -125,9 +159,17 @@ productsRouter.get(
         .limit(pageSize)
         .offset((page - 1) * pageSize);
 
+      const slotTypeIdsByProduct = await loadSlotTypeIdsForProducts(
+        rows.map((r) => r.product.id),
+      );
+
       res.json({
         products: rows.map((r) =>
-          serialize(r.product, r.category?.id ? r.category : null),
+          serialize(
+            r.product,
+            r.category?.id ? r.category : null,
+            slotTypeIdsByProduct.get(r.product.id) ?? [],
+          ),
         ),
         page,
         pageSize,
@@ -147,6 +189,8 @@ type CreateInput = {
   buttonText: string;
   price: string | null;
   daysUntilCancel: number;
+  durationMinutes: number | null;
+  slotTypeIds: string[];
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -245,6 +289,55 @@ function parseBody(
     data.daysUntilCancel = n;
   }
 
+  // durationMinutes — empty string maps to null (non-bookable). Otherwise an
+  // integer in [1, MAX_DURATION_MINUTES]. Required + present together with
+  // slotTypeIds: see "booking pair" check below.
+  if (has("durationMinutes")) {
+    const raw = String(body.durationMinutes ?? "").trim();
+    if (raw === "") {
+      data.durationMinutes = null;
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0 || n > MAX_DURATION_MINUTES) {
+        return { ok: false, status: 400, error: "invalid_duration_minutes" };
+      }
+      data.durationMinutes = n;
+    }
+  }
+
+  // slotTypeIds — JSON-encoded string array under a single multipart field.
+  // Frontend sends "[]" when clearing.
+  if (has("slotTypeIds")) {
+    const raw = String(body.slotTypeIds ?? "").trim();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw === "" ? "[]" : raw);
+    } catch {
+      return { ok: false, status: 400, error: "invalid_slot_type_ids" };
+    }
+    if (!Array.isArray(parsed) || !parsed.every((v) => typeof v === "string")) {
+      return { ok: false, status: 400, error: "invalid_slot_type_ids" };
+    }
+    // Dedupe defensively so the m2m sync never tries to insert duplicate keys.
+    data.slotTypeIds = Array.from(new Set(parsed as string[]));
+  }
+
+  // Booking-pair invariant: durationMinutes and slotTypeIds always travel
+  // together so duration↔types stays consistent. The form drawer enforces
+  // this client-side; reject mismatches here as a safety net.
+  const hasDuration = data.durationMinutes !== undefined;
+  const hasTypes = data.slotTypeIds !== undefined;
+  if (hasDuration !== hasTypes) {
+    return { ok: false, status: 400, error: "booking_fields_must_pair" };
+  }
+  if (data.durationMinutes != null && data.slotTypeIds!.length === 0) {
+    return { ok: false, status: 400, error: "slot_types_required" };
+  }
+  if (data.durationMinutes == null && data.slotTypeIds && data.slotTypeIds.length > 0) {
+    // Without a duration, slot type bindings are meaningless; force them empty.
+    data.slotTypeIds = [];
+  }
+
   if (has("isPromo")) data.isPromo = parseBool(body.isPromo);
   if (has("isActive")) data.isActive = parseBool(body.isActive);
   if (has("isTopSearch")) data.isTopSearch = parseBool(body.isTopSearch);
@@ -260,6 +353,49 @@ function parseBody(
   }
 
   return { ok: true, data };
+}
+
+async function validateSlotTypeIds(
+  ids: string[],
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  if (ids.length === 0) return { ok: true };
+  const rows = await db
+    .select({ id: slotTypes.id, archivedAt: slotTypes.archivedAt })
+    .from(slotTypes)
+    .where(inArray(slotTypes.id, ids));
+  const foundActive = new Set(
+    rows.filter((r) => r.archivedAt === null).map((r) => r.id),
+  );
+  for (const id of ids) {
+    if (!foundActive.has(id)) {
+      // Could be either missing or archived — distinguish for the form so it
+      // can show the right message.
+      const archived = rows.some((r) => r.id === id && r.archivedAt !== null);
+      return {
+        ok: false,
+        status: archived ? 400 : 404,
+        error: archived ? "slot_type_archived" : "slot_type_not_found",
+      };
+    }
+  }
+  return { ok: true };
+}
+
+// Replace all m2m bindings for a product. Idempotent — the delete/insert pair
+// is safe to call even when nothing actually changes. Caller decides whether
+// to call it (only when slotTypeIds is present in the request body).
+async function syncProductSlotTypes(
+  productId: string,
+  slotTypeIds: string[],
+): Promise<void> {
+  await db
+    .delete(productSlotTypes)
+    .where(eq(productSlotTypes.productId, productId));
+  if (slotTypeIds.length > 0) {
+    await db.insert(productSlotTypes).values(
+      slotTypeIds.map((id) => ({ productId, slotTypeId: id })),
+    );
+  }
 }
 
 async function loadCategoryOrFail(categoryId: string) {
@@ -321,6 +457,13 @@ productsRouter.post(
         return;
       }
 
+      const slotTypeIds = data.slotTypeIds ?? [];
+      const stValidation = await validateSlotTypeIds(slotTypeIds);
+      if (!stValidation.ok) {
+        res.status(stValidation.status).json({ error: stValidation.error });
+        return;
+      }
+
       const [created] = await db
         .insert(products)
         .values({
@@ -331,12 +474,15 @@ productsRouter.post(
           buttonText: data.buttonText,
           price: data.price,
           daysUntilCancel: data.daysUntilCancel,
+          durationMinutes: data.durationMinutes ?? null,
           isPromo: data.isPromo ?? false,
           isActive: data.isActive ?? true,
           isTopSearch: data.isTopSearch ?? false,
           coverKind: data.coverKind,
         })
         .returning();
+
+      await syncProductSlotTypes(created.id, slotTypeIds);
 
       let finalRow = created;
       if (isCustom && req.file) {
@@ -349,7 +495,7 @@ productsRouter.post(
         finalRow = updated;
       }
 
-      res.json({ product: serialize(finalRow, category) });
+      res.json({ product: serialize(finalRow, category, slotTypeIds) });
     } catch (err) {
       next(err);
     }
@@ -399,6 +545,14 @@ productsRouter.patch(
         return;
       }
 
+      if (data.slotTypeIds !== undefined) {
+        const stValidation = await validateSlotTypeIds(data.slotTypeIds);
+        if (!stValidation.ok) {
+          res.status(stValidation.status).json({ error: stValidation.error });
+          return;
+        }
+      }
+
       const patch: Partial<typeof products.$inferInsert> = {
         updatedAt: new Date(),
       };
@@ -409,6 +563,7 @@ productsRouter.patch(
       if (data.buttonText !== undefined) patch.buttonText = data.buttonText;
       if (data.price !== undefined) patch.price = data.price;
       if (data.daysUntilCancel !== undefined) patch.daysUntilCancel = data.daysUntilCancel;
+      if (data.durationMinutes !== undefined) patch.durationMinutes = data.durationMinutes;
       if (data.isPromo !== undefined) patch.isPromo = data.isPromo;
       if (data.isActive !== undefined) patch.isActive = data.isActive;
       if (data.isTopSearch !== undefined) patch.isTopSearch = data.isTopSearch;
@@ -427,14 +582,24 @@ productsRouter.patch(
 
       await db.update(products).set(patch).where(eq(products.id, id));
 
+      if (data.slotTypeIds !== undefined) {
+        await syncProductSlotTypes(id, data.slotTypeIds);
+      }
+
       const refreshed = await loadWithCategory(id);
       if (!refreshed) {
         res.status(404).json({ error: "product_not_found" });
         return;
       }
 
+      const idsByProduct = await loadSlotTypeIdsForProducts([id]);
+
       res.json({
-        product: serialize(refreshed.product, refreshed.category),
+        product: serialize(
+          refreshed.product,
+          refreshed.category,
+          idsByProduct.get(id) ?? [],
+        ),
       });
     } catch (err) {
       next(err);
