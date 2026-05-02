@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CoachSlot } from "../api";
 import { addDays, isSameDay, weekdayShort } from "../lib/dates";
 import { SlotPill } from "./SlotPill";
@@ -26,7 +26,15 @@ export function WeekGrid({
   onSlotClick,
   onEmptyClick,
 }: Props) {
-  const today = useMemo(() => new Date(), []);
+  // `now` ticks every 60s so the now-line and past-cell dimming track real
+  // time without a manual reload. The minute granularity matches the line's
+  // visible precision — finer ticks would just burn renders.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart],
@@ -47,13 +55,26 @@ export function WeekGrid({
     return buckets;
   }, [slots, days]);
 
+  // Now-line: horizontal red rule across all day columns at current time. We
+  // only render it when "now" lies within the visible week and the visible
+  // hour band — otherwise the line would clip outside the grid or sit on
+  // a different week.
+  const todayIdx = days.findIndex((d) => isSameDay(d, now));
+  const nowDecimalHour = now.getHours() + now.getMinutes() / 60;
+  const nowInBand =
+    nowDecimalHour >= HOUR_FROM && nowDecimalHour < HOUR_TO;
+  const showNowLine = todayIdx !== -1 && nowInBand;
+  const nowTopPx = showNowLine
+    ? (nowDecimalHour - HOUR_FROM) * PX_PER_HOUR
+    : 0;
+
   return (
     <div className="overflow-hidden rounded-[10px] border border-[#EAECF0] bg-white">
       {/* Day headers */}
       <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-b border-[#EAECF0]">
         <div />
         {days.map((d) => {
-          const isToday = isSameDay(d, today);
+          const isToday = isSameDay(d, now);
           return (
             <div
               key={d.toISOString()}
@@ -81,7 +102,7 @@ export function WeekGrid({
       </div>
 
       {/* Time grid */}
-      <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))]">
+      <div className="relative grid grid-cols-[60px_repeat(7,minmax(0,1fr))]">
         {/* Hour labels column */}
         <div
           className="relative"
@@ -96,6 +117,14 @@ export function WeekGrid({
               {h === HOUR_FROM ? "" : `${h}:00`}
             </div>
           ))}
+          {showNowLine && (
+            <div
+              style={{ top: `${nowTopPx}px` }}
+              className="absolute right-2 -translate-y-1/2 rounded-full bg-red-error px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white"
+            >
+              {`${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`}
+            </div>
+          )}
         </div>
 
         {/* Day columns */}
@@ -104,10 +133,22 @@ export function WeekGrid({
             key={d.toISOString()}
             day={d}
             slots={slotsByDay[dayIdx]}
+            now={now}
             onSlotClick={onSlotClick}
             onEmptyClick={onEmptyClick}
           />
         ))}
+
+        {/* Now-line — drawn last so it sits above the cells/pills. Spans all
+            day columns; the time-labels column shows the time chip instead. */}
+        {showNowLine && (
+          <div
+            style={{ top: `${nowTopPx}px`, left: 60 }}
+            className="pointer-events-none absolute right-0 h-px bg-red-error"
+          >
+            <div className="absolute -top-[3px] -left-[3px] h-[7px] w-[7px] rounded-full bg-red-error" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -116,30 +157,59 @@ export function WeekGrid({
 type DayColumnProps = {
   day: Date;
   slots: CoachSlot[];
+  now: Date;
   onSlotClick: (slot: CoachSlot) => void;
   onEmptyClick: (day: Date, hour: number) => void;
 };
 
-function DayColumn({ day, slots, onSlotClick, onEmptyClick }: DayColumnProps) {
+function DayColumn({
+  day,
+  slots,
+  now,
+  onSlotClick,
+  onEmptyClick,
+}: DayColumnProps) {
+  // Day-end marker for "is past": a cell is past iff its end-of-block has
+  // already passed in real time. Comparing the cell's end (rather than start)
+  // keeps the cell active during the last minute of its hour — feels more
+  // forgiving and matches the backend's `starts_in_past` rule which only
+  // rejects a brand-new slot whose START is in the past.
+  const dayMidnight = new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+  );
+
   return (
     <div
       className="relative border-l border-[#EAECF0]"
       style={{ height: `${GRID_HEIGHT}px` }}
     >
       {/* Hour rows — drawn as horizontal dividers + clickable empty cells */}
-      {HOURS.slice(0, -1).map((h) => (
-        <button
-          key={h}
-          type="button"
-          onClick={() => onEmptyClick(day, h)}
-          style={{
-            top: `${(h - HOUR_FROM) * PX_PER_HOUR}px`,
-            height: `${PX_PER_HOUR}px`,
-          }}
-          className="absolute inset-x-0 cursor-pointer border-t border-[#F2F4F7] hover:bg-grey-lighter"
-          aria-label={`Создать слот в ${h}:00`}
-        />
-      ))}
+      {HOURS.slice(0, -1).map((h) => {
+        const cellEnd = new Date(dayMidnight);
+        cellEnd.setHours(h + 1);
+        const isPast = cellEnd.getTime() <= now.getTime();
+        return (
+          <button
+            key={h}
+            type="button"
+            disabled={isPast}
+            onClick={isPast ? undefined : () => onEmptyClick(day, h)}
+            style={{
+              top: `${(h - HOUR_FROM) * PX_PER_HOUR}px`,
+              height: `${PX_PER_HOUR}px`,
+            }}
+            className={clsx(
+              "absolute inset-x-0 border-t border-[#F2F4F7]",
+              isPast
+                ? "cursor-default bg-grey-lighter/30"
+                : "cursor-pointer hover:bg-grey-lighter",
+            )}
+            aria-label={isPast ? undefined : `Создать слот в ${h}:00`}
+          />
+        );
+      })}
 
       {/* Slot pills layered on top */}
       {slots.map((slot) => {
@@ -153,12 +223,14 @@ function DayColumn({ day, slots, onSlotClick, onEmptyClick }: DayColumnProps) {
         const height =
           (Math.min(endMin, toMin) - Math.max(startMin, fromMin)) *
           (PX_PER_HOUR / 60);
+        const isPast = end.getTime() <= now.getTime();
         return (
           <SlotPill
             key={slot.id}
             slot={slot}
             topPx={top}
             heightPx={height}
+            isPast={isPast}
             onClick={onSlotClick}
           />
         );

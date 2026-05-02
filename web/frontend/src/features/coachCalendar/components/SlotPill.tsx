@@ -6,13 +6,22 @@ type Props = {
   slot: CoachSlot;
   topPx: number;
   heightPx: number;
+  isPast: boolean;
   onClick: (slot: CoachSlot) => void;
 };
 
 // Renders a single slot block inside a day column. The pill background uses
 // the slot type's hex color at low opacity; the left bar and the text use the
-// full color so the type stays legible against varied palettes.
-export function SlotPill({ slot, topPx, heightPx, onClick }: Props) {
+// full color so the type stays legible against varied palettes. Past slots
+// (end < now) keep the same shape but render dimmer so the eye sweeps to the
+// future portion of the calendar.
+export function SlotPill({
+  slot,
+  topPx,
+  heightPx,
+  isPast,
+  onClick,
+}: Props) {
   const start = new Date(slot.startsAt);
   const end = new Date(slot.endsAt);
   const color = slot.slotType.color;
@@ -32,8 +41,9 @@ export function SlotPill({ slot, topPx, heightPx, onClick }: Props) {
         color,
       }}
       className={clsx(
-        "absolute left-1 right-1 flex flex-col items-start overflow-hidden rounded-md border-l-[3px] px-2 text-left transition hover:brightness-95",
+        "absolute left-1 right-1 flex flex-col items-start overflow-hidden rounded-md border-l-[3px] px-2 text-left transition",
         compact ? "justify-center" : "justify-start py-1",
+        isPast ? "opacity-50" : "hover:brightness-95",
       )}
     >
       <span className="text-[11px] font-medium leading-tight">
