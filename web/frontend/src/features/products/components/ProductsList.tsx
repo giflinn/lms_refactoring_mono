@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
 import type { Product } from "../api";
+import { ProductPreviewCard } from "./ProductPreviewCard";
 
 const apiBase = import.meta.env.VITE_API_URL as string;
 
@@ -7,6 +8,14 @@ function resolveCoverSrc(path: string | null): string | null {
   if (!path) return null;
   return path.startsWith("/") ? `${apiBase}${path}` : path;
 }
+
+// Thumbnail renders the live ProductPreviewCard at 320px scaled to 64px so the
+// list shows the same artwork the admin saw while editing. Text is unreadable
+// at this scale by design — visual identity (gradient, button, layout) is what
+// the admin opens this row to recognize; the title is also next to the thumb.
+const THUMB_SIZE = 64;
+const PREVIEW_SIZE = 320;
+const THUMB_SCALE = THUMB_SIZE / PREVIEW_SIZE;
 
 type Props = {
   products: Product[];
@@ -51,22 +60,27 @@ function ProductRow({
   return (
     <div className="flex items-center gap-4 rounded-[12px] bg-white p-4 shadow-[0_2px_4px_rgba(16,24,40,0.05),0_4px_8px_rgba(16,24,40,0.05)]">
       <div
-        className="flex h-[48px] w-[48px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] text-[10px] font-medium text-white"
-        style={{
-          background: coverSrc
-            ? undefined
-            : "linear-gradient(180deg, #C147E9 0%, #2D033B 100%)",
-        }}
+        className="shrink-0 overflow-hidden rounded-[10px] pointer-events-none"
+        style={{ width: THUMB_SIZE, height: THUMB_SIZE }}
       >
-        {coverSrc ? (
-          <img
-            src={coverSrc}
-            alt=""
-            className="h-full w-full object-cover"
+        <div
+          style={{
+            width: PREVIEW_SIZE,
+            height: PREVIEW_SIZE,
+            transform: `scale(${THUMB_SCALE})`,
+            transformOrigin: "top left",
+          }}
+        >
+          <ProductPreviewCard
+            title={product.title}
+            subtitle={product.subtitle ?? ""}
+            buttonText={product.buttonText}
+            categoryName={product.category?.name ?? null}
+            coverKind={product.coverKind}
+            coverImageSrc={coverSrc}
+            size={PREVIEW_SIZE}
           />
-        ) : (
-          <span>Превью</span>
-        )}
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-1 min-w-0">
         <p className="truncate text-[15px] font-medium text-[#0E131F]">
