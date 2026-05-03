@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../data/support_provider.dart';
@@ -129,9 +130,13 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       child: Row(
         children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          ),
           if (manager != null) ChatAvatar(user: manager!, size: 40),
           if (manager != null) const SizedBox(width: 12),
           Expanded(
@@ -168,25 +173,10 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             onPressed: onHelpTap,
-            icon: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.7),
-                  width: 1.5,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                '?',
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
+            icon: SvgPicture.asset(
+              'assets/icons/chat/help.svg',
+              width: 22,
+              height: 22,
             ),
           ),
         ],

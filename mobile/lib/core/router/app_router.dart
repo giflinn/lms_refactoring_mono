@@ -13,6 +13,7 @@ import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/catalog/domain/product.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
+import '../../features/chat/presentation/pages/client_chat_page.dart';
 import '../../features/chat/presentation/pages/staff_conversation_page.dart';
 import '../../features/home/presentation/pages/client_shell_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
@@ -143,6 +144,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/client/products/:id',
         builder: (_, state) =>
             ProductDetailPage(product: state.extra as Product),
+      ),
+      GoRoute(
+        path: '/client/chat',
+        builder: (_, _) => const ClientChatPage(),
       ),
       GoRoute(
         path: '/staff/chat/:id',
