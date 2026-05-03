@@ -362,6 +362,80 @@ export const userFcmTokens = pgTable(
   (t) => [index("user_fcm_tokens_user_id_idx").on(t.userId)],
 );
 
+export const notificationStatusEnum = pgEnum("notification_status", [
+  "active",
+  "completed",
+  "cancelled",
+]);
+
+export const notificationRecurrenceUnitEnum = pgEnum(
+  "notification_recurrence_unit",
+  ["week", "month", "year"],
+);
+
+// Scheduled push notifications composed by admins/senior managers for
+// targeted client categories. One-shot rows have scheduled_at set and the
+// recurrence_* columns null. Recurring rows have starts_at + recurrence_*
+// set (and optionally ends_at). next_fire_at is the dispatcher's cursor —
+// it equals scheduled_at for one-shots and gets recomputed after each
+// successful send for recurring rows. Status flips to 'completed' once the
+// one-shot has fired or the recurring schedule has passed ends_at.
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    // NULL targets all clients; otherwise filters by users.client_category.
+    category: clientCategoryEnum("category"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    recurrenceUnit: notificationRecurrenceUnitEnum("recurrence_unit"),
+    // Every N units (e.g. 1 = every week, 2 = every other week).
+    recurrenceInterval: integer("recurrence_interval"),
+    // ISO weekday names ('mon','tue',...). Only meaningful when unit='week'.
+    recurrenceByweekday: text("recurrence_byweekday").array(),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    nextFireAt: timestamp("next_fire_at", { withTimezone: true }),
+    status: notificationStatusEnum("status").notNull().default("active"),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("notifications_next_fire_at_idx").on(t.nextFireAt)],
+);
+
+// Per-recipient delivery audit. One row per (notification, user, fire). For
+// recurring notifications the same notification_id+user_id pair can appear
+// multiple times — once per fire — distinguished by sent_at. The mobile
+// inbox UI (deferred) will read this table.
+export const notificationDeliveries = pgTable(
+  "notification_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    notificationId: uuid("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sentAt: timestamp("sent_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("notification_deliveries_user_id_idx").on(t.userId),
+    index("notification_deliveries_notification_id_idx").on(t.notificationId),
+  ],
+);
+
 // Generic key/value store for runtime-mutable settings edited from the admin
 // panel. Starts with support_whatsapp + support_hours (shown to clients in
 // the chat help dialog) and grows as more settings move out of constants.

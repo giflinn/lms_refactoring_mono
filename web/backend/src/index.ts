@@ -5,6 +5,7 @@ import http from "node:http";
 import { config } from "./config";
 import { attachSocketServer } from "./services/socketServer";
 import { startPushDispatcher } from "./services/pushNotifications";
+import { startNotificationDispatcher } from "./services/notificationDispatcher";
 import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
 import { managersRouter } from "./routes/managers";
@@ -19,6 +20,7 @@ import { chatRouter } from "./routes/chat";
 import { supportRouter } from "./routes/support";
 import { settingsRouter } from "./routes/settings";
 import { fcmTokensRouter } from "./routes/fcmTokens";
+import { notificationsRouter } from "./routes/notifications";
 import { AVATAR_DIR } from "./services/avatarUpload";
 import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
 import { CHAT_DIR } from "./services/chatAttachments";
@@ -54,6 +56,7 @@ app.use(chatRouter);
 app.use(supportRouter);
 app.use(settingsRouter);
 app.use(fcmTokensRouter);
+app.use(notificationsRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params
@@ -81,6 +84,7 @@ app.use(
 const httpServer = http.createServer(app);
 attachSocketServer(httpServer);
 startPushDispatcher();
+startNotificationDispatcher();
 
 httpServer.listen(config.port, () => {
   console.log(`[lms-backend] listening on http://localhost:${config.port}`);

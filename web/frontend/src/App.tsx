@@ -9,6 +9,7 @@ import { ClientsPage } from "./features/clients/pages/ClientsPage";
 import { ProductsPage } from "./features/products/pages/ProductsPage";
 import { CoachCalendarPage } from "./features/coachCalendar/pages/CoachCalendarPage";
 import { ChatsPage } from "./features/chat/pages/ChatsPage";
+import { NotificationsPage } from "./features/notifications/pages/NotificationsPage";
 
 export default function App() {
   return (
@@ -33,10 +34,7 @@ export default function App() {
           <Route path="/reports" element={<StubPage title="Отчеты" />} />
           <Route path="/orders" element={<StubPage title="Заказы" />} />
           <Route path="/cancellations" element={<StubPage title="Отмены" />} />
-          <Route
-            path="/notifications"
-            element={<StubPage title="Нотификации" />}
-          />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
