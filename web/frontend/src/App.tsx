@@ -8,6 +8,7 @@ import { ManagersPage } from "./features/managers/pages/ManagersPage";
 import { ClientsPage } from "./features/clients/pages/ClientsPage";
 import { ProductsPage } from "./features/products/pages/ProductsPage";
 import { CoachCalendarPage } from "./features/coachCalendar/pages/CoachCalendarPage";
+import { ChatsPage } from "./features/chat/pages/ChatsPage";
 
 export default function App() {
   return (
@@ -36,7 +37,7 @@ export default function App() {
             path="/notifications"
             element={<StubPage title="Нотификации" />}
           />
-          <Route path="/chats" element={<StubPage title="Чаты" />} />
+          <Route path="/chats" element={<ChatsPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<ClientsPage />} />

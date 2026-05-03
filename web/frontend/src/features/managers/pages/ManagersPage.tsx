@@ -3,6 +3,7 @@ import { Plus, Search } from "lucide-react";
 import { ManagersTable } from "../components/ManagersTable";
 import { DeactivateDialog } from "../components/DeactivateDialog";
 import { Pagination } from "../../../components/ui/Pagination";
+import { PageActionButton } from "../../../components/ui/PageActionButton";
 import { Toggle } from "../../../components/ui/Toggle";
 import {
   useDeactivateManager,
@@ -94,14 +95,12 @@ export function ManagersPage() {
             Показать деактивированных
           </label>
         </div>
-        <button
-          type="button"
+        <PageActionButton
           onClick={openCreate}
-          className="flex cursor-pointer items-center gap-2 rounded-[8px] bg-purple-primary py-2 pl-4 pr-5 text-[14px] font-medium text-white hover:opacity-90 transition-opacity"
+          icon={<Plus size={20} strokeWidth={2} />}
         >
-          <Plus size={20} strokeWidth={2} />
           Добавить менеджера
-        </button>
+        </PageActionButton>
       </div>
 
       {list.isError && (

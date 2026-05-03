@@ -13,6 +13,13 @@ class NavItem {
     required this.label,
     this.hasBadge = false,
   });
+
+  NavItem copyWith({bool? hasBadge}) => NavItem(
+        iconActive: iconActive,
+        iconInactive: iconInactive,
+        label: label,
+        hasBadge: hasBadge ?? this.hasBadge,
+      );
 }
 
 class RoleBottomNav extends StatelessWidget {

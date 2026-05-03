@@ -50,6 +50,9 @@ dependencies:
   google_sign_in: 6.1.6
   go_router: ^14.0.0
   flutter_svg: ^2.0.10
+  socket_io_client: ^3.1.4
+  firebase_messaging: ^16.2.0
+  file_picker: ^3.0.4
 
 # Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
 # 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's

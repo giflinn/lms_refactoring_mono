@@ -1,0 +1,194 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/design/tokens.dart';
+import '../../data/chat_api.dart';
+import '../../data/chat_api_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/chat_format.dart';
+import '../../domain/chat_models.dart';
+
+enum BubbleSide { left, right, center }
+
+/// Single chat bubble. Designed to match the Figma mobile chat screens —
+/// yellow on the receiving side (manager → client / client → staff) and
+/// purple on the sending side. System messages render centered as small grey
+/// labels.
+class MessageBubble extends ConsumerWidget {
+  final ChatMessage message;
+  final BubbleSide side;
+
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.side,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final api = ref.watch(chatApiProvider);
+    if (message.isSystem || side == BubbleSide.center) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Center(
+          child: Text(
+            message.body ?? '',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.white.withValues(alpha: 0.6),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      );
+    }
+    final isRight = side == BubbleSide.right;
+    final bg = isRight
+        ? AppColors.purpleDark
+        : AppColors.yellowGradientTop;
+    final fg = isRight ? AppColors.white : Colors.black87;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment:
+            isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.72,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(14),
+                  topRight: const Radius.circular(14),
+                  bottomLeft:
+                      Radius.circular(isRight ? 14 : 4),
+                  bottomRight:
+                      Radius.circular(isRight ? 4 : 14),
+                ),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final a in message.attachments)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: _AttachmentTile(
+                        attachment: a,
+                        api: api,
+                        onRight: isRight,
+                      ),
+                    ),
+                  if (message.body != null && message.body!.isNotEmpty)
+                    Text(
+                      message.body!,
+                      style: TextStyle(fontSize: 14, color: fg),
+                    ),
+                  const SizedBox(height: 2),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Text(
+                      formatTime(message.createdAt),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: fg.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentTile extends StatelessWidget {
+  final ChatAttachment attachment;
+  final ChatApi api;
+  final bool onRight;
+
+  const _AttachmentTile({
+    required this.attachment,
+    required this.api,
+    required this.onRight,
+  });
+
+  Future<void> _open() async {
+    final uri = Uri.parse(api.resolveFileUrl(attachment.url));
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachment.isImage) {
+      return GestureDetector(
+        onTap: _open,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            api.resolveFileUrl(attachment.url),
+            fit: BoxFit.cover,
+            width: 220,
+            height: 160,
+            errorBuilder: (_, _, _) => Container(
+              width: 220,
+              height: 160,
+              color: Colors.black26,
+              child: const Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    final fg = onRight ? Colors.white : Colors.black87;
+    return InkWell(
+      onTap: _open,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: onRight
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.description_outlined, color: fg, size: 18),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    attachment.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: fg),
+                  ),
+                  Text(
+                    formatFileSize(attachment.size),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: fg.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

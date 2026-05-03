@@ -5,6 +5,7 @@ import { ProductFormDrawer } from "../components/ProductFormDrawer";
 import { CategoriesDrawer } from "../components/CategoriesDrawer";
 import { DeleteProductDialog } from "../components/DeleteProductDialog";
 import { Pagination } from "../../../components/ui/Pagination";
+import { PageActionButton } from "../../../components/ui/PageActionButton";
 import { Select, type SelectOption } from "../../../components/ui/Select";
 import {
   useCategories,
@@ -107,24 +108,21 @@ export function ProductsPage() {
               placeholder="Категория"
             />
           </div>
-          <button
-            type="button"
+          <PageActionButton
+            variant="outline"
             onClick={() => setDrawerOpen(true)}
-            className="h-11 cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-4 text-[14px] font-medium text-[#0E131F] hover:bg-grey-lighter"
           >
             Редактировать категории
-          </button>
+          </PageActionButton>
         </div>
-        <button
-          type="button"
+        <PageActionButton
           onClick={openCreate}
           disabled={noCategories}
           title={noCategories ? "Сначала создайте категорию" : undefined}
-          className="flex h-11 cursor-pointer items-center gap-2 rounded-[8px] bg-purple-primary py-2 pl-4 pr-5 text-[14px] font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          icon={<Plus size={20} strokeWidth={2} />}
         >
-          <Plus size={20} strokeWidth={2} />
           Добавить товар
-        </button>
+        </PageActionButton>
       </div>
 
       {list.isError && (

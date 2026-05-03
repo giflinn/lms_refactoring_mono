@@ -58,6 +58,11 @@ export const users = pgTable("users", {
   // Audit timestamp for legal/compliance: when user accepted the offer + privacy
   // policy. Nullable so existing seeded admins (who never saw the form) stay null.
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  // Updated at last socket disconnect to drive the "был(а) в сети N минут
+  // назад" presence label. While a socket is open the user is considered
+  // online via the in-memory presence registry; this column is the durable
+  // fallback after disconnect.
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -243,6 +248,135 @@ export const coachSlots = pgTable(
     index("coach_slots_slot_type_id_idx").on(t.slotTypeId),
   ],
 );
+
+// One chat thread per client — the conversation between the client and
+// whichever staff member happens to be assigned at the moment. Manager
+// reassignment keeps the same thread; new manager inherits the history.
+// Senior managers and admins can read/write any thread without being on the
+// participants list (no participants table — authorization is derived from
+// users.role + users.manager_id).
+//
+// last_message_at + last_message_preview are denormalized so the chat list
+// can be rendered with a single query. They're updated transactionally
+// alongside chat_messages inserts.
+export const chatThreads = pgTable(
+  "chat_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+    lastMessagePreview: text("last_message_preview"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("chat_threads_last_message_at_idx").on(t.lastMessageAt)],
+);
+
+export const chatMessageKindEnum = pgEnum("chat_message_kind", [
+  "text",
+  "system",
+]);
+
+// Individual messages. body may be NULL when the message only carries
+// attachments (e.g. a single image with no caption). attachments stores an
+// array of { url, mime, name, size } objects — small jsonb is fine; we don't
+// need to query individual attachments. kind='system' is used for events like
+// "Старший менеджер X присоединился к чату" — sender_id then points to the
+// staff user who triggered the event.
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => chatThreads.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    body: text("body"),
+    attachments: text("attachments"), // JSON-encoded array (jsonb would work too;
+    // text keeps the migration tiny and we never filter by attachment content)
+    kind: chatMessageKindEnum("kind").notNull().default("text"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("chat_messages_thread_id_created_at_idx").on(
+      t.threadId,
+      t.createdAt,
+    ),
+  ],
+);
+
+// Per-user read state. Composite PK keeps it idempotent. Works uniformly for
+// clients (their thread), assigned managers, and senior_managers / admins
+// who joined later — anyone with read access has a row here once they open
+// the thread. Unread count for user X on thread T = COUNT(messages where
+// thread_id=T AND created_at > chat_reads.last_read_at AND sender_id != X).
+export const chatReads = pgTable(
+  "chat_reads",
+  {
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => chatThreads.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.threadId, t.userId] }),
+    index("chat_reads_user_id_idx").on(t.userId),
+  ],
+);
+
+export const fcmPlatformEnum = pgEnum("fcm_platform", ["ios", "android"]);
+
+// One row per (user, device). The same user installed on phone + tablet has
+// two rows. Tokens rotate periodically — when FCM hands the mobile app a new
+// token we upsert by (token); a token can also migrate users (sign-out +
+// sign-in on the same device), so user_id is updated on conflict.
+export const userFcmTokens = pgTable(
+  "user_fcm_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    platform: fcmPlatformEnum("platform").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("user_fcm_tokens_user_id_idx").on(t.userId)],
+);
+
+// Generic key/value store for runtime-mutable settings edited from the admin
+// panel. Starts with support_whatsapp + support_hours (shown to clients in
+// the chat help dialog) and grows as more settings move out of constants.
+// Single row per key; value is plain text — JSON encoding lives at the
+// application layer when we need richer types.
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});
 
 // Custom OTP table for the in-app password reset flow (Firebase only supports
 // magic-link reset; we implement OTP per design).

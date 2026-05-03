@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
+import 'features/chat/data/push_service.dart';
 import 'firebase_options.dart';
 
 const _minSplashDuration = Duration(milliseconds: 1500);
@@ -15,6 +16,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // FCM iOS foreground presentation options. Independent of sign-in state —
+  // safe to call before there is a Firebase user.
+  await PushService.initEarly();
+
   final elapsed = DateTime.now().difference(splashStart);
   if (elapsed < _minSplashDuration) {
     await Future.delayed(_minSplashDuration - elapsed);

@@ -54,6 +54,34 @@ class ApiClient {
     return _send(req);
   }
 
+  /// DELETE with a JSON body. Most callers don't need a body on DELETE, but a
+  /// few endpoints (FCM token unregistration) carry the resource identifier
+  /// there since it isn't a single primary key in the URL.
+  Future<http.Response> deleteJson(
+    String path, {
+    Object? body,
+    String? idToken,
+  }) {
+    final req = http.Request('DELETE', _uri(path));
+    req.headers.addAll(_headers(idToken));
+    req.headers['Content-Type'] = 'application/json';
+    if (body != null) req.body = jsonEncode(body);
+    return _send(req);
+  }
+
+  /// PATCH with a JSON body.
+  Future<http.Response> patchJson(
+    String path, {
+    Object? body,
+    String? idToken,
+  }) {
+    final req = http.Request('PATCH', _uri(path));
+    req.headers.addAll(_headers(idToken));
+    req.headers['Content-Type'] = 'application/json';
+    if (body != null) req.body = jsonEncode(body);
+    return _send(req);
+  }
+
   /// Caller builds the multipart request (adding fields/files), this just
   /// sends it through the same timeout/network-error handling.
   Future<http.Response> sendMultipart(http.MultipartRequest req) {

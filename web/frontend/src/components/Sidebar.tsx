@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import { Logo } from "./Logo";
 import { useAuth } from "../auth/AuthContext";
+import { useUnreadCount } from "../features/chat/unreadHook";
 import IconHome from "../assets/icons/sidebar/home.svg?react";
 import IconReports from "../assets/icons/sidebar/reports.svg?react";
 import IconOrders from "../assets/icons/sidebar/orders.svg?react";
@@ -72,6 +73,8 @@ export function Sidebar() {
 
 function NavItemRow({ item }: { item: NavItem }) {
   const { Icon } = item;
+  const showBadge = item.to === "/chats";
+  const unread = useUnreadCount(showBadge);
   return (
     <NavLink
       to={item.to}
@@ -95,6 +98,18 @@ function NavItemRow({ item }: { item: NavItem }) {
             <span className="flex-1 text-[14px] font-medium leading-5">
               {item.label}
             </span>
+            {showBadge && unread > 0 && (
+              <span
+                className={clsx(
+                  "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none",
+                  isActive
+                    ? "bg-white text-purple-primary"
+                    : "bg-yellow-gradient-bottom text-white",
+                )}
+              >
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
           </div>
         </>
       )}

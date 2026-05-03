@@ -7,6 +7,8 @@ import '../../../cart/presentation/controller/cart_controller.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../catalog/presentation/pages/favorites_page.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
+import '../../../chat/presentation/controller/chat_controllers.dart';
+import '../../../chat/presentation/pages/client_chat_page.dart';
 import '../controller/client_shell_tab_controller.dart';
 import '../widgets/role_bottom_nav.dart';
 import 'under_construction_page.dart';
@@ -18,6 +20,7 @@ class ClientShellPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final index = ref.watch(clientShellTabProvider);
     final cartCount = ref.watch(cartProvider).length;
+    final unread = ref.watch(unreadCountProvider).value ?? 0;
 
     final items = [
       const NavItem(
@@ -25,11 +28,11 @@ class ClientShellPage extends ConsumerWidget {
         iconInactive: 'assets/icons/nav/home_inactive.svg',
         label: 'Главная',
       ),
-      const NavItem(
+      NavItem(
         iconActive: 'assets/icons/nav/chat_active.svg',
         iconInactive: 'assets/icons/nav/chat_inactive.svg',
         label: 'Чат',
-        hasBadge: true,
+        hasBadge: unread > 0,
       ),
       NavItem(
         iconActive: 'assets/icons/nav/cart_active.svg',
@@ -55,8 +58,8 @@ class ClientShellPage extends ConsumerWidget {
     // Tabs that own their full header (logotype + search/title) keep the
     // Scaffold's appBar null — they'd otherwise stack a redundant AppBar on
     // top of their own. Tabs still under construction keep the generic
-    // AppBar + logout affordance.
-    final ownsHeader = index == 0 || index == 2 || index == 3;
+    // AppBar + logout affordance. Chat (index 1) renders its own header too.
+    final ownsHeader = index == 0 || index == 1 || index == 2 || index == 3;
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -86,7 +89,7 @@ class ClientShellPage extends ConsumerWidget {
           index: index,
           children: [
             const CatalogHomePage(),
-            UnderConstructionPage(title: items[1].label),
+            const ClientChatPage(),
             CartPage(onGoToCatalog: () => goTo(0)),
             FavoritesPage(onGoToCatalog: () => goTo(0)),
             UnderConstructionPage(title: items[4].label),

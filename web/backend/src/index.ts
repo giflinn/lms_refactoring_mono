@@ -1,7 +1,10 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import multer from "multer";
+import http from "node:http";
 import { config } from "./config";
+import { attachSocketServer } from "./services/socketServer";
+import { startPushDispatcher } from "./services/pushNotifications";
 import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
 import { managersRouter } from "./routes/managers";
@@ -12,8 +15,13 @@ import { clientCatalogRouter } from "./routes/clientCatalog";
 import { favoritesRouter } from "./routes/favorites";
 import { slotTypesRouter } from "./routes/slotTypes";
 import { coachSlotsRouter } from "./routes/coachSlots";
+import { chatRouter } from "./routes/chat";
+import { supportRouter } from "./routes/support";
+import { settingsRouter } from "./routes/settings";
+import { fcmTokensRouter } from "./routes/fcmTokens";
 import { AVATAR_DIR } from "./services/avatarUpload";
 import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
+import { CHAT_DIR } from "./services/chatAttachments";
 
 const app = express();
 
@@ -22,6 +30,7 @@ app.use(express.json());
 
 app.use("/avatars", express.static(AVATAR_DIR));
 app.use("/product-images", express.static(PRODUCT_IMAGE_DIR));
+app.use("/chat-files", express.static(CHAT_DIR));
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "lms-backend" });
@@ -41,6 +50,10 @@ app.use(clientCatalogRouter);
 app.use(favoritesRouter);
 app.use(slotTypesRouter);
 app.use(coachSlotsRouter);
+app.use(chatRouter);
+app.use(supportRouter);
+app.use(settingsRouter);
+app.use(fcmTokensRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params
@@ -65,6 +78,10 @@ app.use(
   },
 );
 
-app.listen(config.port, () => {
+const httpServer = http.createServer(app);
+attachSocketServer(httpServer);
+startPushDispatcher();
+
+httpServer.listen(config.port, () => {
   console.log(`[lms-backend] listening on http://localhost:${config.port}`);
 });

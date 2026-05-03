@@ -66,3 +66,12 @@ export const requireStaff = makeGuard([
   "senior_manager",
   "admin",
 ] as const);
+// Any authenticated, non-deactivated user. Use when the route handles every
+// role in-place (e.g. chat endpoints whose authorization depends on the
+// resource being accessed, not on the role alone).
+export const requireAnyRole = makeGuard([
+  "client",
+  "manager",
+  "senior_manager",
+  "admin",
+] as const);
