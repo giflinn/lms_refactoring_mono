@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/terms_checkbox_row.dart';
-import '../../../catalog/presentation/widgets/brand_logotype.dart';
+import '../../../../core/widgets/brand_logotype.dart';
 import '../../domain/cart_item.dart';
 import '../controller/cart_controller.dart';
 import '../widgets/cart_item_card.dart';

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/design/tokens.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
+import '../../../../core/widgets/brand_logotype.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../../../chat/presentation/pages/staff_chat_list_page.dart';
 import '../widgets/role_bottom_nav.dart';
@@ -52,6 +54,7 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
   @override
   Widget build(BuildContext context) {
     final unread = ref.watch(unreadCountProvider).value ?? 0;
+    final user = ref.watch(authProvider).value;
     final items = [
       _baseItems[0].copyWith(hasBadge: unread > 0),
       _baseItems[1],
@@ -65,21 +68,24 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: Text(
-            items[_index].label,
-            style: const TextStyle(
-              color: AppColors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+          automaticallyImplyLeading: false,
+          titleSpacing: 16,
+          title: Row(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => context.push('/staff/profile'),
+                child: UserAvatar(
+                  avatarUrl: user?.avatarUrl,
+                  firstName: user?.firstName ?? '',
+                  lastName: user?.lastName ?? '',
+                  size: 38,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const BrandLogotype(height: 26),
+            ],
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout, color: AppColors.white),
-              tooltip: 'Выйти',
-              onPressed: () => ref.read(authProvider.notifier).signOut(),
-            ),
-          ],
         ),
         body: IndexedStack(
           index: _index,

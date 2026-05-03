@@ -6,7 +6,7 @@ import '../../../../core/design/tokens.dart';
 import '../../domain/product.dart';
 import '../controller/favorite_ids_controller.dart';
 import '../controller/favorite_products_controller.dart';
-import '../widgets/brand_logotype.dart';
+import '../../../../core/widgets/brand_logotype.dart';
 
 /// "Избранное" tab. Three states: empty (illustration + CTA to catalog),
 /// loaded (iOS-style grouped list by category, alphabetical), error.

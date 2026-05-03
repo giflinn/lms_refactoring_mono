@@ -7,7 +7,7 @@ import '../../data/catalog_api_provider.dart';
 import '../../domain/catalog_snapshot.dart';
 import '../../domain/product.dart';
 import '../controller/home_controller.dart';
-import '../widgets/brand_logotype.dart';
+import '../../../../core/widgets/brand_logotype.dart';
 import '../widgets/category_tab.dart';
 import '../widgets/home_skeleton.dart';
 import '../widgets/product_row.dart';

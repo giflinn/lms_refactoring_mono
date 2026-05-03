@@ -16,6 +16,7 @@ import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/chat/presentation/pages/client_chat_page.dart';
 import '../../features/chat/presentation/pages/staff_conversation_page.dart';
 import '../../features/home/presentation/pages/client_shell_page.dart';
+import '../../features/home/presentation/pages/staff_profile_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../domain/app_user.dart';
 import '../domain/role.dart';
@@ -153,6 +154,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/staff/chat/:id',
         builder: (_, state) =>
             StaffConversationPage(threadId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/staff/profile',
+        builder: (_, _) => const StaffProfilePage(),
       ),
     ],
   );

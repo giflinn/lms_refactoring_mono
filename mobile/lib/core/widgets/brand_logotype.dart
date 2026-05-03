@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../core/design/tokens.dart';
+import '../design/tokens.dart';
 
 /// "Slyamova Zhanna" horizontal logotype (Figma node 15:8716). Composed from
 /// three separate SVG pieces — the stylized "S" (split into two glyphs) and
