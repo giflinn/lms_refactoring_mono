@@ -23,17 +23,53 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
   final _scroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _onScroll() {
     if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    // ChatMessagesView is reverse: true → pixel 0 is the newest message
+    // (bottom), and pixels approaches maxScrollExtent as the user scrolls
+    // toward the oldest message. Trigger load-older near the far edge.
+    if (pos.maxScrollExtent <= 200) return;
+    if (pos.pixels > pos.maxScrollExtent - 200) {
+      _maybeLoadOlder();
+    }
+  }
+
+  Future<void> _maybeLoadOlder() async {
+    final s = ref.read(clientChatProvider).value;
+    if (s == null ||
+        s.loadingOlder ||
+        !s.hasMoreOlder ||
+        s.messages.isEmpty) {
+      return;
+    }
+    // No scroll-position fix-up needed: with reverse: true, prepending older
+    // messages to the chronological list means appending to the visual top,
+    // and the user's pixel offset stays put.
+    await ref.read(clientChatProvider.notifier).loadOlder();
+  }
+
+  void _scrollToBottom({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
+      if (!_scroll.hasClients) return;
+      // reverse: true ListView → bottom == pixel 0.
+      const target = 0.0;
+      if (jump) {
+        _scroll.jumpTo(target);
+      } else {
         _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
+          target,
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
@@ -46,8 +82,16 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
     final asyncState = ref.watch(clientChatProvider);
     final supportAsync = ref.watch(supportInfoProvider);
 
-    ref.listen(clientChatProvider, (_, next) {
-      if (next.hasValue) _scrollToBottom();
+    ref.listen(clientChatProvider, (prev, next) {
+      if (!next.hasValue) return;
+      // Only scroll to bottom when a NEW message lands (last id changed).
+      // Prepending older messages must not yank the user's view.
+      final prevLast = prev?.value?.messages.isNotEmpty == true
+          ? prev!.value!.messages.last.id
+          : null;
+      final nextMsgs = next.value!.messages;
+      final nextLast = nextMsgs.isNotEmpty ? nextMsgs.last.id : null;
+      if (prevLast != nextLast) _scrollToBottom();
     });
 
     return GradientBackground(
@@ -68,7 +112,10 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
                 ),
               ),
             ),
-            data: (s) => Column(
+            data: (s) {
+              // No initial jump needed: reverse: true ListView starts at
+              // pixel 0 = bottom = latest message.
+              return Column(
               children: [
                 _Header(
                   manager: s.thread?.manager,
@@ -112,7 +159,8 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
                   },
                 ),
               ],
-            ),
+            );
+            },
           ),
         ),
       ),

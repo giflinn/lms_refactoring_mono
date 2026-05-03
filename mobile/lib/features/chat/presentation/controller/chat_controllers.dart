@@ -32,25 +32,35 @@ class ClientChatState {
   final ChatThread? thread;
   final List<ChatMessage> messages;
   final bool initializing;
+  final bool loadingOlder;
+  final bool hasMoreOlder;
 
   const ClientChatState({
     required this.thread,
     required this.messages,
     required this.initializing,
+    this.loadingOlder = false,
+    this.hasMoreOlder = true,
   });
 
   ClientChatState copyWith({
     ChatThread? thread,
     List<ChatMessage>? messages,
     bool? initializing,
+    bool? loadingOlder,
+    bool? hasMoreOlder,
   }) {
     return ClientChatState(
       thread: thread ?? this.thread,
       messages: messages ?? this.messages,
       initializing: initializing ?? this.initializing,
+      loadingOlder: loadingOlder ?? this.loadingOlder,
+      hasMoreOlder: hasMoreOlder ?? this.hasMoreOlder,
     );
   }
 }
+
+const _chatPageSize = 50;
 
 class ClientChatController extends AsyncNotifier<ClientChatState> {
   StreamSubscription<ChatMessage>? _msgSub;
@@ -72,6 +82,7 @@ class ClientChatController extends AsyncNotifier<ClientChatState> {
     final messages = await _api.listMessages(
       idToken: token,
       threadId: thread.id,
+      limit: _chatPageSize,
     );
     _msgSub = _socket.onMessageNew.listen(_onIncomingMessage);
     _presenceSub = _socket.onPresence.listen(_onPresence);
@@ -82,7 +93,36 @@ class ClientChatController extends AsyncNotifier<ClientChatState> {
       thread: thread,
       messages: messages,
       initializing: false,
+      hasMoreOlder: messages.length >= _chatPageSize,
     );
+  }
+
+  Future<void> loadOlder() async {
+    final s = state.value;
+    if (s == null || s.thread == null) return;
+    if (s.loadingOlder || !s.hasMoreOlder || s.messages.isEmpty) return;
+    state = AsyncData(s.copyWith(loadingOlder: true));
+    try {
+      final token = await _idToken();
+      final older = await _api.listMessages(
+        idToken: token,
+        threadId: s.thread!.id,
+        before: s.messages.first.createdAt,
+        limit: _chatPageSize,
+      );
+      final cur = state.value;
+      if (cur == null) return;
+      state = AsyncData(cur.copyWith(
+        messages: [...older, ...cur.messages],
+        loadingOlder: false,
+        hasMoreOlder: older.length >= _chatPageSize,
+      ));
+    } catch (_) {
+      final cur = state.value;
+      if (cur != null) {
+        state = AsyncData(cur.copyWith(loadingOlder: false));
+      }
+    }
   }
 
   void _onIncomingMessage(ChatMessage m) {

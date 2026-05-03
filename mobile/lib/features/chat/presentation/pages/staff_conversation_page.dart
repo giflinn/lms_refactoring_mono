@@ -35,15 +35,20 @@ class _StaffConversationPageState
   StreamSubscription<({String userId, bool online, DateTime? lastSeenAt})>?
       _presSub;
 
+  static const _pageSize = 50;
+
   bool _loading = true;
   Object? _error;
   ChatThread? _thread;
   ChatThreadAccess? _access;
   List<ChatMessage> _messages = const [];
+  bool _loadingOlder = false;
+  bool _hasMoreOlder = true;
 
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     _bootstrap();
   }
 
@@ -76,15 +81,18 @@ class _StaffConversationPageState
       final messages = await api.listMessages(
         idToken: token,
         threadId: widget.threadId,
+        limit: _pageSize,
       );
       if (!mounted) return;
       setState(() {
         _thread = detail.thread;
         _access = detail.access;
         _messages = messages;
+        _hasMoreOlder = messages.length >= _pageSize;
         _loading = false;
       });
-      _scrollToBottom();
+      // No explicit initial jump: ChatMessagesView is reverse: true so
+      // pixel 0 (default scroll position) already shows the newest message.
       socket.focusThread(widget.threadId);
       unawaited(api.markRead(idToken: token, threadId: widget.threadId));
       _msgSub = socket.onMessageNew.listen(_onIncoming);
@@ -133,17 +141,58 @@ class _StaffConversationPageState
     }
   }
 
-  void _scrollToBottom() {
-    if (!_scroll.hasClients) return;
+  void _scrollToBottom({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
+      if (!_scroll.hasClients) return;
+      // reverse: true ListView → bottom == pixel 0.
+      const target = 0.0;
+      if (jump) {
+        _scroll.jumpTo(target);
+      } else {
         _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
+          target,
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
       }
     });
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    // reverse: true → pixels grows as user scrolls toward older messages.
+    if (pos.maxScrollExtent <= 200) return;
+    if (pos.pixels > pos.maxScrollExtent - 200) {
+      _loadOlder();
+    }
+  }
+
+  Future<void> _loadOlder() async {
+    if (_loadingOlder || !_hasMoreOlder || _messages.isEmpty) return;
+    setState(() => _loadingOlder = true);
+    try {
+      final api = ref.read(chatApiProvider);
+      final token = await _idToken();
+      final older = await api.listMessages(
+        idToken: token,
+        threadId: widget.threadId,
+        before: _messages.first.createdAt,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      // reverse: true → prepending to chronological _messages == appending
+      // to the visual top, so the user's pixel offset stays anchored to
+      // the same content. No manual scroll fix-up needed.
+      setState(() {
+        _messages = [...older, ..._messages];
+        _hasMoreOlder = older.length >= _pageSize;
+        _loadingOlder = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingOlder = false);
+    }
   }
 
   Future<void> _send(String body, List<File> files) async {

@@ -29,11 +29,23 @@ class ChatMessagesView extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final items = _groupByDay(messages);
-    return ListView.builder(
-      controller: controller,
-      padding: padding,
-      itemCount: items.length,
-      itemBuilder: (_, i) => items[i],
+    return ScrollConfiguration(
+      // Strip Android 12+ stretch overscroll — visually noisy in chat where
+      // the user routinely flicks past the top/bottom edge.
+      behavior: const _NoOverscrollBehavior(),
+      // reverse: true is the standard chat-UI layout — pixel offset 0 is
+      // the bottom (newest message), and growing the chronological list with
+      // older messages just appends to the visual top without disturbing the
+      // user's scroll position. Also dodges the jumpTo(maxScrollExtent)
+      // shortfall when items at the bottom (tall images, multi-line text)
+      // haven't been measured yet on first paint.
+      child: ListView.builder(
+        controller: controller,
+        padding: padding,
+        reverse: true,
+        itemCount: items.length,
+        itemBuilder: (_, i) => items[items.length - 1 - i],
+      ),
     );
   }
 
@@ -50,6 +62,18 @@ class ChatMessagesView extends StatelessWidget {
     }
     return out;
   }
+}
+
+class _NoOverscrollBehavior extends MaterialScrollBehavior {
+  const _NoOverscrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) =>
+      child;
 }
 
 class _DaySeparator extends StatelessWidget {
