@@ -11,6 +11,7 @@ class ChatHelpDialog extends StatelessWidget {
   static Future<void> show(BuildContext context, SupportInfo info) {
     return showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (_) => ChatHelpDialog(info: info),
     );
   }
@@ -25,75 +26,124 @@ class ChatHelpDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final body = info.hours.isNotEmpty
+        ? 'Менеджеры отвечают в часы работы ${info.hours}. Для срочных вопросов — WhatsApp.'
+        : 'Менеджеры отвечают в рабочие часы. Для срочных вопросов — WhatsApp.';
     return Dialog(
-      backgroundColor: AppColors.purpleDark,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 24, 12, 12),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.purpleGradientTop,
+              AppColors.purplePrimary,
+            ],
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Чат с менеджером',
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+            Image.asset(
+              'assets/icons/chat/help.png',
+              width: 50,
+              height: 50,
             ),
-            const SizedBox(height: 12),
-            Text(
-              info.hours.isNotEmpty
-                  ? 'Менеджеры отвечают в часы работы ${info.hours}.'
-                  : 'Менеджеры отвечают в рабочие часы.',
-              style: TextStyle(
-                color: AppColors.white.withValues(alpha: 0.85),
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'По всем вопросам также можно писать в WhatsApp${info.whatsapp.isNotEmpty ? ":" : "."}',
-              style: TextStyle(
-                color: AppColors.white.withValues(alpha: 0.85),
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            if (info.whatsapp.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    foregroundColor: AppColors.white,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: _openWhatsapp,
-                  icon: const Icon(Icons.message_outlined),
-                  label: Text('Написать в WhatsApp ${info.whatsapp}'),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 252,
+              child: Text(
+                body,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                  letterSpacing: -0.4,
                 ),
               ),
-            ],
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
+            ),
+            const SizedBox(height: 24),
+            if (info.whatsapp.isNotEmpty)
+              _YellowButton(
+                label: 'Написать в WhatsApp',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _openWhatsapp();
+                },
+              ),
+            if (info.whatsapp.isNotEmpty) const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.white.withValues(alpha: 0.85),
+                child: const Text(
+                  'Закрыть',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.4,
+                  ),
                 ),
-                child: const Text('Закрыть'),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _YellowButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _YellowButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      width: double.infinity,
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.yellowGradientTop,
+                AppColors.yellowGradientBottom,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.purpleDark,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
