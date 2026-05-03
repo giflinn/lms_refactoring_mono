@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Settings as SettingsIcon } from "lucide-react";
+import IconChatEmpty from "../../../assets/icons/chat-empty.svg?react";
 import { ChatList } from "../components/ChatList";
 import { ChatConversation } from "../components/ChatConversation";
 import { ChatSettingsDrawer } from "../components/ChatSettingsDrawer";
@@ -107,10 +108,20 @@ export function ChatsPage() {
     selected,
   );
 
+  // Keep selected thread in sync with the visible list. If a filter change
+  // wipes out the previously-selected thread (or empties the list entirely),
+  // we'd otherwise keep showing a stale conversation on the right while the
+  // list says "Чатов нет". Reset to the first match, or to nothing.
   useEffect(() => {
-    if (selected) return;
-    const first = threadsQuery.data?.[0];
-    if (first) setSelected(first.id);
+    const list = threadsQuery.data;
+    if (!list) return;
+    if (list.length === 0) {
+      if (selected !== null) setSelected(null);
+      return;
+    }
+    if (!selected || !list.some((t) => t.id === selected)) {
+      setSelected(list[0].id);
+    }
   }, [threadsQuery.data, selected]);
 
   const managerOptions: SelectOption<string>[] = [
@@ -131,7 +142,7 @@ export function ChatsPage() {
   ];
 
   return (
-    <div className="flex flex-1 flex-col gap-4 pt-2">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-4 pt-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="relative w-[280px]">
@@ -213,9 +224,7 @@ export function ChatsPage() {
 function EmptyConversation() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-purple-tertiary">
-        <span className="text-[24px] text-purple-tertiary">…</span>
-      </div>
+      <IconChatEmpty width={94} height={94} className="mb-4" />
       <h3 className="text-[14px] font-semibold text-grey-dark">
         Сообщений пока нет...
       </h3>
