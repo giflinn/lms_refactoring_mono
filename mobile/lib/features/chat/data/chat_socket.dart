@@ -41,10 +41,19 @@ class ChatSocket {
     if (user == null) return;
     final token = await user.getIdToken();
     if (token == null) return;
+    // socket.io_client treats any path component of the URL as a namespace,
+    // not as the engine.io path. So when baseUrl is e.g.
+    // 'https://host/api' (Nginx-proxied prod), we must split origin from
+    // path and pass the path as an explicit setPath('<base>/socket.io').
+    final uri = Uri.parse(_baseUrl);
+    final origin = '${uri.scheme}://${uri.authority}';
+    final basePath = uri.path.replaceAll(RegExp(r'/+$'), '');
+    final socketPath = '$basePath/socket.io';
     final s = io.io(
-      _baseUrl,
+      origin,
       io.OptionBuilder()
           .setTransports(['websocket'])
+          .setPath(socketPath)
           .disableAutoConnect()
           .setAuth({'token': token})
           .build(),

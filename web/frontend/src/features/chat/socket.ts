@@ -12,6 +12,14 @@ import { auth } from "../../firebase";
 
 const baseUrl = import.meta.env.VITE_API_URL;
 
+// socket.io-client treats any path component of the URL as a namespace,
+// not as the engine.io path. When baseUrl is e.g. 'https://host/api'
+// (Nginx-proxied prod), we must split origin from path and pass the path
+// as an explicit `path: '<base>/socket.io'`.
+const baseUrlObj = new URL(baseUrl);
+const origin = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
+const socketPath = `${baseUrlObj.pathname.replace(/\/+$/, "")}/socket.io`;
+
 let socket: Socket | null = null;
 let refCount = 0;
 // Cached token so we can attach it without an async hop on each reconnect.
@@ -23,8 +31,8 @@ function ensureSocket(idToken: string): Socket {
     if (!socket.connected) socket.connect();
     return socket;
   }
-  socket = io(baseUrl, {
-    path: "/socket.io",
+  socket = io(origin, {
+    path: socketPath,
     autoConnect: false,
     auth: { token: idToken },
     transports: ["websocket", "polling"],
