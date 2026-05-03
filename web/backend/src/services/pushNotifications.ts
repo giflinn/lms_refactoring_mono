@@ -103,7 +103,7 @@ async function dispatch(event: IncomingMessage): Promise<void> {
         await firebaseMessaging.send({
           token: t.token,
           notification: {
-            title: senderName,
+            title: `${senderName} (Чат)`,
             body: previewBody.length > 200
               ? previewBody.slice(0, 199) + "…"
               : previewBody,

@@ -30,6 +30,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FCM small icon + accent color for the status bar / notification
+             header. Android renders the icon by alpha only — must be a
+             monochrome drawable; ic_launcher_monochrome is already generated
+             by flutter_launcher_icons from the foreground asset. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_launcher_monochrome" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
