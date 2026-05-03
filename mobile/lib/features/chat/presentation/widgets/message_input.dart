@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/design/tokens.dart';
@@ -62,15 +61,6 @@ class _MessageInputState extends State<MessageInput> {
                 ),
                 onTap: () => Navigator.of(ctx).pop('camera'),
               ),
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf_outlined,
-                    color: AppColors.white),
-                title: const Text(
-                  'PDF документ',
-                  style: TextStyle(color: AppColors.white),
-                ),
-                onTap: () => Navigator.of(ctx).pop('pdf'),
-              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -94,19 +84,6 @@ class _MessageInputState extends State<MessageInput> {
       if (picked == null) return;
       setState(() {
         if (_files.length < 5) _files.add(File(picked.path));
-      });
-    } else if (res == 'pdf') {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: true,
-      );
-      if (picked == null) return;
-      setState(() {
-        for (final p in picked.files) {
-          if (_files.length >= 5) break;
-          if (p.path != null) _files.add(File(p.path!));
-        }
       });
     }
   }
