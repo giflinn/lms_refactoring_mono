@@ -97,16 +97,21 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon.png"
+  image_path_ios: "assets/icon_ios.png"
   remove_alpha_ios: true
   background_color_ios: "#810CA8"
+  image_path_android: "assets/icon_ios.png"
+  adaptive_icon_background: "assets/icon_android_background.png"
+  adaptive_icon_foreground: "assets/icon_android_foreground.png"
+  adaptive_icon_monochrome: "assets/icon_android_foreground.png"
 
 flutter_native_splash:
   color: "#810CA8"
   image: assets/logo_white.png
   android_12:
     color: "#810CA8"
-    image: assets/logo_white.png
+    image: assets/splash_android12.png
+    icon_background_color: "#810CA8"
   ios_content_mode: center
 
   # An image asset can refer to one or more resolution-specific "variants", see
