@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../data/support_provider.dart';
@@ -173,8 +172,8 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             onPressed: onHelpTap,
-            icon: SvgPicture.asset(
-              'assets/icons/chat/help.svg',
+            icon: Image.asset(
+              'assets/icons/chat/help.png',
               width: 22,
               height: 22,
             ),
