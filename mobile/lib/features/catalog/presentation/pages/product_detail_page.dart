@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../cart/presentation/controller/cart_controller.dart';
 import '../../domain/product.dart';
 import '../controller/favorite_ids_controller.dart';
 import '../widgets/product_action_bar.dart';
@@ -37,6 +38,27 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     super.initState();
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month, 1);
+
+    // If the product is already in the cart with a booked start, restore the
+    // month/day/time selection so the user lands on the slot they picked.
+    // The reconstructed AvailableStart matches by `startsAt` (compared via
+    // `isAtSameMomentAs` in BookingTimeStrip) so the time pill highlights as
+    // soon as the slots load for that month.
+    final inCart = ref
+        .read(cartProvider)
+        .where((it) => it.productId == widget.product.id)
+        .toList();
+    final booked = inCart.isEmpty ? null : inCart.first.bookedStart;
+    final dur = widget.product.durationMinutes;
+    if (booked != null && dur != null) {
+      final local = booked.toLocal();
+      _selectedMonth = DateTime(local.year, local.month, 1);
+      _selectedDay = DateTime(local.year, local.month, local.day);
+      _selectedStart = AvailableStart(
+        startsAt: booked,
+        endsAt: booked.add(Duration(minutes: dur)),
+      );
+    }
   }
 
   void _onMonthPicked(DateTime month) {
