@@ -22,7 +22,12 @@ import { weekdayShort, WEEKDAY_ORDER } from "../format";
 
 type Props = {
   open: boolean;
+  // When set, drawer is in edit mode and submits PATCH.
   notification: Notification | null;
+  // When set (and notification is null), drawer is in create mode but
+  // prefilled from this row — used by "Дублировать" on completed cards.
+  // Dates are intentionally cleared so the user picks new ones.
+  template?: Notification | null;
   onClose: () => void;
 };
 
@@ -84,7 +89,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_future_fires: "Нет будущих срабатываний — проверьте даты",
 };
 
-export function NotificationDrawer({ open, notification, onClose }: Props) {
+export function NotificationDrawer({
+  open,
+  notification,
+  template,
+  onClose,
+}: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [generalError, setGeneralError] = useState<string | undefined>();
   const create = useCreateNotification();
@@ -94,8 +104,14 @@ export function NotificationDrawer({ open, notification, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     setGeneralError(undefined);
-    setForm(notification ? toFormState(notification) : EMPTY);
-  }, [open, notification]);
+    if (notification) {
+      setForm(toFormState(notification));
+    } else if (template) {
+      setForm(toFormStateAsTemplate(template));
+    } else {
+      setForm(EMPTY);
+    }
+  }, [open, notification, template]);
 
   function update_<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -135,7 +151,13 @@ export function NotificationDrawer({ open, notification, onClose }: Props) {
   return (
     <Drawer
       open={open}
-      title={isEdit ? "Редактировать нотификацию" : "Добавить нотификацию"}
+      title={
+        isEdit
+          ? "Редактировать нотификацию"
+          : template
+            ? "Дублировать нотификацию"
+            : "Добавить нотификацию"
+      }
       onClose={onClose}
       footer={
         <Button onClick={handleSubmit} disabled={!isValid || submitting}>
@@ -397,6 +419,20 @@ function formToInput(f: FormState): NotificationInput {
     recurrenceUnit: null,
     recurrenceInterval: null,
     recurrenceByweekday: null,
+  };
+}
+
+// Prefill from a completed (or any) notification but blank out the date
+// fields — Дублировать always asks the user to pick a new schedule, since
+// the source row's dates are stale.
+function toFormStateAsTemplate(n: Notification): FormState {
+  const base = toFormState(n);
+  return {
+    ...base,
+    date: "",
+    time: "",
+    endDate: "",
+    sendNow: false,
   };
 }
 

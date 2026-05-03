@@ -24,6 +24,7 @@ export function NotificationsPage() {
   const [tab, setTab] = useState<StatusTab>("active");
   const [category, setCategory] = useState<CategoryFilter>("any");
   const [editing, setEditing] = useState<Notification | null>(null);
+  const [template, setTemplate] = useState<Notification | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Notification | null>(null);
 
@@ -43,11 +44,19 @@ export function NotificationsPage() {
 
   function openCreate() {
     setEditing(null);
+    setTemplate(null);
     setDrawerOpen(true);
   }
 
   function openEdit(n: Notification) {
     setEditing(n);
+    setTemplate(null);
+    setDrawerOpen(true);
+  }
+
+  function openDuplicate(n: Notification) {
+    setEditing(null);
+    setTemplate(n);
     setDrawerOpen(true);
   }
 
@@ -100,7 +109,8 @@ export function NotificationsPage() {
             <NotificationCard
               key={n.id}
               notification={n}
-              onEdit={() => openEdit(n)}
+              onEdit={tab === "active" ? () => openEdit(n) : undefined}
+              onDuplicate={tab === "completed" ? () => openDuplicate(n) : undefined}
               onDelete={() => setDeleteTarget(n)}
             />
           ))}
@@ -116,7 +126,8 @@ export function NotificationsPage() {
             <NotificationCard
               key={n.id}
               notification={n}
-              onEdit={() => openEdit(n)}
+              onEdit={tab === "active" ? () => openEdit(n) : undefined}
+              onDuplicate={tab === "completed" ? () => openDuplicate(n) : undefined}
               onDelete={() => setDeleteTarget(n)}
             />
           ))}
@@ -126,6 +137,7 @@ export function NotificationsPage() {
       <NotificationDrawer
         open={drawerOpen}
         notification={editing}
+        template={template}
         onClose={() => setDrawerOpen(false)}
       />
 

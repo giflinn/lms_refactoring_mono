@@ -4,11 +4,17 @@ import { notificationChips } from "../format";
 
 type Props = {
   notification: Notification;
-  onEdit: () => void;
+  onEdit?: () => void;
+  onDuplicate?: () => void;
   onDelete: () => void;
 };
 
-export function NotificationCard({ notification, onEdit, onDelete }: Props) {
+export function NotificationCard({
+  notification,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: Props) {
   const chips = notificationChips(notification);
   return (
     <div className="flex items-center gap-6 rounded-[12px] bg-white p-4 shadow-[0_4px_8px_-2px_rgba(16,24,40,0.05),0_2px_4px_-2px_rgba(16,24,40,0.05)]">
@@ -35,13 +41,24 @@ export function NotificationCard({ notification, onEdit, onDelete }: Props) {
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-purple-lighter px-4 py-2 text-[14px] font-medium text-[#0E131F] transition-colors hover:bg-grey-lighter"
-        >
-          Редактировать
-        </button>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-purple-lighter px-4 py-2 text-[14px] font-medium text-[#0E131F] transition-colors hover:bg-grey-lighter"
+          >
+            Редактировать
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            type="button"
+            onClick={onDuplicate}
+            className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-purple-lighter px-4 py-2 text-[14px] font-medium text-[#0E131F] transition-colors hover:bg-grey-lighter"
+          >
+            Дублировать
+          </button>
+        )}
         <button
           type="button"
           onClick={onDelete}
