@@ -120,16 +120,26 @@ class _AttachmentTile extends StatelessWidget {
     required this.onRight,
   });
 
-  Future<void> _open() async {
+  Future<void> _openExternal() async {
     final uri = Uri.parse(api.resolveFileUrl(attachment.url));
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _openImage(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black,
+      useSafeArea: false,
+      builder: (_) =>
+          _FullscreenImageViewer(url: api.resolveFileUrl(attachment.url)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (attachment.isImage) {
       return GestureDetector(
-        onTap: _open,
+        onTap: () => _openImage(context),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.network(
@@ -152,7 +162,7 @@ class _AttachmentTile extends StatelessWidget {
     }
     final fg = onRight ? Colors.white : Colors.black87;
     return InkWell(
-      onTap: _open,
+      onTap: _openExternal,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
@@ -184,6 +194,68 @@ class _AttachmentTile extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FullscreenImageViewer extends StatelessWidget {
+  final String url;
+
+  const _FullscreenImageViewer({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: InteractiveViewer(
+                  minScale: 1.0,
+                  maxScale: 5.0,
+                  child: Center(
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white70,
+                        size: 64,
+                      ),
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return const SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ),
           ],

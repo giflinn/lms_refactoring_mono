@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { Paperclip, FileText } from "lucide-react";
+import { Paperclip, FileText, X } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import type { ChatMessage, ChatUserSummary } from "../types";
 import { formatTime, formatFileSize } from "../format";
@@ -23,6 +24,8 @@ export function MessageBubble({
   sender,
   showAvatar,
 }: Props) {
+  const [openImage, setOpenImage] = useState<string | null>(null);
+
   if (message.kind === "system" || position === "center") {
     return (
       <div className="my-1 flex items-center justify-center">
@@ -65,13 +68,17 @@ export function MessageBubble({
             {message.attachments.map((a) => (
               <div key={a.url}>
                 {isImage(a.mime) ? (
-                  <a href={fileUrl(a.url)} target="_blank" rel="noreferrer">
+                  <button
+                    type="button"
+                    onClick={() => setOpenImage(fileUrl(a.url))}
+                    className="block cursor-zoom-in"
+                  >
                     <img
                       src={fileUrl(a.url)}
                       alt={a.name}
                       className="max-h-[240px] max-w-full rounded-[8px] object-cover"
                     />
-                  </a>
+                  </button>
                 ) : (
                   <a
                     href={fileUrl(a.url)}
@@ -115,6 +122,47 @@ export function MessageBubble({
           {formatTime(message.createdAt)}
         </span>
       </div>
+      {openImage && (
+        <ImageLightbox src={openImage} onClose={() => setOpenImage(null)} />
+      )}
+    </div>
+  );
+}
+
+function ImageLightbox({
+  src,
+  onClose,
+}: {
+  src: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute top-4 right-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+      >
+        <X className="h-5 w-5" />
+      </button>
+      <img
+        src={src}
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-full max-w-full object-contain"
+      />
     </div>
   );
 }
