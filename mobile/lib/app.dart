@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/design/tokens.dart';
 import 'core/domain/app_user.dart';
 import 'core/router/app_router.dart';
 import 'features/auth/presentation/controller/auth_controller.dart';
@@ -38,6 +39,21 @@ class _AppState extends ConsumerState<App> {
     return MaterialApp.router(
       title: 'Slyamova Zhanna',
       debugShowCheckedModeBanner: false,
+      // Brand purple under the navigator so the route transition doesn't
+      // flash white. ZoomPageTransitionsBuilder paints its own backdrop from
+      // colorScheme.surface unless backgroundColor is set explicitly — that's
+      // the source of the flicker, not Scaffold.backgroundColor.
+      theme: ThemeData(
+        scaffoldBackgroundColor: AppColors.purplePrimary,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: ZoomPageTransitionsBuilder(
+              backgroundColor: AppColors.purplePrimary,
+            ),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
       routerConfig: ref.watch(routerProvider),
     );
   }

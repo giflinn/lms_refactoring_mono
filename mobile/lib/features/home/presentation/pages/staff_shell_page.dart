@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/widgets/brand_logotype.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
-import '../../../../core/widgets/brand_logotype.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../../../chat/presentation/pages/staff_chat_list_page.dart';
 import '../widgets/role_bottom_nav.dart';
 import 'under_construction_page.dart';
+
+const _chatSortLabels = {
+  'name': 'Сортировать А-Я',
+  'newest': 'Сначала новые',
+  'oldest': 'Сначала старые',
+};
 
 class StaffShellPage extends ConsumerStatefulWidget {
   const StaffShellPage({super.key});
@@ -86,6 +94,7 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
               const BrandLogotype(height: 26),
             ],
           ),
+          actions: _index == 0 ? const [_ChatSortMenu()] : null,
         ),
         body: IndexedStack(
           index: _index,
@@ -100,6 +109,42 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
           currentIndex: _index,
           onTap: (i) => setState(() => _index = i),
         ),
+      ),
+    );
+  }
+}
+
+/// Sort dropdown for the chat tab. Lives in the shell appbar (visible only on
+/// the chat tab) rather than inside the chat list page so the topbar exposes
+/// it next to the avatar+logo per Figma.
+class _ChatSortMenu extends ConsumerWidget {
+  const _ChatSortMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sort = ref.watch(staffThreadsProvider).value?.sort ?? 'newest';
+    return PopupMenuButton<String>(
+      color: AppColors.purpleDark,
+      initialValue: sort,
+      tooltip: 'Сортировка',
+      onSelected: (v) =>
+          ref.read(staffThreadsProvider.notifier).setSort(v),
+      itemBuilder: (_) => _chatSortLabels.entries
+          .map(
+            (e) => PopupMenuItem<String>(
+              value: e.key,
+              child: Text(
+                e.value,
+                style: const TextStyle(color: AppColors.white),
+              ),
+            ),
+          )
+          .toList(),
+      icon: SvgPicture.asset(
+        'assets/icons/chat/sort.svg',
+        width: 24,
+        height: 24,
+        colorFilter: const ColorFilter.mode(AppColors.white, BlendMode.srcIn),
       ),
     );
   }

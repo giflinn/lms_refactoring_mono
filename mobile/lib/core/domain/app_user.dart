@@ -1,4 +1,5 @@
 import 'role.dart';
+import 'server_time.dart';
 
 /// The signed-in user's profile, as stored in our Postgres `users` table and
 /// returned by /me and /auth/sync. Cross-feature: every screen that gates on
@@ -43,7 +44,7 @@ class AppUser {
       managerCode: json['managerCode'] as String?,
       managerId: json['managerId'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: parseServerTime(json['createdAt'] as String),
     );
   }
 }

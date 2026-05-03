@@ -3,6 +3,8 @@
 // additions on either side need to be applied here as well — there's no
 // codegen.
 
+import '../../../core/domain/server_time.dart';
+
 class ChatUserSummary {
   final String id;
   final String firstName;
@@ -30,9 +32,7 @@ class ChatUserSummary {
       avatarUrl: json['avatarUrl'] as String?,
       role: json['role'] as String,
       online: (json['online'] as bool?) ?? false,
-      lastSeenAt: json['lastSeenAt'] != null
-          ? DateTime.parse(json['lastSeenAt'] as String)
-          : null,
+      lastSeenAt: parseServerTimeOpt(json['lastSeenAt'] as String?),
     );
   }
 
@@ -84,12 +84,10 @@ class ChatThread {
       manager: json['manager'] != null
           ? ChatUserSummary.fromJson(json['manager'] as Map<String, dynamic>)
           : null,
-      lastMessageAt: json['lastMessageAt'] != null
-          ? DateTime.parse(json['lastMessageAt'] as String)
-          : null,
+      lastMessageAt: parseServerTimeOpt(json['lastMessageAt'] as String?),
       lastMessagePreview: json['lastMessagePreview'] as String?,
       unreadCount: (json['unreadCount'] as int?) ?? 0,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: parseServerTime(json['createdAt'] as String),
     );
   }
 }
@@ -156,7 +154,7 @@ class ChatMessage {
       body: json['body'] as String?,
       attachments: att,
       kind: (json['kind'] as String?) ?? 'text',
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: parseServerTime(json['createdAt'] as String),
     );
   }
 

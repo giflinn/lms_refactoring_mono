@@ -16,81 +16,125 @@ class ChatListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasUnread = thread.unreadCount > 0;
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ChatAvatar(user: thread.client, size: 44),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          thread.client.fullName,
-                          style: const TextStyle(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+        padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ChatAvatar(user: thread.client, size: 60),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Color(0x33FFFFFF),
+                        width: 0.5,
                       ),
-                      Text(
-                        formatListStamp(thread.lastMessageAt),
-                        style: TextStyle(
-                          color: AppColors.white.withValues(alpha: 0.6),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
-                        child: Text(
-                          thread.lastMessagePreview ?? 'Нет сообщений',
-                          style: TextStyle(
-                            color: AppColors.white.withValues(alpha: 0.7),
-                            fontSize: 12,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                thread.client.fullName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                thread.lastMessagePreview ?? 'Нет сообщений',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.purpleTertiary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (thread.unreadCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          margin: const EdgeInsets.only(left: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.yellowGradientBottom,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            thread.unreadCount > 9
-                                ? '9+'
-                                : thread.unreadCount.toString(),
-                            style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          mainAxisAlignment: hasUnread
+                              ? MainAxisAlignment.spaceBetween
+                              : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            SizedBox(
+                              width: 41,
+                              child: Text(
+                                formatListStamp(thread.lastMessageAt),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  color: AppColors.purpleTertiary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  height: 16 / 14,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (hasUnread) _UnreadBadge(count: thread.unreadCount),
+                          ],
                         ),
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  final int count;
+  const _UnreadBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : count.toString();
+    return Container(
+      height: 24,
+      constraints: const BoxConstraints(minWidth: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.yellowPrimary,
+        borderRadius: BorderRadius.circular(1000),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.purpleDark,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

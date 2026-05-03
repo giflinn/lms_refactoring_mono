@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import '../../../core/domain/server_time.dart';
 import '../../../core/log.dart';
 import '../../../core/network/api_provider.dart';
 import '../domain/chat_models.dart';
@@ -82,7 +83,7 @@ class ChatSocket {
         _messageRead.add((
           threadId: m['threadId'] as String,
           userId: m['userId'] as String,
-          at: DateTime.parse(m['lastReadAt'] as String),
+          at: parseServerTime(m['lastReadAt'] as String),
         ));
       } catch (_) {}
     });
@@ -92,9 +93,7 @@ class ChatSocket {
         _presence.add((
           userId: m['userId'] as String,
           online: m['online'] as bool,
-          lastSeenAt: m['lastSeenAt'] != null
-              ? DateTime.parse(m['lastSeenAt'] as String)
-              : null,
+          lastSeenAt: parseServerTimeOpt(m['lastSeenAt'] as String?),
         ));
       } catch (_) {}
     });

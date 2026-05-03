@@ -1,3 +1,5 @@
+import '../../../core/domain/server_time.dart';
+
 /// Cover rendering mode mirrored from the backend enum. Determines how the
 /// product card is composed:
 /// - [preset]      → no image; built-in purple gradient + overlay (chip, title,
@@ -112,8 +114,8 @@ class AvailableStart {
 
   factory AvailableStart.fromJson(Map<String, dynamic> json) {
     return AvailableStart(
-      startsAt: DateTime.parse(json['startsAt'] as String),
-      endsAt: DateTime.parse(json['endsAt'] as String),
+      startsAt: parseServerTime(json['startsAt'] as String),
+      endsAt: parseServerTime(json['endsAt'] as String),
     );
   }
 }

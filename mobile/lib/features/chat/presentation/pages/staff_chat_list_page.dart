@@ -7,12 +7,6 @@ import '../controller/chat_controllers.dart';
 import '../widgets/chat_empty_state.dart';
 import '../widgets/chat_list_item.dart';
 
-const _sortLabels = {
-  'name': 'Сортировать А-Я',
-  'newest': 'Сначала новые',
-  'oldest': 'Сначала старые',
-};
-
 class StaffChatListPage extends ConsumerWidget {
   const StaffChatListPage({super.key});
 
@@ -35,71 +29,23 @@ class StaffChatListPage extends ConsumerWidget {
             ),
             data: (s) {
               final threads = s.threads;
-              return Column(
-                children: [
-                  _Header(
-                    sort: s.sort,
-                    onSortChanged: (v) =>
-                        ref.read(staffThreadsProvider.notifier).setSort(v),
+              if (threads.isEmpty) return _StaffEmpty();
+              return RefreshIndicator(
+                color: AppColors.purplePrimary,
+                onRefresh: () =>
+                    ref.read(staffThreadsProvider.notifier).refresh(),
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: threads.length,
+                  itemBuilder: (_, i) => ChatListItem(
+                    thread: threads[i],
+                    onTap: () => context.push('/staff/chat/${threads[i].id}'),
                   ),
-                  Expanded(
-                    child: threads.isEmpty
-                        ? _StaffEmpty()
-                        : RefreshIndicator(
-                            color: AppColors.purplePrimary,
-                            onRefresh: () => ref
-                                .read(staffThreadsProvider.notifier)
-                                .refresh(),
-                            child: ListView.builder(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              itemCount: threads.length,
-                              itemBuilder: (_, i) => ChatListItem(
-                                thread: threads[i],
-                                onTap: () => context
-                                    .push('/staff/chat/${threads[i].id}'),
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
+                ),
               );
             },
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final String sort;
-  final void Function(String) onSortChanged;
-
-  const _Header({required this.sort, required this.onSortChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-      child: Row(
-        children: [
-          const Spacer(),
-          PopupMenuButton<String>(
-            color: AppColors.purpleDark,
-            initialValue: sort,
-            onSelected: onSortChanged,
-            itemBuilder: (_) => _sortLabels.entries
-                .map((e) => PopupMenuItem<String>(
-                      value: e.key,
-                      child: Text(
-                        e.value,
-                        style: const TextStyle(color: AppColors.white),
-                      ),
-                    ))
-                .toList(),
-            icon: const Icon(Icons.tune, color: AppColors.white),
-          ),
-        ],
       ),
     );
   }
