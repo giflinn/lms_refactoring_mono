@@ -30,6 +30,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   late DateTime _selectedMonth; // local first-of-month at 00:00
   DateTime? _selectedDay; // local midnight of the picked day
   AvailableStart? _selectedStart;
+  bool _termsAccepted = false;
 
   @override
   void initState() {
@@ -69,18 +70,22 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           child: Column(
             children: [
               _TopBar(productId: widget.product.id),
-              Expanded(child: _Body(
-                product: widget.product,
-                selectedMonth: _selectedMonth,
-                selectedDay: _selectedDay,
-                selectedStart: _selectedStart,
-                onMonthPicked: _onMonthPicked,
-                onDayPicked: _onDayPicked,
-                onStartPicked: _onStartPicked,
-              )),
+              Expanded(
+                child: _Body(
+                  product: widget.product,
+                  selectedMonth: _selectedMonth,
+                  selectedDay: _selectedDay,
+                  selectedStart: _selectedStart,
+                  onMonthPicked: _onMonthPicked,
+                  onDayPicked: _onDayPicked,
+                  onStartPicked: _onStartPicked,
+                ),
+              ),
               ProductActionBar(
                 product: widget.product,
                 selectedStart: _selectedStart,
+                termsAccepted: _termsAccepted,
+                onTermsChanged: (v) => setState(() => _termsAccepted = v),
               ),
             ],
           ),
@@ -142,9 +147,7 @@ class _TopBar extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Не удалось обновить избранное'),
-        ),
+        const SnackBar(content: Text('Не удалось обновить избранное')),
       );
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/design/tokens.dart';
+import '../../../../core/widgets/terms_checkbox_row.dart';
 import '../../domain/product.dart';
 import '../../domain/ru_dates.dart';
 
@@ -10,9 +11,13 @@ import '../../domain/ru_dates.dart';
 class ProductActionBar extends StatelessWidget {
   final Product product;
   final AvailableStart? selectedStart;
+  final bool termsAccepted;
+  final ValueChanged<bool> onTermsChanged;
   const ProductActionBar({
     super.key,
     required this.product,
+    required this.termsAccepted,
+    required this.onTermsChanged,
     this.selectedStart,
   });
 
@@ -23,10 +28,10 @@ class ProductActionBar extends StatelessWidget {
     final hasSelection = selectedStart != null;
     final subtitleText = _subtitleText(product, selectedStart);
     // CTA: bookable products require a selected start; non-bookable products
-    // keep the "checkout in development" stub. Either path shows the
-    // "В разработке" snackbar when tapped — only the active/dim styling
-    // differs.
-    final canTap = isBookable ? hasSelection : true;
+    // keep the "checkout in development" stub. Terms must always be accepted.
+    // Either path shows the "В разработке" snackbar when tapped — only the
+    // active/dim styling differs.
+    final canTap = (isBookable ? hasSelection : true) && termsAccepted;
 
     return Container(
       decoration: BoxDecoration(
@@ -49,49 +54,62 @@ class ProductActionBar extends StatelessWidget {
         12,
         bottomInset > 0 ? bottomInset : 12,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (subtitleText != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      subtitleText,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 12),
+            child: TermsCheckboxRow(
+              value: termsAccepted,
+              onChanged: onTermsChanged,
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (subtitleText != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          subtitleText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.purpleTertiary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            height: 1.34,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ),
+                    Text(
+                      _formatPrice(product.price),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.purpleTertiary,
-                        fontSize: 15,
+                      style: TextStyle(
+                        color: product.price == null
+                            ? AppColors.purpleTertiary
+                            : AppColors.yellowPrimary,
+                        fontSize: 17,
                         fontWeight: FontWeight.w500,
-                        height: 1.34,
+                        height: 1.3,
                         letterSpacing: -0.4,
                       ),
                     ),
-                  ),
-                Text(
-                  _formatPrice(product.price),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: product.price == null
-                        ? AppColors.purpleTertiary
-                        : AppColors.yellowPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
-                    letterSpacing: -0.4,
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              _BuyButton(enabled: canTap),
+            ],
           ),
-          const SizedBox(width: 12),
-          _BuyButton(enabled: canTap),
         ],
       ),
     );
@@ -112,10 +130,7 @@ class _BuyButton extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            AppColors.yellowGradientTop,
-            AppColors.yellowGradientBottom,
-          ],
+          colors: [AppColors.yellowGradientTop, AppColors.yellowGradientBottom],
         ),
         borderRadius: BorderRadius.circular(14),
       ),

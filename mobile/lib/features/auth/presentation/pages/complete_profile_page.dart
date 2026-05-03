@@ -8,12 +8,12 @@ import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/keyboard_dismiss.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/terms_checkbox_row.dart';
 import '../../data/auth_api.dart';
 import '../../domain/registration_data.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/checkbox_row.dart';
 import '../widgets/phone_field.dart';
 
 /// Shown after a successful Google sign-in for users who don't yet have a row

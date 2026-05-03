@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/design/tokens.dart';
+import '../design/tokens.dart';
 
 /// "Соглашаюсь с условиями оферты и политикой конфиденциальности" row with
 /// the orange-checked box from the design. The two phrases are tappable
@@ -52,8 +52,11 @@ class TermsCheckboxRow extends StatelessWidget {
                   ),
                 ),
                 child: value
-                    ? const Icon(Icons.check,
-                        size: 16, color: AppColors.purpleDark)
+                    ? const Icon(
+                        Icons.check,
+                        size: 16,
+                        color: AppColors.purpleDark,
+                      )
                     : null,
               ),
             ),
