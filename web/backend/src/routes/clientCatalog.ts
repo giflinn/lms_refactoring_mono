@@ -289,6 +289,7 @@ clientCatalogRouter.get(
         .orderBy(asc(coachSlots.startsAt));
 
       const durationMs = product.durationMinutes * 60_000;
+      const nowMs = Date.now();
       const starts: { startsAt: string; endsAt: string }[] = [];
       for (const s of slotRows) {
         const blockStart = s.startsAt.getTime();
@@ -302,6 +303,11 @@ clientCatalogRouter.get(
           // doesn't bleed into the next month's response.
           if (endMs <= from.getTime()) continue;
           if (startMs >= to.getTime()) break;
+          // Skip starts that have already begun. The current month's `from`
+          // is the 1st of the month at 00:00, so without this check the
+          // earlier days of the current month would surface as bookable
+          // — which they aren't.
+          if (startMs < nowMs) continue;
           starts.push({
             startsAt: new Date(startMs).toISOString(),
             endsAt: new Date(endMs).toISOString(),
