@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/design/tokens.dart';
 import '../../domain/chat_format.dart';
@@ -10,11 +11,7 @@ class MessageInput extends StatefulWidget {
   final SendCallback onSend;
   final bool enabled;
 
-  const MessageInput({
-    super.key,
-    required this.onSend,
-    this.enabled = true,
-  });
+  const MessageInput({super.key, required this.onSend, this.enabled = true});
 
   @override
   State<MessageInput> createState() => _MessageInputState();
@@ -44,8 +41,10 @@ class _MessageInputState extends State<MessageInput> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.image_outlined,
-                    color: AppColors.white),
+                leading: const Icon(
+                  Icons.image_outlined,
+                  color: AppColors.white,
+                ),
                 title: const Text(
                   'Картинка из галереи',
                   style: TextStyle(color: AppColors.white),
@@ -53,8 +52,10 @@ class _MessageInputState extends State<MessageInput> {
                 onTap: () => Navigator.of(ctx).pop('image'),
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined,
-                    color: AppColors.white),
+                leading: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppColors.white,
+                ),
                 title: const Text(
                   'Сфотографировать',
                   style: TextStyle(color: AppColors.white),
@@ -134,10 +135,14 @@ class _MessageInputState extends State<MessageInput> {
             child: Row(
               children: [
                 IconButton(
-                  onPressed:
-                      widget.enabled && !_sending ? _pickAttachment : null,
-                  icon: const Icon(Icons.attach_file,
-                      color: AppColors.white, size: 20),
+                  onPressed: widget.enabled && !_sending
+                      ? _pickAttachment
+                      : null,
+                  icon: const Icon(
+                    Icons.attach_file,
+                    color: AppColors.white,
+                    size: 20,
+                  ),
                 ),
                 Expanded(
                   child: TextField(
@@ -154,24 +159,35 @@ class _MessageInputState extends State<MessageInput> {
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 8),
+                        horizontal: 4,
+                        vertical: 8,
+                      ),
                     ),
                     onSubmitted: (_) => _send(),
                   ),
                 ),
                 IconButton(
                   onPressed: widget.enabled && !_sending ? _send : null,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  iconSize: 36,
                   icon: _sending
                       ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.white,
+                          width: 36,
+                          height: 36,
+                          child: Padding(
+                            padding: EdgeInsets.all(9),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.white,
+                            ),
                           ),
                         )
-                      : const Icon(Icons.send,
-                          color: AppColors.white, size: 20),
+                      : SvgPicture.asset(
+                          'assets/icons/chat/send.svg',
+                          width: 36,
+                          height: 36,
+                        ),
                 ),
               ],
             ),
@@ -220,8 +236,7 @@ class _AttachmentChip extends StatelessWidget {
           const SizedBox(width: 4),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close,
-                size: 14, color: AppColors.white),
+            child: const Icon(Icons.close, size: 14, color: AppColors.white),
           ),
         ],
       ),

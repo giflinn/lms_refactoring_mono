@@ -17,10 +17,17 @@ class MessageBubble extends ConsumerWidget {
   final ChatMessage message;
   final BubbleSide side;
 
+  /// Optional sender label rendered above the bubble. The page passes a name
+  /// only on the first message in a consecutive run from the same sender,
+  /// so chats with multiple staff (e.g. senior manager joining a thread)
+  /// stay attributable without putting a tag on every bubble.
+  final String? senderLabel;
+
   const MessageBubble({
     super.key,
     required this.message,
     required this.side,
+    this.senderLabel,
   });
 
   @override
@@ -42,66 +49,88 @@ class MessageBubble extends ConsumerWidget {
       );
     }
     final isRight = side == BubbleSide.right;
-    final bg = isRight
-        ? AppColors.purpleDark
-        : AppColors.yellowGradientTop;
+    final bg = isRight ? AppColors.purpleDark : AppColors.yellowGradientTop;
     final fg = isRight ? AppColors.white : Colors.black87;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment:
-            isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: isRight
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.72,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(14),
-                  topRight: const Radius.circular(14),
-                  bottomLeft:
-                      Radius.circular(isRight ? 14 : 4),
-                  bottomRight:
-                      Radius.circular(isRight ? 4 : 14),
+          if (senderLabel != null && senderLabel!.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(
+                left: isRight ? 0 : 8,
+                right: isRight ? 8 : 0,
+                bottom: 2,
+              ),
+              child: Text(
+                senderLabel!,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.white.withValues(alpha: 0.75),
                 ),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final a in message.attachments)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: _AttachmentTile(
-                        attachment: a,
-                        api: api,
-                        onRight: isRight,
-                      ),
-                    ),
-                  if (message.body != null && message.body!.isNotEmpty)
-                    Text(
-                      message.body!,
-                      style: TextStyle(fontSize: 14, color: fg),
-                    ),
-                  const SizedBox(height: 2),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Text(
-                      formatTime(message.createdAt),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: fg.withValues(alpha: 0.7),
-                      ),
+            ),
+          Row(
+            mainAxisAlignment: isRight
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.72,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(14),
+                      topRight: const Radius.circular(14),
+                      bottomLeft: Radius.circular(isRight ? 14 : 4),
+                      bottomRight: Radius.circular(isRight ? 4 : 14),
                     ),
                   ),
-                ],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final a in message.attachments)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _AttachmentTile(
+                            attachment: a,
+                            api: api,
+                            onRight: isRight,
+                          ),
+                        ),
+                      if (message.body != null && message.body!.isNotEmpty)
+                        Text(
+                          message.body!,
+                          style: TextStyle(fontSize: 14, color: fg),
+                        ),
+                      const SizedBox(height: 2),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Text(
+                          formatTime(message.createdAt),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: fg.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

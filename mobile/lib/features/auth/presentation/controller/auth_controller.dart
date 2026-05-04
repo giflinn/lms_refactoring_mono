@@ -6,19 +6,23 @@ import '../../../../core/log.dart';
 import '../../../catalog/presentation/controller/favorite_ids_controller.dart';
 import '../../../catalog/presentation/controller/favorite_products_controller.dart';
 import '../../../catalog/presentation/controller/home_controller.dart';
+import '../../../chat/data/chat_socket.dart';
+import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../../data/auth_api.dart';
 import '../../data/auth_api_provider.dart';
 import '../../domain/registration_data.dart';
 
-// Catalog/favorites providers are imported here so signOut() can invalidate
-// them when the session ends. Crosses the "no presentation imports across
-// features" guideline deliberately — the alternatives (a clearables registry
-// or routing-side invalidation) are heavier for one-three-providers cleanup.
-// If a third feature ever needs the same lifecycle hook, promote to a small
-// core/lifecycle/ helper.
+// Catalog/favorites + chat providers are imported here so signOut() can
+// invalidate them when the session ends — otherwise account B inherits
+// account A's hearts, catalog snapshot, threads, and (worst) socket bound
+// to A's token. Crosses the "no presentation imports across features"
+// guideline deliberately; the alternatives (a clearables registry or
+// routing-side invalidation) are heavier for this small cleanup. If a
+// fourth feature joins, promote to a `core/lifecycle/` helper.
 
-final authProvider =
-    AsyncNotifierProvider<AuthController, AppUser?>(AuthController.new);
+final authProvider = AsyncNotifierProvider<AuthController, AppUser?>(
+  AuthController.new,
+);
 
 /// Thrown by [signIn] when Firebase auth succeeded but the user hasn't
 /// confirmed their email yet. The login page catches it to render an error
@@ -165,7 +169,8 @@ class AuthController extends AsyncNotifier<AppUser?> {
       return const GoogleSignInLoggedIn();
     }
 
-    final fullName = (fbUser.displayName ?? googleUser.displayName ?? '').trim();
+    final fullName = (fbUser.displayName ?? googleUser.displayName ?? '')
+        .trim();
     final parts = fullName.split(RegExp(r'\s+'));
     final firstName = parts.isNotEmpty ? parts.first : '';
     final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -200,7 +205,8 @@ class AuthController extends AsyncNotifier<AppUser?> {
       idToken: token,
       data: RegistrationData(
         email: fbUser.email!,
-        password: '', // not used by /auth/sync; firebase already has the OAuth creds
+        password:
+            '', // not used by /auth/sync; firebase already has the OAuth creds
         firstName: firstName,
         lastName: lastName,
         phone: phone,
@@ -237,17 +243,15 @@ class AuthController extends AsyncNotifier<AppUser?> {
   Future<String> verifyResetCode({
     required String email,
     required String code,
-  }) =>
-      _api.verifyResetCode(email: email, code: code);
+  }) => _api.verifyResetCode(email: email, code: code);
 
   Future<void> completePasswordReset({
     required String resetToken,
     required String newPassword,
-  }) =>
-      _api.completePasswordReset(
-        resetToken: resetToken,
-        newPassword: newPassword,
-      );
+  }) => _api.completePasswordReset(
+    resetToken: resetToken,
+    newPassword: newPassword,
+  );
 
   Future<void> signOut() async {
     try {
@@ -257,10 +261,18 @@ class AuthController extends AsyncNotifier<AppUser?> {
     }
     await fb.FirebaseAuth.instance.signOut();
     // Clear cross-session caches so the next user doesn't inherit hearts /
-    // catalog snapshot from this session.
+    // catalog snapshot / chat threads / socket from this session.
     ref.invalidate(favoriteIdsProvider);
     ref.invalidate(favoriteProductsProvider);
     ref.invalidate(homeCatalogProvider);
+    // Chat: invalidate stateful providers BEFORE the socket — their
+    // onDispose cancels stream subscriptions on the live socket; tearing
+    // the socket down first would leave them subscribing to a closed
+    // controller. Socket invalidation triggers ChatSocket.dispose().
+    ref.invalidate(clientChatProvider);
+    ref.invalidate(staffThreadsProvider);
+    ref.invalidate(unreadCountProvider);
+    ref.invalidate(chatSocketProvider);
     state = const AsyncData(null);
   }
 }

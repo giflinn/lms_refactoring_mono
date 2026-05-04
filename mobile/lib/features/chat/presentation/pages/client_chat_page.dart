@@ -48,10 +48,7 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
 
   Future<void> _maybeLoadOlder() async {
     final s = ref.read(clientChatProvider).value;
-    if (s == null ||
-        s.loadingOlder ||
-        !s.hasMoreOlder ||
-        s.messages.isEmpty) {
+    if (s == null || s.loadingOlder || !s.hasMoreOlder || s.messages.isEmpty) {
       return;
     }
     // No scroll-position fix-up needed: with reverse: true, prepending older
@@ -116,50 +113,62 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
               // No initial jump needed: reverse: true ListView starts at
               // pixel 0 = bottom = latest message.
               return Column(
-              children: [
-                _Header(
-                  manager: s.thread?.manager,
-                  onHelpTap: () {
-                    final info = supportAsync.maybeWhen(
-                      data: (v) => v,
-                      orElse: () =>
-                          const SupportInfo(whatsapp: '', hours: ''),
-                    );
-                    ChatHelpDialog.show(context, info);
-                  },
-                ),
-                Expanded(
-                  child: s.messages.isEmpty
-                      ? _ClientEmpty(
-                          hours: supportAsync.maybeWhen(
-                            data: (v) => v.hours,
-                            orElse: () => '',
+                children: [
+                  _Header(
+                    manager: s.thread?.manager,
+                    onHelpTap: () {
+                      final info = supportAsync.maybeWhen(
+                        data: (v) => v,
+                        orElse: () =>
+                            const SupportInfo(whatsapp: '', hours: ''),
+                      );
+                      ChatHelpDialog.show(context, info);
+                    },
+                  ),
+                  Expanded(
+                    child: s.messages.isEmpty
+                        ? _ClientEmpty(
+                            hours: supportAsync.maybeWhen(
+                              data: (v) => v.hours,
+                              orElse: () => '',
+                            ),
+                          )
+                        : ChatMessagesView(
+                            controller: _scroll,
+                            messages: s.messages,
+                            resolveSide: (m) {
+                              if (m.isSystem) return BubbleSide.center;
+                              // Client viewer: own messages → right.
+                              if (s.thread != null &&
+                                  m.senderId == s.thread!.client.id) {
+                                return BubbleSide.right;
+                              }
+                              return BubbleSide.left;
+                            },
+                            // Label every staff message so the client can tell
+                            // when a senior manager joins the conversation
+                            // alongside their assigned manager. Own messages
+                            // stay un-labelled — no need to tag yourself.
+                            resolveLabel: (m) {
+                              if (s.thread != null &&
+                                  m.senderId == s.thread!.client.id) {
+                                return null;
+                              }
+                              final f = m.sender?.firstName.trim() ?? '';
+                              return f.isEmpty ? null : f;
+                            },
                           ),
-                        )
-                      : ChatMessagesView(
-                          controller: _scroll,
-                          messages: s.messages,
-                          resolveSide: (m) {
-                            if (m.isSystem) return BubbleSide.center;
-                            // Client viewer: own messages → right.
-                            if (s.thread != null &&
-                                m.senderId == s.thread!.client.id) {
-                              return BubbleSide.right;
-                            }
-                            return BubbleSide.left;
-                          },
-                        ),
-                ),
-                MessageInput(
-                  onSend: (body, files) async {
-                    await ref
-                        .read(clientChatProvider.notifier)
-                        .sendMessage(body, files);
-                    _scrollToBottom();
-                  },
-                ),
-              ],
-            );
+                  ),
+                  MessageInput(
+                    onSend: (body, files) async {
+                      await ref
+                          .read(clientChatProvider.notifier)
+                          .sendMessage(body, files);
+                      _scrollToBottom();
+                    },
+                  ),
+                ],
+              );
             },
           ),
         ),
@@ -242,9 +251,6 @@ class _ClientEmpty extends StatelessWidget {
     final hoursLine = hours.isNotEmpty
         ? 'Напишите сообщение чтобы начать общение с менеджером. Часы работы $hours'
         : 'Напишите сообщение чтобы начать общение с менеджером.';
-    return ChatEmptyState(
-      title: 'Сообщений пока нет...',
-      subtitle: hoursLine,
-    );
+    return ChatEmptyState(title: 'Сообщений пока нет...', subtitle: hoursLine);
   }
 }

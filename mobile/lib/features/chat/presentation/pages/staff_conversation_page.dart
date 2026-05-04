@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../data/chat_api_provider.dart';
 import '../../data/chat_socket.dart';
 import '../../domain/chat_format.dart';
@@ -28,12 +29,11 @@ class StaffConversationPage extends ConsumerStatefulWidget {
       _StaffConversationPageState();
 }
 
-class _StaffConversationPageState
-    extends ConsumerState<StaffConversationPage> {
+class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
   final _scroll = ScrollController();
   StreamSubscription<ChatMessage>? _msgSub;
   StreamSubscription<({String userId, bool online, DateTime? lastSeenAt})>?
-      _presSub;
+  _presSub;
 
   static const _pageSize = 50;
 
@@ -76,8 +76,10 @@ class _StaffConversationPageState
       final socket = ref.read(chatSocketProvider);
       await socket.connect();
       final token = await _idToken();
-      final detail =
-          await api.getThread(idToken: token, threadId: widget.threadId);
+      final detail = await api.getThread(
+        idToken: token,
+        threadId: widget.threadId,
+      );
       final messages = await api.listMessages(
         idToken: token,
         threadId: widget.threadId,
@@ -114,23 +116,23 @@ class _StaffConversationPageState
       _messages = [..._messages, m];
     });
     _scrollToBottom();
-    unawaited(_idToken().then((token) =>
-        ref.read(chatApiProvider).markRead(
-              idToken: token,
-              threadId: widget.threadId,
-            )));
+    unawaited(
+      _idToken().then(
+        (token) => ref
+            .read(chatApiProvider)
+            .markRead(idToken: token, threadId: widget.threadId),
+      ),
+    );
   }
 
-  void _onPresence(
-      ({String userId, bool online, DateTime? lastSeenAt}) e) {
+  void _onPresence(({String userId, bool online, DateTime? lastSeenAt}) e) {
     if (!mounted || _thread == null) return;
     final t = _thread!;
     if (t.client.id == e.userId) {
       setState(() {
         _thread = ChatThread(
           id: t.id,
-          client:
-              t.client.copyWith(online: e.online, lastSeenAt: e.lastSeenAt),
+          client: t.client.copyWith(online: e.online, lastSeenAt: e.lastSeenAt),
           manager: t.manager,
           lastMessageAt: t.lastMessageAt,
           lastMessagePreview: t.lastMessagePreview,
@@ -260,10 +262,7 @@ class _StaffConversationPageState
                   ],
                 ),
         ),
-        body: SafeArea(
-          top: false,
-          child: _buildBody(),
-        ),
+        body: SafeArea(top: false, child: _buildBody()),
       ),
     );
   }
@@ -306,10 +305,19 @@ class _StaffConversationPageState
                     if (m.sender?.role == 'client') return BubbleSide.left;
                     return BubbleSide.right;
                   },
+                  // All staff bubbles share the right side, so without a
+                  // label it's not obvious which colleague sent a given
+                  // message once a senior manager joins the thread.
+                  // Suppress the label only on the viewer's own bubbles.
+                  resolveLabel: (m) {
+                    final selfId = ref.read(authProvider).value?.id;
+                    if (selfId != null && m.senderId == selfId) return null;
+                    final f = m.sender?.firstName.trim() ?? '';
+                    return f.isEmpty ? null : f;
+                  },
                 ),
         ),
-        if (_access?.canWrite == true)
-          MessageInput(onSend: _send),
+        if (_access?.canWrite == true) MessageInput(onSend: _send),
       ],
     );
   }

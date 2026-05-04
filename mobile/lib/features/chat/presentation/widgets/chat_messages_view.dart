@@ -6,12 +6,19 @@ import 'message_bubble.dart';
 
 typedef BubbleSideResolver = BubbleSide Function(ChatMessage m);
 
+/// Returns the label to render above [m]'s bubble (typically the sender's
+/// first name) — or null to suppress it (e.g. for the viewer's own messages).
+/// The view only invokes this for the first message in each consecutive
+/// same-sender run, so the label appears once per "burst" not per bubble.
+typedef BubbleLabelResolver = String? Function(ChatMessage m);
+
 /// Scrollable list of message bubbles grouped by day. Used by both the client
 /// chat screen and the staff conversation screen — they only differ in how
 /// `resolveSide` decides which side a sender lands on.
 class ChatMessagesView extends StatelessWidget {
   final List<ChatMessage> messages;
   final BubbleSideResolver resolveSide;
+  final BubbleLabelResolver? resolveLabel;
   final ScrollController? controller;
   final EdgeInsets padding;
 
@@ -19,6 +26,7 @@ class ChatMessagesView extends StatelessWidget {
     super.key,
     required this.messages,
     required this.resolveSide,
+    this.resolveLabel,
     this.controller,
     this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
   });
@@ -52,13 +60,29 @@ class ChatMessagesView extends StatelessWidget {
   List<Widget> _groupByDay(List<ChatMessage> ms) {
     final out = <Widget>[];
     String? lastKey;
+    String? lastSenderId;
     for (final m in ms) {
       final key = dayKey(m.createdAt);
-      if (key != lastKey) {
+      final dayChanged = key != lastKey;
+      if (dayChanged) {
         out.add(_DaySeparator(label: formatDaySeparator(m.createdAt)));
         lastKey = key;
+        // A new day always restarts the burst — even from the same sender,
+        // so the day's first bubble carries the label.
+        lastSenderId = null;
       }
-      out.add(MessageBubble(message: m, side: resolveSide(m)));
+      // System messages don't have a sender on screen and shouldn't break
+      // the surrounding burst — skip them entirely for label tracking.
+      String? label;
+      if (!m.isSystem) {
+        if (lastSenderId != m.senderId) {
+          label = resolveLabel?.call(m);
+        }
+        lastSenderId = m.senderId;
+      }
+      out.add(
+        MessageBubble(message: m, side: resolveSide(m), senderLabel: label),
+      );
     }
     return out;
   }
@@ -72,8 +96,7 @@ class _NoOverscrollBehavior extends MaterialScrollBehavior {
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) =>
-      child;
+  ) => child;
 }
 
 class _DaySeparator extends StatelessWidget {
