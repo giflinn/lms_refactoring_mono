@@ -26,8 +26,8 @@ export function OrdersTable({ orders, onOpen }: Props) {
           </div>
           <div aria-hidden className="flex-1" />
           <div className="w-[140px]">Статус</div>
-          <div className="w-[70px] text-right">Товаров</div>
-          <div className="w-[110px] text-right">Сумма</div>
+          <div className="w-[70px]">Товаров</div>
+          <div className="w-[110px]">Сумма</div>
           {/* CTA column has no header — matches managers/clients tables. */}
           <div className="w-[140px]" aria-hidden />
         </div>
@@ -129,11 +129,11 @@ function OrderRow({
         <div className="w-[140px]">
           <StatusBadge status={order.status} />
         </div>
-        <div className="w-[70px] text-right">{order.itemsCount}</div>
-        <div className="w-[110px] text-right font-medium text-[#0E131F]">
+        <div className="w-[70px]">{order.itemsCount}</div>
+        <div className="w-[110px] font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
-        <div className="flex w-[140px] justify-end">
+        <div className="flex w-[140px]">
           <button
             type="button"
             onClick={onOpen}
