@@ -7,18 +7,11 @@ import {
   desc,
   eq,
   ilike,
-  inArray,
   or,
-  sql,
   type SQL,
 } from "drizzle-orm";
 import { db } from "../db";
-import {
-  coachBookings,
-  orderItems,
-  orders,
-  users,
-} from "../db/schema";
+import { orderItems, orders, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole, requireStaff } from "../middleware/requireRole";
 import {
@@ -27,19 +20,26 @@ import {
   createOrderForClient,
 } from "../services/orderCreate";
 import {
-  OrderStatus,
+  FulfillmentStatus,
   OrderStatusError,
-  changeOrderStatus,
+  PaymentStatus,
+  changeOrderFulfillmentStatus,
+  changeOrderPaymentStatus,
 } from "../services/orderStatus";
 
 export const ordersRouter = Router();
 
 type StaffRole = "manager" | "senior_manager" | "admin";
 
-const VALID_STATUSES: ReadonlySet<OrderStatus> = new Set([
+const VALID_PAYMENT_STATUSES: ReadonlySet<PaymentStatus> = new Set([
   "new",
   "paid",
   "unpaid",
+  "refunded",
+]);
+const VALID_FULFILLMENT_STATUSES: ReadonlySet<FulfillmentStatus> = new Set([
+  "active",
+  "completed",
   "cancelled",
 ]);
 
@@ -61,7 +61,7 @@ function scopeFilter(actorId: string, actorRole: StaffRole): SQL | undefined {
   return undefined;
 }
 
-// GET /orders?q=&page=&pageSize=&clientId=&managerId=&status=
+// GET /orders?q=&page=&pageSize=&clientId=&managerId=&paymentStatus=&fulfillmentStatus=
 ordersRouter.get(
   "/orders",
   requireAuth,
@@ -85,13 +85,26 @@ ordersRouter.get(
         typeof req.query.managerId === "string" && req.query.managerId
           ? String(req.query.managerId)
           : null;
-      const statusRaw =
-        typeof req.query.status === "string" && req.query.status
-          ? String(req.query.status)
+      const paymentStatusRaw =
+        typeof req.query.paymentStatus === "string" && req.query.paymentStatus
+          ? String(req.query.paymentStatus)
           : null;
-      const statusFilter =
-        statusRaw && VALID_STATUSES.has(statusRaw as OrderStatus)
-          ? (statusRaw as OrderStatus)
+      const paymentStatusFilter =
+        paymentStatusRaw &&
+        VALID_PAYMENT_STATUSES.has(paymentStatusRaw as PaymentStatus)
+          ? (paymentStatusRaw as PaymentStatus)
+          : null;
+      const fulfillmentStatusRaw =
+        typeof req.query.fulfillmentStatus === "string" &&
+        req.query.fulfillmentStatus
+          ? String(req.query.fulfillmentStatus)
+          : null;
+      const fulfillmentStatusFilter =
+        fulfillmentStatusRaw &&
+        VALID_FULFILLMENT_STATUSES.has(
+          fulfillmentStatusRaw as FulfillmentStatus,
+        )
+          ? (fulfillmentStatusRaw as FulfillmentStatus)
           : null;
 
       const conditions: SQL[] = [];
@@ -100,14 +113,15 @@ ordersRouter.get(
       if (clientIdFilter) conditions.push(eq(orders.clientId, clientIdFilter));
       if (managerIdFilter)
         conditions.push(eq(orders.managerId, managerIdFilter));
-      if (statusFilter) conditions.push(eq(orders.status, statusFilter));
+      if (paymentStatusFilter)
+        conditions.push(eq(orders.paymentStatus, paymentStatusFilter));
+      if (fulfillmentStatusFilter)
+        conditions.push(
+          eq(orders.fulfillmentStatus, fulfillmentStatusFilter),
+        );
       if (q) {
         const like = `%${q}%`;
         const numeric = /^\d+$/.test(q) ? Number(q) : null;
-        // Order number exact match (when q is digits) OR client name/email
-        // substring. We do NOT join on lateral conditions inside the OR; the
-        // join itself is unconditional (every order has a client), so the OR
-        // can reference clientUsers columns directly.
         const orParts: SQL[] = [
           ilike(clientUsers.firstName, like),
           ilike(clientUsers.lastName, like),
@@ -122,8 +136,6 @@ ordersRouter.get(
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-      // Total count: separate query against the same join (so q can match
-      // client fields without losing the count).
       const totalRows = await db
         .select({ total: count() })
         .from(orders)
@@ -175,10 +187,12 @@ ordersRouter.get(
         orders: rows.map((r) => ({
           id: r.order.id,
           orderNumber: r.order.orderNumber,
-          status: r.order.status,
+          paymentStatus: r.order.paymentStatus,
+          fulfillmentStatus: r.order.fulfillmentStatus,
           totalTenge: r.order.totalTenge,
           itemsCount: Number(r.itemsCount ?? 0),
           createdAt: r.order.createdAt,
+          firstPaidAt: r.order.firstPaidAt,
           statusChangedAt: r.order.statusChangedAt,
           client: r.client as UserSummary,
           manager:
@@ -251,9 +265,11 @@ ordersRouter.get(
         order: {
           id: r.order.id,
           orderNumber: r.order.orderNumber,
-          status: r.order.status,
+          paymentStatus: r.order.paymentStatus,
+          fulfillmentStatus: r.order.fulfillmentStatus,
           totalTenge: r.order.totalTenge,
           createdAt: r.order.createdAt,
+          firstPaidAt: r.order.firstPaidAt,
           statusChangedAt: r.order.statusChangedAt,
           client: r.client as UserSummary,
           manager:
@@ -270,6 +286,7 @@ ordersRouter.get(
             quantity: it.quantity,
             bookedStart: it.bookedStart,
             bookedEnd: it.bookedEnd,
+            expiresAt: it.expiresAt,
           })),
         },
       });
@@ -321,7 +338,9 @@ ordersRouter.post(
       }
 
       const created = await createOrderForClient(actorId, input);
-      res.json({ order: { id: created.id, orderNumber: created.orderNumber } });
+      res.json({
+        order: { id: created.id, orderNumber: created.orderNumber },
+      });
     } catch (err) {
       if (err instanceof OrderCreationError) {
         const status =
@@ -336,11 +355,13 @@ ordersRouter.post(
   },
 );
 
-// PATCH /orders/:id — staff change status (or future fields). Body:
-//   { status: 'new'|'paid'|'unpaid'|'cancelled', force?: boolean }
-// `force=true` is honored only when reverting from cancelled and bookings
-// conflict; it lets staff revive the order while leaving conflicting bookings
-// cancelled.
+// PATCH /orders/:id — staff update payment and/or fulfillment status. Body:
+//   { paymentStatus?: 'new'|'paid'|'unpaid'|'refunded',
+//     fulfillmentStatus?: 'active'|'completed'|'cancelled',
+//     force?: boolean }
+// At least one of the two status fields is required. `force=true` is honored
+// only when reverting fulfillment from 'cancelled' and bookings conflict; it
+// lets staff revive the order while leaving conflicting bookings cancelled.
 ordersRouter.patch(
   "/orders/:id",
   requireAuth,
@@ -366,19 +387,52 @@ ordersRouter.patch(
         return;
       }
 
-      if (typeof body.status !== "string") {
+      const paymentStatusRaw =
+        typeof body.paymentStatus === "string" ? body.paymentStatus : null;
+      const fulfillmentStatusRaw =
+        typeof body.fulfillmentStatus === "string"
+          ? body.fulfillmentStatus
+          : null;
+      if (!paymentStatusRaw && !fulfillmentStatusRaw) {
         res.status(400).json({ error: "status_required" });
         return;
       }
-      const toStatus = body.status as OrderStatus;
-      if (!VALID_STATUSES.has(toStatus)) {
-        res.status(400).json({ error: "invalid_status" });
+      if (
+        paymentStatusRaw &&
+        !VALID_PAYMENT_STATUSES.has(paymentStatusRaw as PaymentStatus)
+      ) {
+        res.status(400).json({ error: "invalid_payment_status" });
+        return;
+      }
+      if (
+        fulfillmentStatusRaw &&
+        !VALID_FULFILLMENT_STATUSES.has(
+          fulfillmentStatusRaw as FulfillmentStatus,
+        )
+      ) {
+        res.status(400).json({ error: "invalid_fulfillment_status" });
         return;
       }
       const force = body.force === true;
 
       try {
-        await changeOrderStatus(orderId, toStatus, actorId, { force });
+        // Apply payment first so first_paid_at side-effects land before any
+        // fulfillment change in the same request observes them.
+        if (paymentStatusRaw) {
+          await changeOrderPaymentStatus(
+            orderId,
+            paymentStatusRaw as PaymentStatus,
+            actorId,
+          );
+        }
+        if (fulfillmentStatusRaw) {
+          await changeOrderFulfillmentStatus(
+            orderId,
+            fulfillmentStatusRaw as FulfillmentStatus,
+            actorId,
+            { force },
+          );
+        }
       } catch (err) {
         if (err instanceof OrderStatusError) {
           if (err.code === "booking_conflict") {
@@ -426,9 +480,11 @@ ordersRouter.patch(
         order: {
           id: r.order.id,
           orderNumber: r.order.orderNumber,
-          status: r.order.status,
+          paymentStatus: r.order.paymentStatus,
+          fulfillmentStatus: r.order.fulfillmentStatus,
           totalTenge: r.order.totalTenge,
           createdAt: r.order.createdAt,
+          firstPaidAt: r.order.firstPaidAt,
           statusChangedAt: r.order.statusChangedAt,
           client: r.client as UserSummary,
           manager:

@@ -26,6 +26,10 @@ export const productFormSchema = z
         },
         { message: "Введите число от 0 до 365" },
       ),
+    // Срок активности заказа после оплаты в днях. Пусто = бессрочно для
+    // обычных товаров; для bookable не используется (длительность в
+    // durationMinutes). Не валидируем как required — пусто допустимо.
+    activeDurationDays: z.string(),
     isPromo: z.boolean(),
     isActive: z.boolean(),
     isTopSearch: z.boolean(),
@@ -49,6 +53,27 @@ export const productFormSchema = z
           path: ["priceTenge"],
           message: "Введите целое число тенге",
         });
+      }
+    }
+    {
+      const v = vals.activeDurationDays.trim();
+      if (v !== "") {
+        if (!/^\d+$/.test(v)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["activeDurationDays"],
+            message: "Введите целое число дней",
+          });
+        } else {
+          const n = Number(v);
+          if (n <= 0 || n > 3650) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["activeDurationDays"],
+              message: "От 1 до 3650 дней",
+            });
+          }
+        }
       }
     }
     if (vals.bookingEnabled) {

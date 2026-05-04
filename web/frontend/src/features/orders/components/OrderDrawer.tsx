@@ -3,9 +3,13 @@ import { ChevronDown } from "lucide-react";
 import clsx from "clsx";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Avatar } from "../../../components/Avatar";
-import { ApiError, type OrderStatus } from "../api";
+import {
+  ApiError,
+  type FulfillmentStatus,
+  type PaymentStatus,
+} from "../api";
 import { useOrder, usePatchOrder } from "../queries";
-import { StatusMenu } from "./StatusMenu";
+import { FulfillmentStatusMenu, PaymentStatusMenu } from "./StatusMenu";
 import { BookingConflictDialog } from "./BookingConflictDialog";
 import { formatBookingRange, formatOrderDate, formatTenge } from "../format";
 
@@ -15,17 +19,30 @@ type Props = {
   onClose: () => void;
 };
 
-const STATUS_BADGE_STYLES: Record<OrderStatus, string> = {
+const PAYMENT_BADGE_STYLES: Record<PaymentStatus, string> = {
   new: "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#0E131F]",
   paid: "border-[#34C759] bg-[rgba(52,199,89,0.1)] text-[#34C759]",
   unpaid: "border-[#FA8905] bg-[rgba(255,149,0,0.1)] text-[#FA8905]",
+  refunded: "border-[#96999D] bg-[rgba(150,153,157,0.1)] text-[#50555C]",
+};
+
+const PAYMENT_LABEL: Record<PaymentStatus, string> = {
+  new: "Новый",
+  paid: "Оплачено",
+  unpaid: "Не оплачено",
+  refunded: "Возврат",
+};
+
+const FULFILLMENT_BADGE_STYLES: Record<FulfillmentStatus, string> = {
+  active: "border-[#810CA8] bg-[rgba(129,12,168,0.08)] text-[#810CA8]",
+  completed:
+    "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#50555C]",
   cancelled: "border-[#FF3B30] bg-[rgba(255,59,48,0.1)] text-[#FF3B30]",
 };
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  new: "Новый заказ",
-  paid: "Оплачено",
-  unpaid: "Не оплачено",
+const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
+  active: "Активный",
+  completed: "Завершен",
   cancelled: "Отменен",
 };
 
@@ -33,18 +50,20 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
   const orderQuery = useOrder(open ? orderId : null);
   const patch = usePatchOrder();
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
+  const [fulfillmentMenuOpen, setFulfillmentMenuOpen] = useState(false);
+  const paymentTriggerRef = useRef<HTMLButtonElement>(null);
+  const fulfillmentTriggerRef = useRef<HTMLButtonElement>(null);
 
-  // Booking-conflict modal state
-  const [conflict, setConflict] = useState<{ targetStatus: OrderStatus } | null>(
-    null,
-  );
+  // Booking-conflict modal state. Only fulfillment changes can hit it.
+  const [conflict, setConflict] = useState<{
+    target: FulfillmentStatus;
+  } | null>(null);
 
   useEffect(() => {
-    // Reset transient UI on close.
     if (!open) {
-      setMenuOpen(false);
+      setPaymentMenuOpen(false);
+      setFulfillmentMenuOpen(false);
       setConflict(null);
     }
   }, [open]);
@@ -55,21 +74,30 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
 
   const title = order ? `Заказ №${order.orderNumber}` : "Заказ";
 
-  async function applyStatus(target: OrderStatus, force: boolean) {
+  async function applyPayment(target: PaymentStatus) {
+    if (!order) return;
+    try {
+      await patch.mutateAsync({ id: order.id, paymentStatus: target });
+    } catch (err) {
+      console.error("[orders] payment status change failed", err);
+    }
+  }
+
+  async function applyFulfillment(target: FulfillmentStatus, force: boolean) {
     if (!order) return;
     try {
       await patch.mutateAsync({
         id: order.id,
-        status: target,
+        fulfillmentStatus: target,
         force,
       });
       setConflict(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === "booking_conflict") {
-        setConflict({ targetStatus: target });
+        setConflict({ target });
         return;
       }
-      console.error("[orders] status change failed", err);
+      console.error("[orders] fulfillment status change failed", err);
     }
   }
 
@@ -124,22 +152,42 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
               )}
             </Section>
 
-            <Section label="Статус">
+            <Section label="Оплата">
               <button
-                ref={triggerRef}
+                ref={paymentTriggerRef}
                 type="button"
-                onClick={() => setMenuOpen((v) => !v)}
+                onClick={() => setPaymentMenuOpen((v) => !v)}
                 disabled={patch.isPending}
                 className={clsx(
                   "flex h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] border px-3 text-[14px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50",
-                  STATUS_BADGE_STYLES[order.status],
+                  PAYMENT_BADGE_STYLES[order.paymentStatus],
                 )}
               >
                 <span className="flex-1 text-left">
-                  {STATUS_LABEL[order.status]}
+                  {PAYMENT_LABEL[order.paymentStatus]}
                 </span>
-                <span className="text-[13px] font-normal opacity-80">
-                  {formatOrderDate(order.statusChangedAt)}
+                {order.firstPaidAt && (
+                  <span className="text-[13px] font-normal opacity-80">
+                    {formatOrderDate(order.firstPaidAt)}
+                  </span>
+                )}
+                <ChevronDown size={18} strokeWidth={1.5} />
+              </button>
+            </Section>
+
+            <Section label="Состояние">
+              <button
+                ref={fulfillmentTriggerRef}
+                type="button"
+                onClick={() => setFulfillmentMenuOpen((v) => !v)}
+                disabled={patch.isPending}
+                className={clsx(
+                  "flex h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] border px-3 text-[14px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50",
+                  FULFILLMENT_BADGE_STYLES[order.fulfillmentStatus],
+                )}
+              >
+                <span className="flex-1 text-left">
+                  {FULFILLMENT_LABEL[order.fulfillmentStatus]}
                 </span>
                 <ChevronDown size={18} strokeWidth={1.5} />
               </button>
@@ -155,7 +203,9 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
                     dateLabel={
                       it.bookedStart && it.bookedEnd
                         ? formatBookingRange(it.bookedStart, it.bookedEnd)
-                        : (it.productSubtitle ?? "—")
+                        : it.expiresAt
+                          ? `до ${formatOrderDate(it.expiresAt)}`
+                          : (it.productSubtitle ?? "—")
                     }
                     price={formatTenge(it.unitPriceTenge)}
                   />
@@ -167,12 +217,22 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
       </Drawer>
 
       {order && (
-        <StatusMenu
-          open={menuOpen}
-          current={order.status}
-          triggerRef={triggerRef}
-          onClose={() => setMenuOpen(false)}
-          onSelect={(s) => applyStatus(s, false)}
+        <PaymentStatusMenu
+          open={paymentMenuOpen}
+          current={order.paymentStatus}
+          triggerRef={paymentTriggerRef}
+          onClose={() => setPaymentMenuOpen(false)}
+          onSelect={(s) => applyPayment(s)}
+        />
+      )}
+
+      {order && (
+        <FulfillmentStatusMenu
+          open={fulfillmentMenuOpen}
+          current={order.fulfillmentStatus}
+          triggerRef={fulfillmentTriggerRef}
+          onClose={() => setFulfillmentMenuOpen(false)}
+          onSelect={(s) => applyFulfillment(s, false)}
         />
       )}
 
@@ -181,7 +241,7 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
         pending={patch.isPending}
         onCancel={() => setConflict(null)}
         onForce={() => {
-          if (conflict) applyStatus(conflict.targetStatus, true);
+          if (conflict) applyFulfillment(conflict.target, true);
         }}
       />
     </>

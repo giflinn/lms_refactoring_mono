@@ -26,6 +26,9 @@ export type Product = {
   // numeric column → comes back as a string. null = "по запросу".
   price: string | null;
   daysUntilCancel: number;
+  // null = perpetual (book/file) or bookable (handled by durationMinutes).
+  // Non-null = days the order stays 'active' after first_paid_at.
+  activeDurationDays: number | null;
   // null = ordinary product, no booking. Non-null = consultation length.
   durationMinutes: number | null;
   // m2m with slot_types. Empty when durationMinutes is null.
@@ -56,6 +59,8 @@ export type ProductInput = {
   // Pre-formatted decimal string ("1500" or "1500.00") or null for "по запросу".
   price: string | null;
   daysUntilCancel: number;
+  // null = perpetual / bookable (no auto-completion timer).
+  activeDurationDays: number | null;
   // null = no booking. Backend pairs this with slotTypeIds: both must be sent
   // together and a non-null duration requires at least one type.
   durationMinutes: number | null;
@@ -167,6 +172,10 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
   fd.append("buttonText", input.buttonText);
   fd.append("price", input.price ?? "");
   fd.append("daysUntilCancel", String(input.daysUntilCancel));
+  fd.append(
+    "activeDurationDays",
+    input.activeDurationDays != null ? String(input.activeDurationDays) : "",
+  );
   fd.append(
     "durationMinutes",
     input.durationMinutes != null ? String(input.durationMinutes) : "",

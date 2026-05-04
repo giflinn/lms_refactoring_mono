@@ -10,10 +10,17 @@ import { Select, type SelectOption } from "../../../components/ui/Select";
 import { listManagers } from "../../managers/api";
 import { listClients } from "../../clients/api";
 import { useOrders } from "../queries";
-import type { OrderListItem, OrderStatus } from "../api";
+import type {
+  FulfillmentStatus,
+  OrderListItem,
+  PaymentStatus,
+} from "../api";
 import { OrdersTable } from "../components/OrdersTable";
 import { OrderDrawer } from "../components/OrderDrawer";
-import { STATUS_OPTIONS } from "../components/StatusBadge";
+import {
+  FULFILLMENT_OPTIONS,
+  PAYMENT_OPTIONS,
+} from "../components/StatusBadge";
 
 const PAGE_SIZE = 10;
 
@@ -32,7 +39,10 @@ export function OrdersPage() {
   const [page, setPage] = useState(1);
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [managerFilter, setManagerFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null);
+  const [paymentStatusFilter, setPaymentStatusFilter] =
+    useState<PaymentStatus | null>(null);
+  const [fulfillmentStatusFilter, setFulfillmentStatusFilter] =
+    useState<FulfillmentStatus | null>(null);
 
   const [drawerOrderId, setDrawerOrderId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -80,7 +90,8 @@ export function OrdersPage() {
     pageSize: PAGE_SIZE,
     clientId: clientFilter,
     managerId: managerFilter,
-    status: statusFilter,
+    paymentStatus: paymentStatusFilter,
+    fulfillmentStatus: fulfillmentStatusFilter,
   });
 
   const pageCount = useMemo(() => {
@@ -176,16 +187,28 @@ export function OrdersPage() {
             />
           </div>
         )}
-        <div className="w-[200px]">
-          <Select<OrderStatus>
-            value={statusFilter}
+        <div className="w-[180px]">
+          <Select<PaymentStatus>
+            value={paymentStatusFilter}
             onChange={(v) => {
-              setStatusFilter(v);
+              setPaymentStatusFilter(v);
               setPage(1);
             }}
-            options={STATUS_OPTIONS}
+            options={PAYMENT_OPTIONS}
             clearable
-            placeholder="Статус"
+            placeholder="Оплата"
+          />
+        </div>
+        <div className="w-[180px]">
+          <Select<FulfillmentStatus>
+            value={fulfillmentStatusFilter}
+            onChange={(v) => {
+              setFulfillmentStatusFilter(v);
+              setPage(1);
+            }}
+            options={FULFILLMENT_OPTIONS}
+            clearable
+            placeholder="Состояние"
           />
         </div>
       </div>

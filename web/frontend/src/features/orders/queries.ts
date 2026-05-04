@@ -8,7 +8,8 @@ import {
   getOrder,
   listOrders,
   patchOrder,
-  type OrderStatus,
+  type FulfillmentStatus,
+  type PaymentStatus,
 } from "./api";
 
 const ORDERS_KEY = "orders" as const;
@@ -25,7 +26,8 @@ export function useOrders(params: {
   pageSize: number;
   clientId?: string | null;
   managerId?: string | null;
-  status?: OrderStatus | null;
+  paymentStatus?: PaymentStatus | null;
+  fulfillmentStatus?: FulfillmentStatus | null;
 }) {
   return useQuery({
     queryKey: [ORDERS_KEY, "list", params] as const,
@@ -53,12 +55,14 @@ export function usePatchOrder() {
   return useMutation({
     mutationFn: async (vars: {
       id: string;
-      status: OrderStatus;
+      paymentStatus?: PaymentStatus;
+      fulfillmentStatus?: FulfillmentStatus;
       force?: boolean;
     }) => {
       const token = await getIdToken();
       return patchOrder(token, vars.id, {
-        status: vars.status,
+        paymentStatus: vars.paymentStatus,
+        fulfillmentStatus: vars.fulfillmentStatus,
         force: vars.force,
       });
     },

@@ -1,6 +1,7 @@
 import { ApiClient, apiClient } from "../../api/client";
 
-export type OrderStatus = "new" | "paid" | "unpaid" | "cancelled";
+export type PaymentStatus = "new" | "paid" | "unpaid" | "refunded";
+export type FulfillmentStatus = "active" | "completed" | "cancelled";
 
 export type OrderUserSummary = {
   id: string;
@@ -13,12 +14,14 @@ export type OrderUserSummary = {
 export type OrderListItem = {
   id: string;
   orderNumber: number;
-  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
   // Postgres numeric arrives as a JSON string ("10000.00"); render with
   // formatTenge (see ./format.ts).
   totalTenge: string;
   itemsCount: number;
   createdAt: string;
+  firstPaidAt: string | null;
   statusChangedAt: string;
   client: OrderUserSummary;
   manager: OrderUserSummary | null;
@@ -34,14 +37,17 @@ export type OrderItem = {
   quantity: number;
   bookedStart: string | null;
   bookedEnd: string | null;
+  expiresAt: string | null;
 };
 
 export type OrderDetail = {
   id: string;
   orderNumber: number;
-  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
   totalTenge: string;
   createdAt: string;
+  firstPaidAt: string | null;
   statusChangedAt: string;
   client: OrderUserSummary;
   manager: OrderUserSummary | null;
@@ -88,7 +94,8 @@ export async function listOrders(
     pageSize?: number;
     clientId?: string | null;
     managerId?: string | null;
-    status?: OrderStatus | null;
+    paymentStatus?: PaymentStatus | null;
+    fulfillmentStatus?: FulfillmentStatus | null;
   } = {},
 ): Promise<OrdersList> {
   const usp = new URLSearchParams();
@@ -97,7 +104,9 @@ export async function listOrders(
   if (params.pageSize) usp.set("pageSize", String(params.pageSize));
   if (params.clientId) usp.set("clientId", params.clientId);
   if (params.managerId) usp.set("managerId", params.managerId);
-  if (params.status) usp.set("status", params.status);
+  if (params.paymentStatus) usp.set("paymentStatus", params.paymentStatus);
+  if (params.fulfillmentStatus)
+    usp.set("fulfillmentStatus", params.fulfillmentStatus);
   const qs = usp.toString();
   const path = qs ? `/orders?${qs}` : "/orders";
   const res = await apiClient.get(path, idToken);
@@ -118,7 +127,11 @@ export async function getOrder(
 export async function patchOrder(
   idToken: string,
   id: string,
-  patch: { status: OrderStatus; force?: boolean },
+  patch: {
+    paymentStatus?: PaymentStatus;
+    fulfillmentStatus?: FulfillmentStatus;
+    force?: boolean;
+  },
 ): Promise<OrderListItem> {
   const res = await apiClient.patchJson(`/orders/${id}`, patch, idToken);
   await ensureOk(res);

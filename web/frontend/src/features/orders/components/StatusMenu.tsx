@@ -1,36 +1,47 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import clsx from "clsx";
-import type { OrderStatus } from "../api";
+import type { FulfillmentStatus, PaymentStatus } from "../api";
 
-const ITEMS: ReadonlyArray<{
-  value: OrderStatus;
+const PAYMENT_ITEMS: ReadonlyArray<{
+  value: PaymentStatus;
   label: string;
   textCls: string;
 }> = [
-  { value: "new", label: "Новый заказ", textCls: "text-[#0E131F]" },
+  { value: "new", label: "Новый", textCls: "text-[#0E131F]" },
   { value: "paid", label: "Оплачено", textCls: "text-[#34C759]" },
   { value: "unpaid", label: "Не оплачено", textCls: "text-[#FA8905]" },
+  { value: "refunded", label: "Возврат", textCls: "text-[#50555C]" },
+];
+
+const FULFILLMENT_ITEMS: ReadonlyArray<{
+  value: FulfillmentStatus;
+  label: string;
+  textCls: string;
+}> = [
+  { value: "active", label: "Активный", textCls: "text-[#810CA8]" },
+  { value: "completed", label: "Завершен", textCls: "text-[#50555C]" },
   { value: "cancelled", label: "Отменен", textCls: "text-[#FF3B30]" },
 ];
 
-type Props = {
+type Props<S extends string> = {
   open: boolean;
-  current: OrderStatus;
+  current: S;
   triggerRef: RefObject<HTMLElement | null>;
+  items: ReadonlyArray<{ value: S; label: string; textCls: string }>;
   onClose: () => void;
-  onSelect: (s: OrderStatus) => void;
+  onSelect: (s: S) => void;
 };
 
-// Status-change popover. Anchored to triggerRef (the status row in the
-// drawer). Position is recomputed on each open via getBoundingClientRect —
-// the trigger itself doesn't move while the menu is open.
-export function StatusMenu({
+// Generic status-change popover. Anchored to triggerRef. Reused by both
+// payment and fulfillment status rows in the drawer.
+function StatusMenuBase<S extends string>({
   open,
   current,
   triggerRef,
+  items,
   onClose,
   onSelect,
-}: Props) {
+}: Props<S>) {
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +82,7 @@ export function StatusMenu({
       className="fixed z-50 rounded-[12px] bg-white p-2 shadow-[0_4px_4.5px_rgba(0,0,0,0.1),0_16px_16px_rgba(0,0,0,0.09)]"
       style={{ top: pos.top, left: pos.left, width: pos.width }}
     >
-      {ITEMS.map((it) => {
+      {items.map((it) => {
         const isCurrent = it.value === current;
         return (
           <button
@@ -93,4 +104,14 @@ export function StatusMenu({
       })}
     </div>
   );
+}
+
+type PaymentMenuProps = Omit<Props<PaymentStatus>, "items">;
+export function PaymentStatusMenu(props: PaymentMenuProps) {
+  return <StatusMenuBase {...props} items={PAYMENT_ITEMS} />;
+}
+
+type FulfillmentMenuProps = Omit<Props<FulfillmentStatus>, "items">;
+export function FulfillmentStatusMenu(props: FulfillmentMenuProps) {
+  return <StatusMenuBase {...props} items={FULFILLMENT_ITEMS} />;
 }

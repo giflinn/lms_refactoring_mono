@@ -62,6 +62,7 @@ function serialize(
     // frontend can format. null = "по запросу".
     price: p.price,
     daysUntilCancel: p.daysUntilCancel,
+    activeDurationDays: p.activeDurationDays,
     durationMinutes: p.durationMinutes,
     slotTypeIds,
     isPromo: p.isPromo,
@@ -189,6 +190,7 @@ type CreateInput = {
   buttonText: string;
   price: string | null;
   daysUntilCancel: number;
+  activeDurationDays: number | null;
   durationMinutes: number | null;
   slotTypeIds: string[];
   isPromo: boolean;
@@ -287,6 +289,28 @@ function parseBody(
       return { ok: false, status: 400, error: "invalid_days_until_cancel" };
     }
     data.daysUntilCancel = n;
+  }
+
+  // activeDurationDays — empty string / missing maps to null (perpetual or
+  // bookable). Otherwise a positive integer in days that determines when the
+  // order auto-completes (counted from first_paid_at by orderStatus).
+  if (has("activeDurationDays")) {
+    const raw = String(body.activeDurationDays ?? "").trim();
+    if (raw === "") {
+      data.activeDurationDays = null;
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0 || n > 3650) {
+        return {
+          ok: false,
+          status: 400,
+          error: "invalid_active_duration_days",
+        };
+      }
+      data.activeDurationDays = n;
+    }
+  } else if (!partial) {
+    data.activeDurationDays = null;
   }
 
   // durationMinutes — empty string maps to null (non-bookable). Otherwise an
@@ -474,6 +498,7 @@ productsRouter.post(
           buttonText: data.buttonText,
           price: data.price,
           daysUntilCancel: data.daysUntilCancel,
+          activeDurationDays: data.activeDurationDays ?? null,
           durationMinutes: data.durationMinutes ?? null,
           isPromo: data.isPromo ?? false,
           isActive: data.isActive ?? true,
@@ -563,6 +588,7 @@ productsRouter.patch(
       if (data.buttonText !== undefined) patch.buttonText = data.buttonText;
       if (data.price !== undefined) patch.price = data.price;
       if (data.daysUntilCancel !== undefined) patch.daysUntilCancel = data.daysUntilCancel;
+      if (data.activeDurationDays !== undefined) patch.activeDurationDays = data.activeDurationDays;
       if (data.durationMinutes !== undefined) patch.durationMinutes = data.durationMinutes;
       if (data.isPromo !== undefined) patch.isPromo = data.isPromo;
       if (data.isActive !== undefined) patch.isActive = data.isActive;

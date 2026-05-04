@@ -42,6 +42,7 @@ const EMPTY: ProductFormValues = {
   priceOnRequest: false,
   priceTenge: "",
   daysUntilCancel: "",
+  activeDurationDays: "",
   isPromo: false,
   isActive: true,
   isTopSearch: false,
@@ -126,6 +127,10 @@ export function ProductFormDrawer({
         priceOnRequest: product.price == null,
         priceTenge: priceToInput(product.price),
         daysUntilCancel: String(product.daysUntilCancel),
+        activeDurationDays:
+          product.activeDurationDays != null
+            ? String(product.activeDurationDays)
+            : "",
         isPromo: product.isPromo,
         isActive: product.isActive,
         isTopSearch: product.isTopSearch,
@@ -216,6 +221,12 @@ export function ProductFormDrawer({
         setError("daysUntilCancel", { message: fields.daysUntilCancel });
         handled = true;
       }
+      if (fields.activeDurationDays) {
+        setError("activeDurationDays", {
+          message: fields.activeDurationDays,
+        });
+        handled = true;
+      }
       if (fields.durationMinutes) {
         setError("durationMinutes", { message: fields.durationMinutes });
         handled = true;
@@ -255,6 +266,10 @@ export function ProductFormDrawer({
       buttonText: values.buttonText.trim(),
       price: values.priceOnRequest ? null : values.priceTenge.trim(),
       daysUntilCancel: Number(values.daysUntilCancel),
+      activeDurationDays:
+        values.activeDurationDays.trim() === ""
+          ? null
+          : Number(values.activeDurationDays),
       durationMinutes: values.bookingEnabled
         ? Number(values.durationMinutes)
         : null,
@@ -454,6 +469,14 @@ export function ProductFormDrawer({
               placeholder="0"
               {...register("daysUntilCancel")}
               error={errors.daysUntilCancel?.message}
+            />
+            <Input
+              fullWidth
+              label="Срок активности, дней"
+              inputMode="numeric"
+              placeholder="пусто — бессрочно"
+              {...register("activeDurationDays")}
+              error={errors.activeDurationDays?.message}
             />
           </div>
 

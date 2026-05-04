@@ -1,14 +1,21 @@
-// Order status transitions and the cascade onto coach_bookings.
+// Two orthogonal status axes — payment and fulfillment — with their own
+// transition handlers. Splitting them keeps each side of state machine
+// small and avoids the "is 'cancelled' a payment thing or a lifecycle
+// thing?" ambiguity the single-enum design had.
 //
-// Side-effects per transition:
-//   X       → cancelled  : mark order's active coach_bookings as cancelled
-//   cancelled → Y         : try to re-activate the order's cancelled bookings
-//                           (refuse with 409 booking_conflict on overlap unless
-//                           force=true is passed)
-//   anything else         : no booking change
+// changeOrderPaymentStatus
+//   - On first transition to 'paid': set firstPaidAt + compute expires_at
+//     for time-bound items (perpetual stay NULL, bookable already set at
+//     order creation)
+//   - Logs to order_status_log
+//   - Push to client on every status except 'new'
 //
-// Push to client on every transition EXCEPT 'new' (creation is silent;
-// status moves are notifications).
+// changeOrderFulfillmentStatus
+//   - To 'cancelled': cancels coach_bookings
+//   - Reverting from 'cancelled': re-activates coach_bookings; refuses with
+//     409 booking_conflict on overlap unless force=true
+//   - Push on 'cancelled' (skip 'completed' to avoid spamming users — easy
+//     to add later if needed)
 
 import { and, eq, gt, inArray, lt, ne } from "drizzle-orm";
 import { db } from "../db";
@@ -18,10 +25,12 @@ import {
   orderItems,
   orderStatusLog,
   orders,
+  products,
 } from "../db/schema";
 import { sendPushToUser, type PushPayload } from "./push";
 
-export type OrderStatus = "new" | "paid" | "unpaid" | "cancelled";
+export type PaymentStatus = "new" | "paid" | "unpaid" | "refunded";
+export type FulfillmentStatus = "active" | "completed" | "cancelled";
 
 export class OrderStatusError extends Error {
   code: string;
@@ -33,41 +42,144 @@ export class OrderStatusError extends Error {
   }
 }
 
-export type ChangeStatusResult = {
-  status: OrderStatus;
-  // True when a push was scheduled. False for new-status (silent) or no-op transitions.
+export type ChangeStatusResult<S> = {
+  status: S;
   pushScheduled: boolean;
 };
 
-export async function changeOrderStatus(
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export async function changeOrderPaymentStatus(
   orderId: string,
-  toStatus: OrderStatus,
+  toStatus: PaymentStatus,
   changedByUserId: string | null,
-  options: { force?: boolean } = {},
-): Promise<ChangeStatusResult> {
-  // Run the DB work, capture push payload to fire AFTER commit. Doing the
-  // push inside the transaction would (a) hold the FCM round-trip in the TX
-  // window and (b) fire even if the commit later fails.
+): Promise<ChangeStatusResult<PaymentStatus>> {
   const txResult = await db.transaction(async (tx) => {
     const [order] = await tx
       .select({
         id: orders.id,
         clientId: orders.clientId,
-        status: orders.status,
+        paymentStatus: orders.paymentStatus,
+        firstPaidAt: orders.firstPaidAt,
         orderNumber: orders.orderNumber,
       })
       .from(orders)
       .where(eq(orders.id, orderId))
       .limit(1);
     if (!order) throw new OrderStatusError("order_not_found");
-    if (order.status === toStatus) {
-      return { status: order.status as OrderStatus, push: null };
+    if (order.paymentStatus === toStatus) {
+      return { status: order.paymentStatus as PaymentStatus, push: null };
     }
 
-    const fromStatus = order.status as OrderStatus;
+    const fromStatus = order.paymentStatus as PaymentStatus;
+    const isFirstPaid = toStatus === "paid" && order.firstPaidAt === null;
+    const now = new Date();
+
+    // First-paid transition: stamp firstPaidAt and compute expires_at for
+    // time-bound items whose expires_at is still NULL.
+    if (isFirstPaid) {
+      const items = await tx
+        .select({
+          id: orderItems.id,
+          expiresAt: orderItems.expiresAt,
+          activeDurationDays: products.activeDurationDays,
+        })
+        .from(orderItems)
+        .innerJoin(products, eq(products.id, orderItems.productId))
+        .where(eq(orderItems.orderId, orderId));
+
+      for (const item of items) {
+        if (item.expiresAt !== null) continue; // bookable already set
+        if (item.activeDurationDays === null) continue; // perpetual stays NULL
+        const expiresAt = new Date(
+          now.getTime() + item.activeDurationDays * DAY_MS,
+        );
+        await tx
+          .update(orderItems)
+          .set({ expiresAt })
+          .where(eq(orderItems.id, item.id));
+      }
+    }
+
+    await tx
+      .update(orders)
+      .set({
+        paymentStatus: toStatus,
+        statusChangedAt: now,
+        statusChangedByUserId: changedByUserId,
+        updatedAt: now,
+        ...(isFirstPaid ? { firstPaidAt: now } : {}),
+      })
+      .where(eq(orders.id, orderId));
+
+    await tx.insert(orderStatusLog).values({
+      orderId,
+      fromStatus,
+      toStatus,
+      changedByUserId,
+    });
+
+    let push: { clientId: string; payload: PushPayload } | null = null;
+    if (toStatus !== "new") {
+      const text = paymentPushText(toStatus, order.orderNumber);
+      push = {
+        clientId: order.clientId,
+        payload: {
+          title: text.title,
+          body: text.body,
+          data: {
+            type: "order_payment_status",
+            orderId: order.id,
+            paymentStatus: toStatus,
+          },
+        },
+      };
+    }
+
+    return { status: toStatus, push };
+  });
+
+  if (txResult.push) {
+    sendPushToUser(txResult.push.clientId, txResult.push.payload).catch(
+      (err) => console.error("[orders] payment push failed:", err),
+    );
+  }
+  return {
+    status: txResult.status,
+    pushScheduled: txResult.push !== null,
+  };
+}
+
+export async function changeOrderFulfillmentStatus(
+  orderId: string,
+  toStatus: FulfillmentStatus,
+  changedByUserId: string | null,
+  options: { force?: boolean } = {},
+): Promise<ChangeStatusResult<FulfillmentStatus>> {
+  const txResult = await db.transaction(async (tx) => {
+    const [order] = await tx
+      .select({
+        id: orders.id,
+        clientId: orders.clientId,
+        fulfillmentStatus: orders.fulfillmentStatus,
+        orderNumber: orders.orderNumber,
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+    if (!order) throw new OrderStatusError("order_not_found");
+    if (order.fulfillmentStatus === toStatus) {
+      return {
+        status: order.fulfillmentStatus as FulfillmentStatus,
+        push: null,
+      };
+    }
+
+    const fromStatus = order.fulfillmentStatus as FulfillmentStatus;
     const goingToCancelled = toStatus === "cancelled";
     const revertingFromCancelled =
       fromStatus === "cancelled" && toStatus !== "cancelled";
+    const now = new Date();
 
     if (goingToCancelled) {
       const items = await tx
@@ -80,8 +192,8 @@ export async function changeOrderStatus(
           .update(coachBookings)
           .set({
             status: "cancelled",
-            cancelledAt: new Date(),
-            updatedAt: new Date(),
+            cancelledAt: now,
+            updatedAt: now,
           })
           .where(
             and(
@@ -156,7 +268,7 @@ export async function changeOrderStatus(
             .set({
               status: "active",
               cancelledAt: null,
-              updatedAt: new Date(),
+              updatedAt: now,
             })
             .where(
               inArray(
@@ -171,32 +283,24 @@ export async function changeOrderStatus(
     await tx
       .update(orders)
       .set({
-        status: toStatus,
-        statusChangedAt: new Date(),
+        fulfillmentStatus: toStatus,
+        statusChangedAt: now,
         statusChangedByUserId: changedByUserId,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(orders.id, orderId));
 
-    await tx.insert(orderStatusLog).values({
-      orderId,
-      fromStatus,
-      toStatus,
-      changedByUserId,
-    });
-
     let push: { clientId: string; payload: PushPayload } | null = null;
-    if (toStatus !== "new") {
-      const text = pushTextFor(toStatus, order.orderNumber);
+    if (toStatus === "cancelled") {
       push = {
         clientId: order.clientId,
         payload: {
-          title: text.title,
-          body: text.body,
+          title: `Заказ №${order.orderNumber} отменён`,
+          body: "Если вы не отменяли — напишите менеджеру.",
           data: {
-            type: "order_status",
+            type: "order_fulfillment_status",
             orderId: order.id,
-            status: toStatus,
+            fulfillmentStatus: toStatus,
           },
         },
       };
@@ -206,16 +310,18 @@ export async function changeOrderStatus(
   });
 
   if (txResult.push) {
-    // Fire-and-forget after commit. Caller doesn't need to wait for FCM.
     sendPushToUser(txResult.push.clientId, txResult.push.payload).catch(
-      (err) => console.error("[orders] push failed:", err),
+      (err) => console.error("[orders] fulfillment push failed:", err),
     );
   }
-  return { status: txResult.status, pushScheduled: txResult.push !== null };
+  return {
+    status: txResult.status,
+    pushScheduled: txResult.push !== null,
+  };
 }
 
-function pushTextFor(
-  status: Exclude<OrderStatus, "new">,
+function paymentPushText(
+  status: Exclude<PaymentStatus, "new">,
   orderNumber: number,
 ): { title: string; body: string } {
   switch (status) {
@@ -229,10 +335,10 @@ function pushTextFor(
         title: `Заказ №${orderNumber} — оплата не получена`,
         body: "Свяжитесь с менеджером, если уже оплатили.",
       };
-    case "cancelled":
+    case "refunded":
       return {
-        title: `Заказ №${orderNumber} отменён`,
-        body: "Если вы не отменяли — напишите менеджеру.",
+        title: `Заказ №${orderNumber} — возврат`,
+        body: "Деньги по заказу возвращены.",
       };
   }
 }

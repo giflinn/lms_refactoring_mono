@@ -6,6 +6,7 @@ export type Fields = {
   buttonText?: string;
   price?: string;
   daysUntilCancel?: string;
+  activeDurationDays?: string;
   durationMinutes?: string;
   slotTypeIds?: string;
   coverFile?: string;
@@ -43,6 +44,10 @@ const FIELD_MESSAGES: Record<string, { field: keyof Fields; message: string }> =
   invalid_days_until_cancel: {
     field: "daysUntilCancel",
     message: "Введите целое число от 0 до 365.",
+  },
+  invalid_active_duration_days: {
+    field: "activeDurationDays",
+    message: "Введите целое число дней (1–3650) или оставьте пустым.",
   },
   invalid_duration_minutes: {
     field: "durationMinutes",

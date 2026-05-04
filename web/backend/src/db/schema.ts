@@ -111,6 +111,12 @@ export const products = pgTable(
     // admin form currently only takes whole tenge).
     price: numeric("price", { precision: 12, scale: 2 }),
     daysUntilCancel: integer("days_until_cancel").notNull(),
+    // How many days the order stays 'active' after first_paid_at. Only
+    // meaningful for non-bookable, non-perpetual products (courses,
+    // training cohorts, time-limited materials). NULL = bookable
+    // (lifecycle handled by bookedEnd) or perpetual (book/file — order
+    // stays 'active' forever and is never auto-completed).
+    activeDurationDays: integer("active_duration_days"),
     // Bookable consultation length in minutes. NULL = ordinary product (no
     // calendar slot consumed). When non-NULL, at least one row in
     // product_slot_types must exist (enforced in the route layer).
@@ -437,10 +443,24 @@ export const notificationDeliveries = pgTable(
   ],
 );
 
-export const orderStatusEnum = pgEnum("order_status", [
+// Where the money is at. 'new' = order created, awaiting client receipt.
+// 'paid' = manager confirmed Kaspi screenshot. 'unpaid' = manager rejected
+// or 24h auto-flip. 'refunded' = paid then walked back. Cancellation as
+// a concept lives on fulfillment_status, not here.
+export const paymentStatusEnum = pgEnum("payment_status", [
   "new",
   "paid",
   "unpaid",
+  "refunded",
+]);
+
+// Where the order is in its lifecycle. 'active' = client still has access /
+// the booking is in the future. 'completed' = the time-window expired (cron
+// flips this) or the meeting passed. 'cancelled' = staff voided the order
+// regardless of payment state.
+export const fulfillmentStatusEnum = pgEnum("fulfillment_status", [
+  "active",
+  "completed",
   "cancelled",
 ]);
 
@@ -477,10 +497,19 @@ export const orders = pgTable(
     managerId: uuid("manager_id").references(() => users.id, {
       onDelete: "set null",
     }),
-    status: orderStatusEnum("status").notNull().default("new"),
+    paymentStatus: paymentStatusEnum("payment_status")
+      .notNull()
+      .default("new"),
+    fulfillmentStatus: fulfillmentStatusEnum("fulfillment_status")
+      .notNull()
+      .default("active"),
     // Tenge with two decimal places to match products.price; populated server-
     // side from the snapshot row prices, never trusted from the client.
     totalTenge: numeric("total_tenge", { precision: 12, scale: 2 }).notNull(),
+    // First time the order entered 'paid'. Drives expires_at calculation
+    // for time-bound items and survives back-and-forth status flips (we
+    // never reset it once set).
+    firstPaidAt: timestamp("first_paid_at", { withTimezone: true }),
     statusChangedAt: timestamp("status_changed_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -498,7 +527,8 @@ export const orders = pgTable(
   (t) => [
     index("orders_client_id_idx").on(t.clientId),
     index("orders_manager_id_idx").on(t.managerId),
-    index("orders_status_idx").on(t.status),
+    index("orders_payment_status_idx").on(t.paymentStatus),
+    index("orders_fulfillment_status_idx").on(t.fulfillmentStatus),
     index("orders_created_at_idx").on(t.createdAt),
   ],
 );
@@ -533,6 +563,12 @@ export const orderItems = pgTable(
     quantity: integer("quantity").notNull().default(1),
     bookedStart: timestamp("booked_start", { withTimezone: true }),
     bookedEnd: timestamp("booked_end", { withTimezone: true }),
+    // When the item's lifecycle window ends. Set:
+    //   - bookable products: bookedEnd at creation
+    //   - time-bound non-bookable: first_paid_at + active_duration_days
+    //     (computed by orderStatus when payment first transitions to 'paid')
+    //   - perpetual products: NULL (never expires)
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -551,8 +587,8 @@ export const orderStatusLog = pgTable(
     orderId: uuid("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
-    fromStatus: orderStatusEnum("from_status").notNull(),
-    toStatus: orderStatusEnum("to_status").notNull(),
+    fromStatus: paymentStatusEnum("from_status").notNull(),
+    toStatus: paymentStatusEnum("to_status").notNull(),
     // Null for the cron-driven new→unpaid sweep, populated for staff actions.
     changedByUserId: uuid("changed_by_user_id").references(() => users.id, {
       onDelete: "set null",

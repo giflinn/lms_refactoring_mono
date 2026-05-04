@@ -6,7 +6,7 @@ import { config } from "./config";
 import { attachSocketServer } from "./services/socketServer";
 import { startPushDispatcher } from "./services/pushNotifications";
 import { startNotificationDispatcher } from "./services/notificationDispatcher";
-import { startOrderStaleCron } from "./services/orderStaleCron";
+import { startOrderLifecycleCron } from "./services/orderLifecycleCron";
 import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
 import { managersRouter } from "./routes/managers";
@@ -88,7 +88,7 @@ const httpServer = http.createServer(app);
 attachSocketServer(httpServer);
 startPushDispatcher();
 startNotificationDispatcher();
-startOrderStaleCron();
+startOrderLifecycleCron();
 
 httpServer.listen(config.port, () => {
   console.log(`[lms-backend] listening on http://localhost:${config.port}`);

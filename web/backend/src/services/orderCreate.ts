@@ -246,6 +246,11 @@ export async function createOrderForClient(
           unitPriceTenge: plan.unitPriceTenge,
           bookedStart: plan.bookedStart,
           bookedEnd: plan.bookedEnd,
+          // For bookable items the lifecycle ends at bookedEnd. Time-bound
+          // (non-bookable, with active_duration_days) gets its expires_at
+          // computed in orderStatus on the first 'paid' transition.
+          // Perpetual items stay NULL forever.
+          expiresAt: plan.bookedEnd,
         })
         .returning({ id: orderItems.id });
 
