@@ -59,8 +59,36 @@ Future<bool> showCartReplaceConfirmPopup(BuildContext context) async {
   return result == true;
 }
 
+/// Shown when the user tries to add a second, different product to a cart
+/// that already has one. Mirrors the 1-order-per-product rule enforced by
+/// the backend. Returns true if the user picked "Перейти в корзину" so the
+/// caller can navigate; null/false on cancel or barrier tap.
+Future<bool> showCartFullPopup(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (ctx) => _CartActionDialog(
+      icon: const Icon(
+        Icons.remove_shopping_cart_outlined,
+        size: 50,
+        color: AppColors.white,
+      ),
+      title: 'В корзине уже есть товар',
+      subtitle:
+          'Вы можете оформить заказ только на 1 продукт за раз. Чтобы добавить новый товар, сначала завершите текущий заказ.',
+      primaryLabel: 'Перейти в корзину',
+      secondaryLabel: 'Отмена',
+      onPrimary: () => Navigator.of(ctx).pop(true),
+      onSecondary: () => Navigator.of(ctx).pop(false),
+    ),
+  );
+  return result == true;
+}
+
 class _CartActionDialog extends StatelessWidget {
   final String title;
+  final String? subtitle;
+  final Widget? icon;
   final String primaryLabel;
   final String secondaryLabel;
   final VoidCallback onPrimary;
@@ -68,6 +96,8 @@ class _CartActionDialog extends StatelessWidget {
 
   const _CartActionDialog({
     required this.title,
+    this.subtitle,
+    this.icon,
     required this.primaryLabel,
     required this.secondaryLabel,
     required this.onPrimary,
@@ -92,15 +122,16 @@ class _CartActionDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SvgPicture.asset(
-              'assets/icons/cart/cart.svg',
-              width: 50,
-              height: 50,
-              colorFilter: const ColorFilter.mode(
-                AppColors.white,
-                BlendMode.srcIn,
-              ),
-            ),
+            icon ??
+                SvgPicture.asset(
+                  'assets/icons/cart/cart.svg',
+                  width: 50,
+                  height: 50,
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
             const SizedBox(height: 24),
             SizedBox(
               width: 252,
@@ -116,6 +147,23 @@ class _CartActionDialog extends StatelessWidget {
                 ),
               ),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: 252,
+                child: Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.white.withValues(alpha: 0.6),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    height: 1.34,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             _PrimaryYellowButton(label: primaryLabel, onTap: onPrimary),
             const SizedBox(height: 8),

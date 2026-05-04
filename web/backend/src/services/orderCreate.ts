@@ -49,6 +49,11 @@ export async function createOrderForClient(
   input: CreateOrderInputItem[],
 ): Promise<CreatedOrder> {
   if (input.length === 0) throw new OrderCreationError("empty_cart");
+  // 1-order-per-product rule. Mobile cart enforces this client-side; this
+  // is the defense-in-depth check at the API boundary.
+  if (input.length > 1) {
+    throw new OrderCreationError("multi_item_unsupported");
+  }
 
   // Pre-fetch products + categories outside the transaction (read-only,
   // no race). The transaction below re-reads coach_slots / coach_bookings

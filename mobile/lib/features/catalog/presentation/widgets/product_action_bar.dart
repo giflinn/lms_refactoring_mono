@@ -157,12 +157,28 @@ class ProductActionBar extends ConsumerWidget {
     final priceNum = num.tryParse(product.price ?? '');
     if (priceNum == null) return;
 
-    // If the same product is already in cart with a different slot, ask the
-    // user to confirm a replace instead of silently overwriting (the
-    // CartController itself replaces by productId, so the actual mutation
-    // is unchanged — this dialog only adds the consent step).
-    final existing = ref
-        .read(cartProvider)
+    final cart = ref.read(cartProvider);
+
+    // 1-order-per-product rule (matches the backend POST /orders, which
+    // refuses multi-item requests). If the cart already holds a *different*
+    // product, we don't silently replace it — we surface the popup so the
+    // user knows their previous selection isn't going anywhere.
+    final differentProduct = cart
+        .where((it) => it.productId != product.id)
+        .firstOrNull;
+    if (differentProduct != null) {
+      final goToCart = await showCartFullPopup(context);
+      if (goToCart && context.mounted) {
+        ref.read(clientShellTabProvider.notifier).goTo(2);
+        context.pop();
+      }
+      return;
+    }
+
+    // Same product, different slot — ask before replacing the slot. The
+    // controller itself replaces by productId so the mutation is the same;
+    // the dialog only adds the consent step.
+    final existing = cart
         .where((it) => it.productId == product.id)
         .firstOrNull;
     if (existing != null &&
