@@ -26,13 +26,14 @@ export function ConfirmDeleteModal({
           отправки не выполнятся.
         </p>
         <div className="flex gap-2 pt-2">
-          <Button
+          <button
+            type="button"
             onClick={onCancel}
             disabled={pending}
-            className="bg-white border border-[rgba(102,112,133,0.3)] text-[#0E131F] hover:bg-grey-lighter"
+            className="w-full cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-6 py-[10px] text-[14px] font-medium leading-tight text-[#0E131F] transition-colors hover:bg-grey-lighter disabled:cursor-not-allowed disabled:opacity-60"
           >
             Отмена
-          </Button>
+          </button>
           <Button onClick={onConfirm} disabled={pending}>
             {pending ? "Удаление…" : "Удалить"}
           </Button>

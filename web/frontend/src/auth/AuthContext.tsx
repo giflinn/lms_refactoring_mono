@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from "firebase/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "../firebase";
 import { fetchMe, type User } from "./api";
 
@@ -35,6 +36,7 @@ export class AccessDeniedError extends Error {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
@@ -76,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await firebaseSignOut(auth);
     setUser(null);
+    queryClient.clear();
   };
 
   const refreshUser = async () => {

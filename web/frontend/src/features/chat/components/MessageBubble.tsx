@@ -57,10 +57,8 @@ export function MessageBubble({
       </div>
       <div
         className={clsx(
-          "flex max-w-[68%] flex-col gap-1 rounded-[12px] px-3 py-2",
-          position === "right"
-            ? "bg-purple-primary text-white"
-            : "bg-grey-lighter text-grey-dark border border-grey-medium/15",
+          "flex max-w-[68%] flex-col gap-1 rounded-[12px] border border-[#f1f1f5] px-3 py-2 text-[#0e131f]",
+          position === "right" ? "bg-[#faf1fd]" : "bg-white",
         )}
       >
         {message.attachments.length > 0 && (
@@ -84,12 +82,7 @@ export function MessageBubble({
                     href={fileUrl(a.url)}
                     target="_blank"
                     rel="noreferrer"
-                    className={clsx(
-                      "flex items-center gap-2 rounded-[8px] px-2 py-1.5 text-[12px]",
-                      position === "right"
-                        ? "bg-purple-dark/40 hover:bg-purple-dark/60"
-                        : "bg-white hover:bg-grey-lighter border border-grey-medium/20",
-                    )}
+                    className="flex items-center gap-2 rounded-[8px] border border-grey-medium/20 bg-white px-2 py-1.5 text-[12px] hover:bg-grey-lighter"
                   >
                     {a.mime === "application/pdf" ? (
                       <FileText className="h-4 w-4 shrink-0" />
@@ -113,12 +106,7 @@ export function MessageBubble({
             {message.body}
           </span>
         )}
-        <span
-          className={clsx(
-            "self-end text-[10px]",
-            position === "right" ? "text-white/70" : "text-grey-medium",
-          )}
-        >
+        <span className="self-end text-[10px] text-grey-medium">
           {formatTime(message.createdAt)}
         </span>
       </div>

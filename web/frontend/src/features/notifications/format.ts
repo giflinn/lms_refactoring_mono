@@ -91,6 +91,9 @@ export function notificationChips(n: Notification): string[] {
   } else if (n.scheduledAt) {
     chips.push(formatDateTime(new Date(n.scheduledAt)));
   }
+  if (n.status === "completed") {
+    chips.push("Завершен");
+  }
   if (n.category) {
     chips.push(CATEGORY_LABEL[n.category]);
   }

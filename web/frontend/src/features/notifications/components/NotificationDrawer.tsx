@@ -72,6 +72,18 @@ const UNIT_OPTIONS: { value: RecurrenceUnit; label: string }[] = [
   { value: "year", label: "Год" },
 ];
 
+const MAX_INTERVAL: Record<RecurrenceUnit, number> = {
+  week: 52,
+  month: 12,
+  year: 10,
+};
+
+const UNIT_MS: Record<RecurrenceUnit, number> = {
+  week: 7 * 86_400_000,
+  month: 30 * 86_400_000,
+  year: 365 * 86_400_000,
+};
+
 const ERROR_MESSAGES: Record<string, string> = {
   title_required: "Введите название",
   title_too_long: "Слишком длинное название",
@@ -126,8 +138,10 @@ export function NotificationDrawer({
     }));
   }
 
-  const isValid = isFormValid(form);
+  const rangeWarning = computeRangeWarning(form);
+  const isValid = isFormValid(form) && !rangeWarning;
   const submitting = create.isPending || update.isPending;
+  const intervalMax = MAX_INTERVAL[form.recurrenceUnit];
 
   async function handleSubmit() {
     setGeneralError(undefined);
@@ -248,25 +262,39 @@ export function NotificationDrawer({
                 <input
                   type="number"
                   min={1}
-                  max={52}
+                  max={intervalMax}
                   value={form.recurrenceInterval}
                   onChange={(e) =>
                     update_(
                       "recurrenceInterval",
-                      Math.max(1, Number(e.target.value) || 1),
+                      Math.min(
+                        intervalMax,
+                        Math.max(1, Number(e.target.value) || 1),
+                      ),
                     )
                   }
                   className="h-11 w-[80px] rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
                 />
                 <Select<RecurrenceUnit>
                   value={form.recurrenceUnit}
-                  onChange={(v) =>
-                    update_("recurrenceUnit", v ?? "week")
-                  }
+                  onChange={(v) => {
+                    const unit = v ?? "week";
+                    setForm((f) => ({
+                      ...f,
+                      recurrenceUnit: unit,
+                      recurrenceInterval: Math.min(
+                        f.recurrenceInterval,
+                        MAX_INTERVAL[unit],
+                      ),
+                    }));
+                  }}
                   options={UNIT_OPTIONS}
                   className="flex-1"
                 />
               </div>
+              {rangeWarning && (
+                <p className="text-[13px] text-red-error">{rangeWarning}</p>
+              )}
             </div>
 
             {form.recurrenceUnit === "week" && (
@@ -367,6 +395,24 @@ function TimeField({
       />
     </label>
   );
+}
+
+// Approximate guardrail: if an end date is set and the interval ×
+// unit-duration is wider than the range, the rule produces only the initial
+// fire (or none, if startsAt is past). Approximation uses average days per
+// month/year — exact "next fire" math lives on the server. The warning is
+// here to catch obvious nonsense like "every 17 weeks" within a 1-month range.
+function computeRangeWarning(f: FormState): string | null {
+  if (!f.recurring || !f.date || !f.endDate) return null;
+  const startMs = new Date(`${f.date}T${f.time || "00:00"}:00`).getTime();
+  const endMs = new Date(`${f.endDate}T${f.time || "00:00"}:00`).getTime();
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return null;
+  if (endMs <= startMs) return null;
+  const span = endMs - startMs;
+  if (f.recurrenceInterval * UNIT_MS[f.recurrenceUnit] > span) {
+    return "Интервал больше периода — повторений не будет.";
+  }
+  return null;
 }
 
 function isFormValid(f: FormState): boolean {
