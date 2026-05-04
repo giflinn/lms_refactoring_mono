@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useAuth } from "../../../auth/AuthContext";
@@ -46,22 +45,6 @@ export function OrdersPage() {
 
   const [drawerOrderId, setDrawerOrderId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Allow other pages (notably the coach calendar) to deep-link to a
-  // specific order via /orders?orderId=…. We consume the param once on
-  // mount, open the drawer, and strip it from the URL so that closing the
-  // drawer doesn't immediately re-open it on a back-nav.
-  const [searchParams, setSearchParams] = useSearchParams();
-  useEffect(() => {
-    const id = searchParams.get("orderId");
-    if (id) {
-      setDrawerOrderId(id);
-      setDrawerOpen(true);
-      const next = new URLSearchParams(searchParams);
-      next.delete("orderId");
-      setSearchParams(next, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
 
   // Lazy: only fire dropdown queries on first open of the dropdown? Not
   // worth it — both lists are tiny on this app's scale and the user

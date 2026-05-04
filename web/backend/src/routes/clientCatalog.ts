@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm";
 import { db } from "../db";
 import {
+  coachBookings,
   coachSlots,
   productCategories,
   products,
@@ -274,6 +275,7 @@ clientCatalogRouter.get(
 
       const slotRows = await db
         .select({
+          id: coachSlots.id,
           startsAt: coachSlots.startsAt,
           endsAt: coachSlots.endsAt,
         })
@@ -288,6 +290,38 @@ clientCatalogRouter.get(
         )
         .orderBy(asc(coachSlots.startsAt));
 
+      // Active bookings inside those slots — we subtract them from the
+      // chunked starts so an already-purchased sub-range doesn't show up
+      // as bookable for another client.
+      const bookingsBySlot = new Map<string, { startMs: number; endMs: number }[]>();
+      if (slotRows.length > 0) {
+        const bookingRows = await db
+          .select({
+            coachSlotId: coachBookings.coachSlotId,
+            startsAt: coachBookings.startsAt,
+            endsAt: coachBookings.endsAt,
+          })
+          .from(coachBookings)
+          .where(
+            and(
+              eq(coachBookings.status, "active"),
+              inArray(
+                coachBookings.coachSlotId,
+                slotRows.map((s) => s.id),
+              ),
+            ),
+          );
+        for (const b of bookingRows) {
+          const list = bookingsBySlot.get(b.coachSlotId);
+          const interval = {
+            startMs: b.startsAt.getTime(),
+            endMs: b.endsAt.getTime(),
+          };
+          if (list) list.push(interval);
+          else bookingsBySlot.set(b.coachSlotId, [interval]);
+        }
+      }
+
       const durationMs = product.durationMinutes * 60_000;
       const nowMs = Date.now();
       const starts: { startsAt: string; endsAt: string }[] = [];
@@ -296,6 +330,7 @@ clientCatalogRouter.get(
         const blockEnd = s.endsAt.getTime();
         const blockMs = blockEnd - blockStart;
         const n = Math.floor(blockMs / durationMs);
+        const slotBookings = bookingsBySlot.get(s.id) ?? [];
         for (let i = 0; i < n; i += 1) {
           const startMs = blockStart + i * durationMs;
           const endMs = startMs + durationMs;
@@ -308,6 +343,15 @@ clientCatalogRouter.get(
           // earlier days of the current month would surface as bookable
           // — which they aren't.
           if (startMs < nowMs) continue;
+          // Skip chunks that overlap an active booking inside this slot.
+          let booked = false;
+          for (const bk of slotBookings) {
+            if (bk.startMs < endMs && bk.endMs > startMs) {
+              booked = true;
+              break;
+            }
+          }
+          if (booked) continue;
           starts.push({
             startsAt: new Date(startMs).toISOString(),
             endsAt: new Date(endMs).toISOString(),

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { CalendarHeader } from "../components/CalendarHeader";
 import { SlotFormModal } from "../components/SlotFormModal";
 import { SlotTypesDrawer } from "../components/SlotTypesDrawer";
@@ -7,19 +6,21 @@ import { WeekGrid } from "../components/WeekGrid";
 import type { CoachSlot } from "../api";
 import { useCoachSlots, useSlotTypes } from "../queries";
 import { addDays, endOfWeek, startOfWeek } from "../lib/dates";
+import { OrderDrawer } from "../../orders/components/OrderDrawer";
 
 type SlotFormMode =
   | { kind: "create"; preset: { day: Date; hour: number } | null }
   | { kind: "edit"; slot: CoachSlot };
 
 export function CoachCalendarPage() {
-  const navigate = useNavigate();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [selectedSlotTypeId, setSelectedSlotTypeId] = useState<string | null>(
     null,
   );
   const [slotFormMode, setSlotFormMode] = useState<SlotFormMode | null>(null);
   const [typesDrawerOpen, setTypesDrawerOpen] = useState(false);
+  const [orderDrawerId, setOrderDrawerId] = useState<string | null>(null);
+  const [orderDrawerOpen, setOrderDrawerOpen] = useState(false);
 
   const slotTypesQ = useSlotTypes();
   const weekEnd = useMemo(() => endOfWeek(weekStart), [weekStart]);
@@ -87,7 +88,9 @@ export function CoachCalendarPage() {
             setSlotFormMode({ kind: "create", preset: { day, hour } })
           }
           onBookingClick={(b) => {
-            if (b.orderId) navigate(`/orders?orderId=${b.orderId}`);
+            if (!b.orderId) return;
+            setOrderDrawerId(b.orderId);
+            setOrderDrawerOpen(true);
           }}
         />
       )}
@@ -103,6 +106,12 @@ export function CoachCalendarPage() {
         open={typesDrawerOpen}
         slotTypes={slotTypes}
         onClose={() => setTypesDrawerOpen(false)}
+      />
+
+      <OrderDrawer
+        orderId={orderDrawerId}
+        open={orderDrawerOpen}
+        onClose={() => setOrderDrawerOpen(false)}
       />
     </div>
   );
