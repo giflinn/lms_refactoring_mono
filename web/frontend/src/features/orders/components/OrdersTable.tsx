@@ -26,10 +26,10 @@ export function OrdersTable({ orders, onOpen }: Props) {
             Менеджер
           </div>
           <div aria-hidden className="flex-1" />
-          <div className="w-[140px]">Статус</div>
-          <div className="w-[70px]">Товаров</div>
           <div className="w-[110px]">Сумма</div>
           <div className="w-[100px]">Оплата</div>
+          <div className="w-[70px]">Товаров</div>
+          <div className="w-[140px]">Статус</div>
           {/* CTA column has no header — matches managers/clients tables. */}
           <div className="w-[140px]" aria-hidden />
         </div>
@@ -128,10 +128,6 @@ function OrderRow({
           )}
         </div>
         <div aria-hidden className="flex-1" />
-        <div className="w-[140px]">
-          <StatusBadge status={order.status} />
-        </div>
-        <div className="w-[70px]">{order.itemsCount}</div>
         <div className="w-[110px] font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
@@ -142,6 +138,10 @@ function OrderRow({
             className="h-6 w-6 shrink-0 rounded-full"
           />
           <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
+        </div>
+        <div className="w-[70px]">{order.itemsCount}</div>
+        <div className="w-[140px]">
+          <StatusBadge status={order.status} />
         </div>
         <div className="flex w-[140px]">
           <button
