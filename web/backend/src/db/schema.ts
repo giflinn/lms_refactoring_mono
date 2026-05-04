@@ -1,6 +1,7 @@
 import {
   pgTable,
   pgEnum,
+  pgSequence,
   uuid,
   text,
   timestamp,
@@ -433,6 +434,182 @@ export const notificationDeliveries = pgTable(
   (t) => [
     index("notification_deliveries_user_id_idx").on(t.userId),
     index("notification_deliveries_notification_id_idx").on(t.notificationId),
+  ],
+);
+
+export const orderStatusEnum = pgEnum("order_status", [
+  "new",
+  "paid",
+  "unpaid",
+  "cancelled",
+]);
+
+// Human-friendly 7+ digit order number shown in the UI ("№1210920"). Internal
+// references still use uuid id; this column is for staff and clients who need
+// to read or quote a number out loud. Starts at 1_000_000 so even the very
+// first order looks like a real one.
+export const ordersNumberSeq = pgSequence("orders_number_seq", {
+  startWith: 1000000,
+});
+
+// One purchase. Created in a transaction by POST /orders right before the
+// mobile app hands the user off to Kaspi. Snapshot semantics live on
+// order_items (title/category/price frozen at create-time); this table holds
+// the order-level metadata only. status defaults to 'new' and flips manually
+// from the admin drawer (or via the daily new→unpaid sweep).
+//
+// manager_id is also a snapshot — copied from users.manager_id at create
+// time. Reassigning a client to a different manager later does NOT migrate
+// historical orders. Nullable because clients without an assigned manager
+// (edge case during the seed-admin-only window) still need to be able to
+// place orders.
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderNumber: integer("order_number")
+      .notNull()
+      .unique()
+      .default(sql`nextval('orders_number_seq')`),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    managerId: uuid("manager_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    status: orderStatusEnum("status").notNull().default("new"),
+    // Tenge with two decimal places to match products.price; populated server-
+    // side from the snapshot row prices, never trusted from the client.
+    totalTenge: numeric("total_tenge", { precision: 12, scale: 2 }).notNull(),
+    statusChangedAt: timestamp("status_changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    statusChangedByUserId: uuid("status_changed_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("orders_client_id_idx").on(t.clientId),
+    index("orders_manager_id_idx").on(t.managerId),
+    index("orders_status_idx").on(t.status),
+    index("orders_created_at_idx").on(t.createdAt),
+  ],
+);
+
+// One row per product in the order. product_id keeps a navigational link
+// back to the catalog row, but the displayable fields (title, category name,
+// subtitle, unit_price) are frozen at create-time. This protects the
+// historical order from later product edits or deletion (the FK is RESTRICT,
+// so deleting a product with order history is refused at the DB level).
+//
+// booked_start / booked_end are populated only for bookable products
+// (products.duration_minutes != null). The matching row in coach_bookings
+// holds the slot reservation; if a booking is cancelled the order_item still
+// carries the original booked range for audit.
+export const orderItems = pgTable(
+  "order_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    productTitle: text("product_title").notNull(),
+    productCategoryName: text("product_category_name").notNull(),
+    productSubtitle: text("product_subtitle"),
+    unitPriceTenge: numeric("unit_price_tenge", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    bookedStart: timestamp("booked_start", { withTimezone: true }),
+    bookedEnd: timestamp("booked_end", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("order_items_order_id_idx").on(t.orderId)],
+);
+
+// Append-only audit of every status transition. Created lazily — the
+// initial 'new' on order creation is NOT logged (visible from orders.created_at).
+// Logged for the cron auto-transition (changed_by_user_id is null then) and
+// for every manual change from the admin drawer.
+export const orderStatusLog = pgTable(
+  "order_status_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    fromStatus: orderStatusEnum("from_status").notNull(),
+    toStatus: orderStatusEnum("to_status").notNull(),
+    // Null for the cron-driven new→unpaid sweep, populated for staff actions.
+    changedByUserId: uuid("changed_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    changedAt: timestamp("changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("order_status_log_order_id_idx").on(t.orderId)],
+);
+
+// Sub-range reservation inside a coach_slot. Created together with an
+// order_item in the same transaction at order creation time. The coach
+// calendar reads these to render colored slices over the slot tile and to
+// refuse new reservations on overlapping ranges.
+//
+// status reuses coach_slot_status_enum since the semantics are identical
+// ('active' lives, 'cancelled' is dead). Reverting an order out of
+// 'cancelled' tries to flip cancelled bookings back to active; if other
+// bookings now overlap the range, the revert is refused with 409
+// booking_conflict.
+//
+// order_item_id is nullable to keep the door open for future manual
+// bookings without an order (free consultations etc.). For now every row
+// has it set.
+export const coachBookings = pgTable(
+  "coach_bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    coachSlotId: uuid("coach_slot_id")
+      .notNull()
+      .references(() => coachSlots.id, { onDelete: "restrict" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    orderItemId: uuid("order_item_id").references(() => orderItems.id, {
+      onDelete: "restrict",
+    }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    status: coachSlotStatusEnum("status").notNull().default("active"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "coach_bookings_ends_after_starts",
+      sql`${t.endsAt} > ${t.startsAt}`,
+    ),
+    index("coach_bookings_slot_id_status_idx").on(t.coachSlotId, t.status),
+    index("coach_bookings_client_id_idx").on(t.clientId),
+    index("coach_bookings_order_item_id_idx").on(t.orderItemId),
   ],
 );
 

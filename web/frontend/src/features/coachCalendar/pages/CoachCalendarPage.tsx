@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CalendarHeader } from "../components/CalendarHeader";
 import { SlotFormModal } from "../components/SlotFormModal";
 import { SlotTypesDrawer } from "../components/SlotTypesDrawer";
@@ -12,6 +13,7 @@ type SlotFormMode =
   | { kind: "edit"; slot: CoachSlot };
 
 export function CoachCalendarPage() {
+  const navigate = useNavigate();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [selectedSlotTypeId, setSelectedSlotTypeId] = useState<string | null>(
     null,
@@ -84,6 +86,9 @@ export function CoachCalendarPage() {
           onEmptyClick={(day, hour) =>
             setSlotFormMode({ kind: "create", preset: { day, hour } })
           }
+          onBookingClick={(b) => {
+            if (b.orderId) navigate(`/orders?orderId=${b.orderId}`);
+          }}
         />
       )}
 

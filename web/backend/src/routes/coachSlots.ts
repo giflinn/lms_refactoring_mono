@@ -1,7 +1,13 @@
 import { Router } from "express";
-import { and, asc, eq, gt, lt, ne } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, ne, or } from "drizzle-orm";
 import { db } from "../db";
-import { coachSlots, slotTypes } from "../db/schema";
+import {
+  coachBookings,
+  coachSlots,
+  orderItems,
+  slotTypes,
+  users,
+} from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireStaffAdmin } from "../middleware/requireRole";
 
@@ -10,9 +16,26 @@ export const coachSlotsRouter = Router();
 type CoachSlotRow = typeof coachSlots.$inferSelect;
 type SlotTypeRow = typeof slotTypes.$inferSelect;
 
+type BookingSummary = {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  orderItemId: string | null;
+  // The order this booking belongs to. Null when the booking was created
+  // outside an order (no rows like that today, but the schema allows it).
+  orderId: string | null;
+  client: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+  };
+};
+
 function serialize(
   s: CoachSlotRow,
   t: Pick<SlotTypeRow, "id" | "name" | "color">,
+  bookings: BookingSummary[] = [],
 ) {
   return {
     id: s.id,
@@ -24,7 +47,50 @@ function serialize(
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
     slotType: { id: t.id, name: t.name, color: t.color },
+    bookings,
   };
+}
+
+// Fetches active bookings for the given slot ids and groups them by slot.
+async function fetchBookingsForSlots(
+  slotIds: string[],
+): Promise<Map<string, BookingSummary[]>> {
+  const map = new Map<string, BookingSummary[]>();
+  if (slotIds.length === 0) return map;
+  const rows = await db
+    .select({
+      booking: coachBookings,
+      orderId: orderItems.orderId,
+      client: {
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        avatarUrl: users.avatarUrl,
+      },
+    })
+    .from(coachBookings)
+    .innerJoin(users, eq(users.id, coachBookings.clientId))
+    .leftJoin(orderItems, eq(orderItems.id, coachBookings.orderItemId))
+    .where(
+      and(
+        inArray(coachBookings.coachSlotId, slotIds),
+        eq(coachBookings.status, "active"),
+      ),
+    )
+    .orderBy(asc(coachBookings.startsAt));
+  for (const r of rows) {
+    const arr = map.get(r.booking.coachSlotId) ?? [];
+    arr.push({
+      id: r.booking.id,
+      startsAt: r.booking.startsAt,
+      endsAt: r.booking.endsAt,
+      orderItemId: r.booking.orderItemId,
+      orderId: r.orderId ?? null,
+      client: r.client,
+    });
+    map.set(r.booking.coachSlotId, arr);
+  }
+  return map;
 }
 
 function parseDate(value: unknown): Date | null {
@@ -96,7 +162,15 @@ coachSlotsRouter.get(
         .where(and(...conds))
         .orderBy(asc(coachSlots.startsAt));
 
-      res.json({ slots: rows.map((r) => serialize(r.slot, r.type)) });
+      const bookingsBySlot = await fetchBookingsForSlots(
+        rows.map((r) => r.slot.id),
+      );
+
+      res.json({
+        slots: rows.map((r) =>
+          serialize(r.slot, r.type, bookingsBySlot.get(r.slot.id) ?? []),
+        ),
+      });
     } catch (err) {
       next(err);
     }
@@ -260,6 +334,30 @@ coachSlotsRouter.patch(
         return;
       }
 
+      // If the slot's time is changing, refuse if any active booking falls
+      // outside the new range. Editing the type while bookings exist is fine
+      // (booking type is decoupled — it inherits via the slot reference).
+      if (timeChanged) {
+        const stillFits = await db
+          .select({ id: coachBookings.id })
+          .from(coachBookings)
+          .where(
+            and(
+              eq(coachBookings.coachSlotId, id),
+              eq(coachBookings.status, "active"),
+              or(
+                lt(coachBookings.startsAt, nextStartsAt),
+                gt(coachBookings.endsAt, nextEndsAt),
+              )!,
+            ),
+          )
+          .limit(1);
+        if (stillFits.length > 0) {
+          res.status(409).json({ error: "slot_has_bookings" });
+          return;
+        }
+      }
+
       const [row] = await db
         .update(coachSlots)
         .set({
@@ -271,16 +369,19 @@ coachSlotsRouter.patch(
         .where(eq(coachSlots.id, id))
         .returning();
 
-      res.json({ slot: serialize(row, typeRows[0]) });
+      const bookingsBySlot = await fetchBookingsForSlots([row.id]);
+      res.json({
+        slot: serialize(row, typeRows[0], bookingsBySlot.get(row.id) ?? []),
+      });
     } catch (err) {
       next(err);
     }
   },
 );
 
-// DELETE /coach-slots/:id — soft cancel. Idempotent: cancelling a cancelled
-// slot returns ok. When bookings exist (later phase) we'll add a check to
-// refuse cancellation until bookings are handled.
+// DELETE /coach-slots/:id — soft cancel. Idempotent on already-cancelled
+// slots. Refuses if active bookings exist — staff must move/cancel the
+// related orders first.
 coachSlotsRouter.delete(
   "/coach-slots/:id",
   requireAuth,
@@ -300,6 +401,21 @@ coachSlotsRouter.delete(
       }
       if (existing[0].status === "cancelled") {
         res.json({ ok: true });
+        return;
+      }
+
+      const activeBookings = await db
+        .select({ id: coachBookings.id })
+        .from(coachBookings)
+        .where(
+          and(
+            eq(coachBookings.coachSlotId, id),
+            eq(coachBookings.status, "active"),
+          ),
+        )
+        .limit(1);
+      if (activeBookings.length > 0) {
+        res.status(409).json({ error: "slot_has_bookings" });
         return;
       }
 

@@ -1,7 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
+import '../../../orders/data/orders_api.dart';
+import '../../../orders/data/orders_api_provider.dart';
+import '../controller/cart_controller.dart';
 import 'cart_item_card.dart';
 
 /// Centered modal: "Выберите способ оплаты". Two payment rows (Kaspi, bank
@@ -258,9 +264,18 @@ Future<void> _showKaspiInstructions(
   );
 }
 
-class _KaspiInstructionsDialog extends StatelessWidget {
+class _KaspiInstructionsDialog extends ConsumerStatefulWidget {
   final num totalTenge;
   const _KaspiInstructionsDialog({required this.totalTenge});
+
+  @override
+  ConsumerState<_KaspiInstructionsDialog> createState() =>
+      _KaspiInstructionsDialogState();
+}
+
+class _KaspiInstructionsDialogState
+    extends ConsumerState<_KaspiInstructionsDialog> {
+  bool _creating = false;
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +318,7 @@ class _KaspiInstructionsDialog extends StatelessWidget {
             const SizedBox(height: 8),
             Center(
               child: Text(
-                'К оплате: ${formatTenge(totalTenge)} ₸',
+                'К оплате: ${formatTenge(widget.totalTenge)} ₸',
                 style: const TextStyle(
                   color: AppColors.yellowPrimary,
                   fontSize: 17,
@@ -322,7 +337,7 @@ class _KaspiInstructionsDialog extends StatelessWidget {
             _Step(
               num: '2',
               text:
-                  'Оплатите указанную сумму — ${formatTenge(totalTenge)} ₸.',
+                  'Оплатите указанную сумму — ${formatTenge(widget.totalTenge)} ₸.',
             ),
             const SizedBox(height: 12),
             const _Step(
@@ -348,18 +363,27 @@ class _KaspiInstructionsDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: InkWell(
-                    onTap: () => _openKaspi(context),
+                    onTap: _creating ? null : _openKaspi,
                     borderRadius: BorderRadius.circular(14),
-                    child: const Center(
-                      child: Text(
-                        'Открыть Kaspi',
-                        style: TextStyle(
-                          color: AppColors.purpleDark,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
+                    child: Center(
+                      child: _creating
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppColors.purpleDark,
+                              ),
+                            )
+                          : const Text(
+                              'Открыть Kaspi',
+                              style: TextStyle(
+                                color: AppColors.purpleDark,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -369,7 +393,7 @@ class _KaspiInstructionsDialog extends StatelessWidget {
             SizedBox(
               height: 48,
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _creating ? null : () => Navigator.of(context).pop(),
                 child: const Text(
                   'Закрыть',
                   style: TextStyle(
@@ -387,16 +411,98 @@ class _KaspiInstructionsDialog extends StatelessWidget {
     );
   }
 
-  Future<void> _openKaspi(BuildContext context) async {
-    // Stub URL — order creation + per-order payment link comes in a later
-    // step. For now we just hand the user off to the Kaspi homepage so the
-    // flow is testable end-to-end.
-    final uri = Uri.parse('https://kaspi.kz');
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось открыть Kaspi')),
-      );
+  /// Creates the order on the server first, clears the local cart, then
+  /// hands the user off to Kaspi. If order creation fails we keep the user
+  /// in the dialog with a snackbar — they shouldn't be sent to Kaspi for a
+  /// purchase that didn't get recorded.
+  Future<void> _openKaspi() async {
+    if (_creating) return;
+    setState(() => _creating = true);
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+
+    try {
+      final cart = ref.read(cartProvider);
+      if (cart.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showError('Войдите в аккаунт, чтобы продолжить');
+        return;
+      }
+      final idToken = await user.getIdToken();
+      if (idToken == null || idToken.isEmpty) {
+        _showError('Не удалось получить токен. Попробуйте перезайти.');
+        return;
+      }
+
+      try {
+        await ref
+            .read(ordersApiProvider)
+            .createOrder(
+              items: cart
+                  .map(
+                    (c) => CreateOrderItemInput(
+                      productId: c.productId,
+                      bookedStart: c.bookedStart,
+                    ),
+                  )
+                  .toList(),
+              idToken: idToken,
+            );
+      } on OrderCreationException catch (e) {
+        if (mounted) _showError(_messageForCode(e.code));
+        return;
+      }
+
+      ref.read(cartProvider.notifier).clear();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      final uri = Uri.parse('https://kaspi.kz');
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        messenger?.showSnackBar(
+          const SnackBar(content: Text('Не удалось открыть Kaspi')),
+        );
+      }
+    } on NetworkException {
+      if (mounted) _showError('Нет соединения с сервером');
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  String _messageForCode(String code) {
+    switch (code) {
+      case 'slot_taken':
+        return 'Это время уже забронировано. Выберите другое.';
+      case 'slot_unavailable':
+        return 'Слот недоступен. Попробуйте другое время.';
+      case 'product_inactive':
+      case 'product_not_found':
+        return 'Один из товаров больше недоступен.';
+      case 'product_not_orderable':
+        return 'Этот товар нельзя заказать напрямую — напишите менеджеру.';
+      case 'product_misconfigured':
+        return 'Этот товар нельзя забронировать — напишите менеджеру.';
+      case 'booked_start_in_past':
+      case 'invalid_booked_start':
+      case 'booked_start_required':
+        return 'Время бронирования некорректно. Выберите снова.';
+      case 'forbidden':
+        return 'Только клиенты могут создавать заказы.';
+      default:
+        return 'Не удалось создать заказ. Попробуйте позже.';
     }
   }
 }

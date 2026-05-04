@@ -1,0 +1,264 @@
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import clsx from "clsx";
+import { Drawer } from "../../../components/ui/Drawer";
+import { Avatar } from "../../../components/Avatar";
+import { ApiError, type OrderStatus } from "../api";
+import { useOrder, usePatchOrder } from "../queries";
+import { StatusMenu } from "./StatusMenu";
+import { BookingConflictDialog } from "./BookingConflictDialog";
+import { formatBookingRange, formatOrderDate, formatTenge } from "../format";
+
+type Props = {
+  orderId: string | null;
+  open: boolean;
+  onClose: () => void;
+};
+
+const STATUS_BADGE_STYLES: Record<OrderStatus, string> = {
+  new: "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#0E131F]",
+  paid: "border-[#34C759] bg-[rgba(52,199,89,0.1)] text-[#34C759]",
+  unpaid: "border-[#FA8905] bg-[rgba(255,149,0,0.1)] text-[#FA8905]",
+  cancelled: "border-[#FF3B30] bg-[rgba(255,59,48,0.1)] text-[#FF3B30]",
+};
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  new: "Новый заказ",
+  paid: "Оплачено",
+  unpaid: "Не оплачено",
+  cancelled: "Отменен",
+};
+
+export function OrderDrawer({ orderId, open, onClose }: Props) {
+  const orderQuery = useOrder(open ? orderId : null);
+  const patch = usePatchOrder();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Booking-conflict modal state
+  const [conflict, setConflict] = useState<{ targetStatus: OrderStatus } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    // Reset transient UI on close.
+    if (!open) {
+      setMenuOpen(false);
+      setConflict(null);
+    }
+  }, [open]);
+
+  const order = orderQuery.data;
+  const isLoading = open && orderQuery.isLoading;
+  const isError = open && orderQuery.isError;
+
+  const title = order ? `Заказ №${order.orderNumber}` : "Заказ";
+
+  async function applyStatus(target: OrderStatus, force: boolean) {
+    if (!order) return;
+    try {
+      await patch.mutateAsync({
+        id: order.id,
+        status: target,
+        force,
+      });
+      setConflict(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "booking_conflict") {
+        setConflict({ targetStatus: target });
+        return;
+      }
+      console.error("[orders] status change failed", err);
+    }
+  }
+
+  return (
+    <>
+      <Drawer
+        open={open}
+        title={title}
+        onClose={onClose}
+        footer={
+          order && (
+            <div className="flex items-center justify-between text-[16px] font-medium">
+              <span className="text-grey-dark">Общая сумма</span>
+              <span className="text-purple-primary">
+                {formatTenge(order.totalTenge)}
+              </span>
+            </div>
+          )
+        }
+      >
+        {isLoading && (
+          <div className="py-12 text-center text-[14px] text-grey-medium">
+            Загрузка…
+          </div>
+        )}
+        {isError && (
+          <div className="py-12 text-center text-[14px] text-red-error">
+            Не удалось загрузить заказ.
+          </div>
+        )}
+        {order && (
+          <div className="flex flex-col gap-4 pb-6">
+            <Section label="Клиент">
+              <PersonRow
+                firstName={order.client.firstName}
+                lastName={order.client.lastName}
+                email={order.client.email}
+                avatarUrl={order.client.avatarUrl}
+              />
+            </Section>
+
+            <Section label="Менеджер">
+              {order.manager ? (
+                <PersonRow
+                  firstName={order.manager.firstName}
+                  lastName={order.manager.lastName}
+                  email={order.manager.email}
+                  avatarUrl={order.manager.avatarUrl}
+                />
+              ) : (
+                <span className="text-[14px] text-grey-medium">—</span>
+              )}
+            </Section>
+
+            <Section label="Статус">
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                disabled={patch.isPending}
+                className={clsx(
+                  "flex h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] border px-3 text-[14px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50",
+                  STATUS_BADGE_STYLES[order.status],
+                )}
+              >
+                <span className="flex-1 text-left">
+                  {STATUS_LABEL[order.status]}
+                </span>
+                <span className="text-[13px] font-normal opacity-80">
+                  {formatOrderDate(order.statusChangedAt)}
+                </span>
+                <ChevronDown size={18} strokeWidth={1.5} />
+              </button>
+            </Section>
+
+            <Section label="Товаров">
+              <div className="flex flex-col gap-2">
+                {order.items.map((it) => (
+                  <ItemCard
+                    key={it.id}
+                    chip={it.productCategoryName}
+                    title={it.productTitle}
+                    dateLabel={
+                      it.bookedStart && it.bookedEnd
+                        ? formatBookingRange(it.bookedStart, it.bookedEnd)
+                        : (it.productSubtitle ?? "—")
+                    }
+                    price={formatTenge(it.unitPriceTenge)}
+                  />
+                ))}
+              </div>
+            </Section>
+          </div>
+        )}
+      </Drawer>
+
+      {order && (
+        <StatusMenu
+          open={menuOpen}
+          current={order.status}
+          triggerRef={triggerRef}
+          onClose={() => setMenuOpen(false)}
+          onSelect={(s) => applyStatus(s, false)}
+        />
+      )}
+
+      <BookingConflictDialog
+        open={conflict !== null}
+        pending={patch.isPending}
+        onCancel={() => setConflict(null)}
+        onForce={() => {
+          if (conflict) applyStatus(conflict.targetStatus, true);
+        }}
+      />
+    </>
+  );
+}
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="py-1 text-[14px] font-medium text-grey-dark">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function PersonRow({
+  firstName,
+  lastName,
+  email,
+  avatarUrl,
+}: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar
+        src={avatarUrl}
+        firstName={firstName}
+        lastName={lastName}
+        email={email}
+        size={40}
+      />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="truncate text-[14px] font-medium leading-tight text-[#0E131F]">
+          {firstName} {lastName}
+        </p>
+        <p className="truncate text-[13px] font-medium leading-tight text-[#96999D]">
+          {email}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ItemCard({
+  chip,
+  title,
+  dateLabel,
+  price,
+}: {
+  chip: string;
+  title: string;
+  dateLabel: string;
+  price: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] bg-[#F9F9F9] p-3">
+      <span className="inline-flex w-fit items-center rounded-[6px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-2.5 py-1 text-[12px] font-medium text-grey-medium">
+        {chip}
+      </span>
+      <p className="text-[15px] font-medium text-grey-dark">{title}</p>
+      <div className="h-px w-full bg-[#EAECF0]" />
+      <div className="flex items-center justify-between text-[14px] font-medium">
+        <span className="text-grey-dark/60">{dateLabel}</span>
+        <span className="text-purple-primary">{price}</span>
+      </div>
+    </div>
+  );
+}

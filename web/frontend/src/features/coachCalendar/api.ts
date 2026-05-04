@@ -12,6 +12,20 @@ export type SlotType = {
 
 export type CoachSlotStatus = "active" | "cancelled";
 
+export type CoachBooking = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  orderItemId: string | null;
+  orderId: string | null;
+  client: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+  };
+};
+
 export type CoachSlot = {
   id: string;
   slotTypeId: string;
@@ -22,6 +36,7 @@ export type CoachSlot = {
   createdAt: string;
   updatedAt: string;
   slotType: { id: string; name: string; color: string };
+  bookings: CoachBooking[];
 };
 
 export class ApiError extends Error {

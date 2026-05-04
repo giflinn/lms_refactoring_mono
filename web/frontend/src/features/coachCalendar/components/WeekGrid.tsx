@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useEffect, useMemo, useState } from "react";
-import type { CoachSlot } from "../api";
+import type { CoachBooking, CoachSlot } from "../api";
 import { addDays, isSameDay, weekdayShort } from "../lib/dates";
 import { SlotPill } from "./SlotPill";
 
@@ -18,6 +18,7 @@ type Props = {
   slots: CoachSlot[];
   onSlotClick: (slot: CoachSlot) => void;
   onEmptyClick: (day: Date, hour: number) => void;
+  onBookingClick: (booking: CoachBooking) => void;
 };
 
 export function WeekGrid({
@@ -25,6 +26,7 @@ export function WeekGrid({
   slots,
   onSlotClick,
   onEmptyClick,
+  onBookingClick,
 }: Props) {
   // `now` ticks every 60s so the now-line and past-cell dimming track real
   // time without a manual reload. The minute granularity matches the line's
@@ -136,6 +138,7 @@ export function WeekGrid({
             now={now}
             onSlotClick={onSlotClick}
             onEmptyClick={onEmptyClick}
+            onBookingClick={onBookingClick}
           />
         ))}
 
@@ -160,6 +163,7 @@ type DayColumnProps = {
   now: Date;
   onSlotClick: (slot: CoachSlot) => void;
   onEmptyClick: (day: Date, hour: number) => void;
+  onBookingClick: (booking: CoachBooking) => void;
 };
 
 function DayColumn({
@@ -168,6 +172,7 @@ function DayColumn({
   now,
   onSlotClick,
   onEmptyClick,
+  onBookingClick,
 }: DayColumnProps) {
   // Day-end marker for "is past": a cell is past iff its end-of-block has
   // already passed in real time. Comparing the cell's end (rather than start)
@@ -230,8 +235,10 @@ function DayColumn({
             slot={slot}
             topPx={top}
             heightPx={height}
+            pxPerHour={PX_PER_HOUR}
             isPast={isPast}
             onClick={onSlotClick}
+            onBookingClick={onBookingClick}
           />
         );
       })}
