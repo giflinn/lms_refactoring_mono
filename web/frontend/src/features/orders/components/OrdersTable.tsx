@@ -17,12 +17,17 @@ export function OrdersTable({ orders, onOpen }: Props) {
           № Заказа
         </div>
         <div className="flex flex-1 items-center gap-4 px-4 py-3">
-          <div className="w-[170px]">Дата</div>
-          <div className="min-w-0 flex-1 basis-0">Клиент</div>
-          <div className="min-w-0 flex-1 basis-0">Менеджер</div>
+          <div className="w-[150px]">Дата</div>
+          <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
+            Клиент
+          </div>
+          <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
+            Менеджер
+          </div>
+          <div aria-hidden className="flex-1" />
           <div className="w-[70px] text-center">Товаров</div>
           <div className="w-[110px] text-right">Сумма</div>
-          <div className="w-[140px]">Статус</div>
+          <div className="w-[120px]">Статус</div>
         </div>
       </div>
       <div className="flex flex-col">
@@ -99,10 +104,8 @@ function OrderRow({
         {order.orderNumber}
       </div>
       <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
-        <div className="w-[170px]">
-          {formatOrderDate(order.createdAt)}
-        </div>
-        <div className="min-w-0 flex-1 basis-0">
+        <div className="w-[150px]">{formatOrderDate(order.createdAt)}</div>
+        <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
           <PersonCell
             firstName={order.client.firstName}
             lastName={order.client.lastName}
@@ -110,7 +113,7 @@ function OrderRow({
             avatarUrl={order.client.avatarUrl}
           />
         </div>
-        <div className="min-w-0 flex-1 basis-0">
+        <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
           {order.manager ? (
             <PersonCell
               firstName={order.manager.firstName}
@@ -122,11 +125,12 @@ function OrderRow({
             <span className="text-grey-medium">—</span>
           )}
         </div>
+        <div aria-hidden className="flex-1" />
         <div className="w-[70px] text-center">{order.itemsCount}</div>
         <div className="w-[110px] text-right font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
-        <div className="w-[140px]">
+        <div className="w-[120px]">
           <StatusBadge status={order.status} />
         </div>
       </div>
