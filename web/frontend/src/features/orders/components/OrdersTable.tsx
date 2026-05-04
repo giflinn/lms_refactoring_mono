@@ -13,7 +13,7 @@ export function OrdersTable({ orders, onOpen }: Props) {
   return (
     <div className="w-full overflow-hidden rounded-[12px] border border-[rgba(102,112,133,0.3)] bg-white shadow-[0_4px_8px_-2px_rgba(16,24,40,0.05),0_2px_4px_-2px_rgba(16,24,40,0.05)]">
       <div className="flex items-center bg-background text-[14px] font-medium text-grey-dark">
-        <div className="w-[160px] border-r border-[#EAECF0] bg-[#F9F9F9] px-4 py-3">
+        <div className="w-[110px] border-r border-[#EAECF0] bg-[#F9F9F9] px-4 py-3">
           № Заказа
         </div>
         <div className="flex flex-1 items-center gap-4 px-4 py-3">
@@ -25,6 +25,7 @@ export function OrdersTable({ orders, onOpen }: Props) {
             Менеджер
           </div>
           <div aria-hidden className="flex-1" />
+          <div className="w-[140px]">Статус</div>
           <div className="w-[70px] text-right">Товаров</div>
           <div className="w-[110px] text-right">Сумма</div>
           {/* CTA column has no header — matches managers/clients tables. */}
@@ -95,15 +96,12 @@ function OrderRow({
   return (
     <div
       className={clsx(
-        "flex items-stretch border-b border-[#EAECF0]",
+        "flex items-center border-b border-[#EAECF0]",
         striped && "bg-[#FBFBFB]",
       )}
     >
-      <div className="flex w-[160px] flex-col items-start justify-center gap-2 border-r border-[#EAECF0] bg-white px-4 py-3">
-        <span className="text-[14px] font-medium text-[#0E131F]">
-          {order.orderNumber}
-        </span>
-        <StatusBadge status={order.status} />
+      <div className="w-[110px] self-stretch border-r border-[#EAECF0] bg-white px-4 py-3 text-[14px] font-medium text-[#0E131F] flex items-center">
+        {order.orderNumber}
       </div>
       <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
         <div className="w-[150px]">{formatOrderDate(order.createdAt)}</div>
@@ -128,6 +126,9 @@ function OrderRow({
           )}
         </div>
         <div aria-hidden className="flex-1" />
+        <div className="w-[140px]">
+          <StatusBadge status={order.status} />
+        </div>
         <div className="w-[70px] text-right">{order.itemsCount}</div>
         <div className="w-[110px] text-right font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
