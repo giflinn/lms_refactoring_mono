@@ -17,12 +17,12 @@ export function OrdersTable({ orders, onOpen }: Props) {
           № Заказа
         </div>
         <div className="flex flex-1 items-center gap-4 px-4 py-3">
-          <div className="w-[70px] text-center">Товаров</div>
+          <div className="w-[170px]">Дата</div>
           <div className="min-w-0 flex-1 basis-0">Клиент</div>
           <div className="min-w-0 flex-1 basis-0">Менеджер</div>
-          <div className="w-[140px]">Статус</div>
-          <div className="w-[170px] text-center">Дата</div>
+          <div className="w-[70px] text-center">Товаров</div>
           <div className="w-[110px] text-right">Сумма</div>
+          <div className="w-[140px]">Статус</div>
         </div>
       </div>
       <div className="flex flex-col">
@@ -99,7 +99,9 @@ function OrderRow({
         {order.orderNumber}
       </div>
       <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
-        <div className="w-[70px] text-center">{order.itemsCount}</div>
+        <div className="w-[170px]">
+          {formatOrderDate(order.createdAt)}
+        </div>
         <div className="min-w-0 flex-1 basis-0">
           <PersonCell
             firstName={order.client.firstName}
@@ -120,14 +122,12 @@ function OrderRow({
             <span className="text-grey-medium">—</span>
           )}
         </div>
-        <div className="w-[140px]">
-          <StatusBadge status={order.status} />
-        </div>
-        <div className="w-[170px] text-center">
-          {formatOrderDate(order.createdAt)}
-        </div>
+        <div className="w-[70px] text-center">{order.itemsCount}</div>
         <div className="w-[110px] text-right font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
+        </div>
+        <div className="w-[140px]">
+          <StatusBadge status={order.status} />
         </div>
       </div>
     </button>
