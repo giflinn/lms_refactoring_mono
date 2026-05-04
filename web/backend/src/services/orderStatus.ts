@@ -29,8 +29,12 @@ import {
 } from "../db/schema";
 import { sendPushToUser, type PushPayload } from "./push";
 
-export type PaymentStatus = "new" | "paid" | "unpaid" | "refunded";
-export type FulfillmentStatus = "active" | "completed" | "cancelled";
+export type PaymentStatus = "pending" | "paid" | "unpaid" | "refunded";
+export type FulfillmentStatus =
+  | "new"
+  | "active"
+  | "completed"
+  | "cancelled";
 
 export class OrderStatusError extends Error {
   code: string;
@@ -60,6 +64,7 @@ export async function changeOrderPaymentStatus(
         id: orders.id,
         clientId: orders.clientId,
         paymentStatus: orders.paymentStatus,
+        fulfillmentStatus: orders.fulfillmentStatus,
         firstPaidAt: orders.firstPaidAt,
         orderNumber: orders.orderNumber,
       })
@@ -68,7 +73,11 @@ export async function changeOrderPaymentStatus(
       .limit(1);
     if (!order) throw new OrderStatusError("order_not_found");
     if (order.paymentStatus === toStatus) {
-      return { status: order.paymentStatus as PaymentStatus, push: null };
+      return {
+        status: order.paymentStatus as PaymentStatus,
+        push: null,
+        autoFulfillmentTarget: null as FulfillmentStatus | null,
+      };
     }
 
     const fromStatus = order.paymentStatus as PaymentStatus;
@@ -119,8 +128,21 @@ export async function changeOrderPaymentStatus(
       changedByUserId,
     });
 
+    // Auto-transition fulfillment out of 'new' when payment leaves 'pending'.
+    // 'paid' wakes the lifecycle into 'active'; 'unpaid'/'refunded' kill it
+    // outright into 'cancelled'. Once fulfillment is past 'new' it stays
+    // decoupled — staff drives changes manually from the drawer.
+    let autoFulfillmentTarget: FulfillmentStatus | null = null;
+    if (
+      order.fulfillmentStatus === "new" &&
+      fromStatus === "pending" &&
+      toStatus !== "pending"
+    ) {
+      autoFulfillmentTarget = toStatus === "paid" ? "active" : "cancelled";
+    }
+
     let push: { clientId: string; payload: PushPayload } | null = null;
-    if (toStatus !== "new") {
+    if (toStatus !== "pending") {
       const text = paymentPushText(toStatus, order.orderNumber);
       push = {
         clientId: order.clientId,
@@ -136,8 +158,20 @@ export async function changeOrderPaymentStatus(
       };
     }
 
-    return { status: toStatus, push };
+    return { status: toStatus, push, autoFulfillmentTarget };
   });
+
+  // Run fulfillment cascade after the payment txn commits — it has its own
+  // transaction (cancels coach_bookings) and we suppress its push because the
+  // payment push already informed the client.
+  if (txResult.autoFulfillmentTarget) {
+    await changeOrderFulfillmentStatus(
+      orderId,
+      txResult.autoFulfillmentTarget,
+      changedByUserId,
+      { silent: true },
+    );
+  }
 
   if (txResult.push) {
     sendPushToUser(txResult.push.clientId, txResult.push.payload).catch(
@@ -154,7 +188,7 @@ export async function changeOrderFulfillmentStatus(
   orderId: string,
   toStatus: FulfillmentStatus,
   changedByUserId: string | null,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; silent?: boolean } = {},
 ): Promise<ChangeStatusResult<FulfillmentStatus>> {
   const txResult = await db.transaction(async (tx) => {
     const [order] = await tx
@@ -291,7 +325,7 @@ export async function changeOrderFulfillmentStatus(
       .where(eq(orders.id, orderId));
 
     let push: { clientId: string; payload: PushPayload } | null = null;
-    if (toStatus === "cancelled") {
+    if (toStatus === "cancelled" && !options.silent) {
       push = {
         clientId: order.clientId,
         payload: {
@@ -321,7 +355,7 @@ export async function changeOrderFulfillmentStatus(
 }
 
 function paymentPushText(
-  status: Exclude<PaymentStatus, "new">,
+  status: Exclude<PaymentStatus, "pending">,
   orderNumber: number,
 ): { title: string; body: string } {
   switch (status) {

@@ -20,20 +20,21 @@ type Props = {
 };
 
 const PAYMENT_BADGE_STYLES: Record<PaymentStatus, string> = {
-  new: "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#0E131F]",
+  pending: "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#0E131F]",
   paid: "border-[#34C759] bg-[rgba(52,199,89,0.1)] text-[#34C759]",
   unpaid: "border-[#FA8905] bg-[rgba(255,149,0,0.1)] text-[#FA8905]",
   refunded: "border-[#96999D] bg-[rgba(150,153,157,0.1)] text-[#50555C]",
 };
 
 const PAYMENT_LABEL: Record<PaymentStatus, string> = {
-  new: "Новый",
+  pending: "Ожидает оплаты",
   paid: "Оплачено",
   unpaid: "Не оплачено",
   refunded: "Возврат",
 };
 
 const FULFILLMENT_BADGE_STYLES: Record<FulfillmentStatus, string> = {
+  new: "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#0E131F]",
   active: "border-[#810CA8] bg-[rgba(129,12,168,0.08)] text-[#810CA8]",
   completed:
     "border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] text-[#50555C]",
@@ -41,6 +42,7 @@ const FULFILLMENT_BADGE_STYLES: Record<FulfillmentStatus, string> = {
 };
 
 const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
+  new: "Новый",
   active: "Активный",
   completed: "Завершен",
   cancelled: "Отменен",

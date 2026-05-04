@@ -7,7 +7,7 @@ const PAYMENT_ITEMS: ReadonlyArray<{
   label: string;
   textCls: string;
 }> = [
-  { value: "new", label: "Новый", textCls: "text-[#0E131F]" },
+  { value: "pending", label: "Ожидает оплаты", textCls: "text-[#0E131F]" },
   { value: "paid", label: "Оплачено", textCls: "text-[#34C759]" },
   { value: "unpaid", label: "Не оплачено", textCls: "text-[#FA8905]" },
   { value: "refunded", label: "Возврат", textCls: "text-[#50555C]" },
@@ -18,6 +18,7 @@ const FULFILLMENT_ITEMS: ReadonlyArray<{
   label: string;
   textCls: string;
 }> = [
+  { value: "new", label: "Новый", textCls: "text-[#0E131F]" },
   { value: "active", label: "Активный", textCls: "text-[#810CA8]" },
   { value: "completed", label: "Завершен", textCls: "text-[#50555C]" },
   { value: "cancelled", label: "Отменен", textCls: "text-[#FF3B30]" },

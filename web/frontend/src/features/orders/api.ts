@@ -1,7 +1,11 @@
 import { ApiClient, apiClient } from "../../api/client";
 
-export type PaymentStatus = "new" | "paid" | "unpaid" | "refunded";
-export type FulfillmentStatus = "active" | "completed" | "cancelled";
+export type PaymentStatus = "pending" | "paid" | "unpaid" | "refunded";
+export type FulfillmentStatus =
+  | "new"
+  | "active"
+  | "completed"
+  | "cancelled";
 
 export type OrderUserSummary = {
   id: string;

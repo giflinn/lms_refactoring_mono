@@ -39,13 +39,16 @@ async function sweepNewToUnpaid(): Promise<void> {
     .select({ id: orders.id })
     .from(orders)
     .where(
-      and(eq(orders.paymentStatus, "new"), lt(orders.createdAt, cutoff)),
+      and(
+        eq(orders.paymentStatus, "pending"),
+        lt(orders.createdAt, cutoff),
+      ),
     );
   for (const o of stale) {
     try {
       await changeOrderPaymentStatus(o.id, "unpaid", null);
     } catch (err) {
-      console.error("[orders-cron] new->unpaid for", o.id, err);
+      console.error("[orders-cron] pending->unpaid for", o.id, err);
     }
   }
 }

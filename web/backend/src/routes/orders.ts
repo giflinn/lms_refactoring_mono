@@ -32,12 +32,13 @@ export const ordersRouter = Router();
 type StaffRole = "manager" | "senior_manager" | "admin";
 
 const VALID_PAYMENT_STATUSES: ReadonlySet<PaymentStatus> = new Set([
-  "new",
+  "pending",
   "paid",
   "unpaid",
   "refunded",
 ]);
 const VALID_FULFILLMENT_STATUSES: ReadonlySet<FulfillmentStatus> = new Set([
+  "new",
   "active",
   "completed",
   "cancelled",

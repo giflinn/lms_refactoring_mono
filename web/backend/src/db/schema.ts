@@ -443,22 +443,27 @@ export const notificationDeliveries = pgTable(
   ],
 );
 
-// Where the money is at. 'new' = order created, awaiting client receipt.
+// Where the money is at. 'pending' = order created, awaiting client receipt.
 // 'paid' = manager confirmed Kaspi screenshot. 'unpaid' = manager rejected
 // or 24h auto-flip. 'refunded' = paid then walked back. Cancellation as
 // a concept lives on fulfillment_status, not here.
 export const paymentStatusEnum = pgEnum("payment_status", [
-  "new",
+  "pending",
   "paid",
   "unpaid",
   "refunded",
 ]);
 
-// Where the order is in its lifecycle. 'active' = client still has access /
-// the booking is in the future. 'completed' = the time-window expired (cron
-// flips this) or the meeting passed. 'cancelled' = staff voided the order
-// regardless of payment state.
+// Where the order is in its lifecycle. 'new' = freshly created, payment not
+// yet decided. 'active' = paid and the access window is open. 'completed' =
+// the time-window expired (cron flips this) or the meeting passed.
+// 'cancelled' = staff voided the order regardless of payment state.
+//
+// Auto-transitions out of 'new' happen inside changeOrderPaymentStatus when
+// payment leaves 'pending': paid → fulfillment 'active'; unpaid/refunded →
+// 'cancelled'. Once fulfillment leaves 'new', it's decoupled from payment.
 export const fulfillmentStatusEnum = pgEnum("fulfillment_status", [
+  "new",
   "active",
   "completed",
   "cancelled",
@@ -499,10 +504,10 @@ export const orders = pgTable(
     }),
     paymentStatus: paymentStatusEnum("payment_status")
       .notNull()
-      .default("new"),
+      .default("pending"),
     fulfillmentStatus: fulfillmentStatusEnum("fulfillment_status")
       .notNull()
-      .default("active"),
+      .default("new"),
     // Tenge with two decimal places to match products.price; populated server-
     // side from the snapshot row prices, never trusted from the client.
     totalTenge: numeric("total_tenge", { precision: 12, scale: 2 }).notNull(),
