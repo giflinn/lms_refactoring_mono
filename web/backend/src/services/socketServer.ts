@@ -75,7 +75,9 @@ export function attachSocketServer(httpServer: HttpServer): IOServer {
       const authToken = (socket.handshake.auth as { token?: string })?.token;
       const idToken = authToken ?? headerToken;
       if (!idToken) return next(new Error("missing_token"));
-      const decoded = await firebaseAuth.verifyIdToken(idToken);
+      // checkRevoked=true mirrors requireAuth: a deleted user's token is
+      // refused immediately instead of riding out the ~1h refresh window.
+      const decoded = await firebaseAuth.verifyIdToken(idToken, true);
       const rows = await db
         .select({
           id: users.id,
@@ -90,7 +92,19 @@ export function attachSocketServer(httpServer: HttpServer): IOServer {
       socket.data.actorId = rows[0].id;
       socket.data.actorRole = rows[0].role;
       next();
-    } catch {
+    } catch (err) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as { code?: string }).code
+          : undefined;
+      if (
+        code === "auth/id-token-revoked" ||
+        code === "auth/user-disabled" ||
+        code === "auth/user-not-found"
+      ) {
+        next(new Error("session_revoked"));
+        return;
+      }
       next(new Error("invalid_token"));
     }
   });

@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,9 +48,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _signInWithGoogle() async {
+    // The post-Google navigation can otherwise leave the soft keyboard open
+    // when /complete-profile or /home mounts — the focused field on this
+    // screen lingers across the route change. Drop focus before the
+    // OAuth flow starts so there's nothing to keep the keyboard alive.
+    FocusManager.instance.primaryFocus?.unfocus();
     try {
-      final result =
-          await ref.read(authProvider.notifier).signInWithGoogle();
+      final result = await ref.read(authProvider.notifier).signInWithGoogle();
       if (!mounted) return;
       switch (result) {
         case GoogleSignInLoggedIn():
@@ -66,7 +71,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Не удалось войти через Google. Попробуйте позже.')),
+          content: Text('Не удалось войти через Google. Попробуйте позже.'),
+        ),
       );
     }
   }
@@ -86,8 +92,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       return;
     }
     if (!isValidEmail(email)) {
-      setState(() => _emailError =
-          'Пожалуйста, введите действительный адрес электронной почты');
+      setState(
+        () => _emailError =
+            'Пожалуйста, введите действительный адрес электронной почты',
+      );
       return;
     }
     if (password.isEmpty) {
@@ -100,13 +108,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await ref.read(authProvider.notifier).signIn(email, password);
     } on NetworkException {
       if (!mounted) return;
-      setState(() =>
-          _passwordError = 'Нет соединения с сервером. Проверьте интернет.');
+      setState(
+        () => _passwordError = 'Нет соединения с сервером. Проверьте интернет.',
+      );
     } on EmailNotVerifiedException {
       if (!mounted) return;
       setState(() {
-        _passwordError =
-            'Email не подтвержден. Перейдите по ссылке из письма.';
+        _passwordError = 'Email не подтвержден. Перейдите по ссылке из письма.';
         _showResendVerification = true;
       });
     } on fb.FirebaseAuthException catch (e) {
@@ -133,8 +141,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(
-          () => _passwordError = 'Не удалось войти. Попробуйте позже.');
+      setState(() => _passwordError = 'Не удалось войти. Попробуйте позже.');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -154,7 +161,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Не удалось отправить. Попробуйте позже.')),
+          content: Text('Не удалось отправить. Попробуйте позже.'),
+        ),
       );
     }
   }
@@ -168,140 +176,145 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         body: KeyboardDismiss(
           child: SafeArea(
             child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 16),
-                const Center(child: AppLogo(width: 220)),
-                const SizedBox(height: 24),
-                const Text(
-                  'Добро пожаловать!',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                AuthTextField(
-                  label: 'Электронная почта',
-                  controller: _emailCtrl,
-                  errorText: _emailError,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHint: AutofillHints.email,
-                  onChanged: (_) {
-                    if (_emailError != null) {
-                      setState(() => _emailError = null);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                AuthTextField(
-                  label: 'Пароль',
-                  controller: _passwordCtrl,
-                  errorText: _passwordError,
-                  isPassword: true,
-                  autofillHint: AutofillHints.password,
-                  onChanged: (_) {
-                    if (_passwordError != null) {
-                      setState(() {
-                        _passwordError = null;
-                        _showResendVerification = false;
-                      });
-                    }
-                  },
-                ),
-                if (_showResendVerification)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 4),
-                    child: GestureDetector(
-                      onTap: _resendVerification,
-                      child: const Text(
-                        'Отправить письмо повторно',
-                        style: TextStyle(
-                          color: AppColors.yellowPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  const Center(child: AppLogo(width: 220)),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Добро пожаловать!',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  label: 'Войти',
-                  onPressed: _submit,
-                  loading: _submitting,
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(
-                        color: AppColors.white.withValues(alpha: 0.3),
-                      ),
-                    ),
+                  const SizedBox(height: 24),
+                  AuthTextField(
+                    label: 'Электронная почта',
+                    controller: _emailCtrl,
+                    errorText: _emailError,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHint: AutofillHints.email,
+                    onChanged: (_) {
+                      if (_emailError != null) {
+                        setState(() => _emailError = null);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  AuthTextField(
+                    label: 'Пароль',
+                    controller: _passwordCtrl,
+                    errorText: _passwordError,
+                    isPassword: true,
+                    autofillHint: AutofillHints.password,
+                    onChanged: (_) {
+                      if (_passwordError != null) {
+                        setState(() {
+                          _passwordError = null;
+                          _showResendVerification = false;
+                        });
+                      }
+                    },
+                  ),
+                  if (_showResendVerification)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'или',
-                        style: TextStyle(
-                          color: AppColors.white.withValues(alpha: 0.7),
-                          fontSize: 13,
+                      padding: const EdgeInsets.only(top: 6, left: 4),
+                      child: GestureDetector(
+                        onTap: _resendVerification,
+                        child: const Text(
+                          'Отправить письмо повторно',
+                          style: TextStyle(
+                            color: AppColors.yellowPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Divider(
-                        color: AppColors.white.withValues(alpha: 0.3),
+                  const SizedBox(height: 24),
+                  PrimaryButton(
+                    label: 'Войти',
+                    onPressed: _submit,
+                    loading: _submitting,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: AppColors.white.withValues(alpha: 0.3),
+                        ),
                       ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'или',
+                          style: TextStyle(
+                            color: AppColors.white.withValues(alpha: 0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: AppColors.white.withValues(alpha: 0.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SocialButton(
+                    icon: FontAwesomeIcons.google,
+                    label: 'Продолжить с Google',
+                    onPressed: _signInWithGoogle,
+                  ),
+                  // Apple sign-in is iOS-only — Apple's review guidelines
+                  // require it alongside other social providers on iOS, but
+                  // there's no equivalent rule (or native flow) on Android.
+                  if (Platform.isIOS) ...[
+                    const SizedBox(height: 8),
+                    SocialButton(
+                      icon: FontAwesomeIcons.apple,
+                      label: 'Продолжить с Apple',
+                      onPressed: _showInDevelopmentSnackbar,
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                SocialButton(
-                  icon: FontAwesomeIcons.google,
-                  label: 'Продолжить с Google',
-                  onPressed: _signInWithGoogle,
-                ),
-                const SizedBox(height: 8),
-                SocialButton(
-                  icon: FontAwesomeIcons.apple,
-                  label: 'Продолжить с Apple',
-                  onPressed: _showInDevelopmentSnackbar,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: () => context.push('/register'),
-                      child: const Text(
-                        'Регистрация',
-                        style: TextStyle(
-                          color: AppColors.yellowPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => context.push('/register'),
+                        child: const Text(
+                          'Регистрация',
+                          style: TextStyle(
+                            color: AppColors.yellowPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () => context.push('/forgot-password'),
-                      child: const Text(
-                        'Забыли пароль?',
-                        style: TextStyle(
-                          color: AppColors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                      TextButton(
+                        onPressed: () => context.push('/forgot-password'),
+                        child: const Text(
+                          'Забыли пароль?',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),

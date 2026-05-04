@@ -18,8 +18,15 @@ class ApiClient {
   final String baseUrl;
   final http.Client _http;
 
-  ApiClient({required this.baseUrl, http.Client? client})
-      : _http = client ?? http.Client();
+  /// Fired when the backend returns 401 with `error: "session_revoked"` —
+  /// signals that the user was deleted or had their tokens revoked
+  /// (password reset). The provider wires this to a global signOut so the
+  /// app drops back to /login instead of stranding the user on a
+  /// half-authenticated screen.
+  final void Function()? onSessionRevoked;
+
+  ApiClient({required this.baseUrl, http.Client? client, this.onSessionRevoked})
+    : _http = client ?? http.Client();
 
   /// Base URL resolved at compile-time via --dart-define, with sensible
   /// per-platform defaults for the simulator/emulator.
@@ -36,11 +43,7 @@ class ApiClient {
     return _send(req);
   }
 
-  Future<http.Response> postJson(
-    String path, {
-    Object? body,
-    String? idToken,
-  }) {
+  Future<http.Response> postJson(String path, {Object? body, String? idToken}) {
     final req = http.Request('POST', _uri(path));
     req.headers.addAll(_headers(idToken));
     req.headers['Content-Type'] = 'application/json';
@@ -91,13 +94,18 @@ class ApiClient {
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
   Map<String, String> _headers(String? idToken) => {
-        if (idToken != null) 'Authorization': 'Bearer $idToken',
-      };
+    if (idToken != null) 'Authorization': 'Bearer $idToken',
+  };
 
   Future<http.Response> _send(http.BaseRequest req) async {
     try {
       final streamed = await _http.send(req).timeout(_timeout);
-      return await http.Response.fromStream(streamed);
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode == 401 &&
+          parseErrorCode(res.body) == 'session_revoked') {
+        onSessionRevoked?.call();
+      }
+      return res;
     } on TimeoutException {
       throw const NetworkException();
     } on SocketException {

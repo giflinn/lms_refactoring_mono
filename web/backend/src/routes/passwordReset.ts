@@ -132,7 +132,22 @@ passwordResetRouter.post("/auth/password-reset/verify", async (req, res, next) =
       .limit(1);
 
     if (rows.length === 0) {
-      res.status(400).json({ error: "code_expired_or_missing" });
+      // No active code. Distinguish "user typed the right code but it
+      // expired/was-used" from "user typed the wrong digits" — the latter
+      // is the common case (e.g. 6th attempt after attempts cap, or a typo
+      // when no code was outstanding) and deserves the matching error.
+      const latest = await db
+        .select({ codeHash: passwordResetCodes.codeHash })
+        .from(passwordResetCodes)
+        .where(eq(passwordResetCodes.email, email))
+        .orderBy(desc(passwordResetCodes.createdAt))
+        .limit(1);
+      const typedHash = hashOtpCode(code, email);
+      if (latest.length > 0 && latest[0].codeHash === typedHash) {
+        res.status(400).json({ error: "code_expired_or_missing" });
+      } else {
+        res.status(400).json({ error: "wrong_code" });
+      }
       return;
     }
     const record = rows[0];
