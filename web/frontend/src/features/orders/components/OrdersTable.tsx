@@ -25,9 +25,9 @@ export function OrdersTable({ orders, onOpen }: Props) {
             Менеджер
           </div>
           <div aria-hidden className="flex-1" />
-          <div className="w-[70px] text-center">Товаров</div>
+          <div className="w-[70px] text-right">Товаров</div>
           <div className="w-[110px] text-right">Сумма</div>
-          <div className="w-[120px]">Статус</div>
+          <div className="w-[120px] text-left">Статус</div>
         </div>
       </div>
       <div className="flex flex-col">
@@ -126,11 +126,11 @@ function OrderRow({
           )}
         </div>
         <div aria-hidden className="flex-1" />
-        <div className="w-[70px] text-center">{order.itemsCount}</div>
+        <div className="w-[70px] text-right">{order.itemsCount}</div>
         <div className="w-[110px] text-right font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
-        <div className="w-[120px]">
+        <div className="flex w-[120px] justify-start">
           <StatusBadge status={order.status} />
         </div>
       </div>
