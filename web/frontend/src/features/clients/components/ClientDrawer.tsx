@@ -14,7 +14,8 @@ import { useUpdateClient, useStaffList } from "../queries";
 import { mapError } from "../errors";
 import { clientFormSchema, type ClientFormValues } from "../schema";
 import { CATEGORY_OPTIONS } from "./CategoryBadge";
-import { PurchaseHistoryStub } from "./PurchaseHistoryStub";
+import { PurchaseHistoryTab } from "./PurchaseHistoryTab";
+import { OrderDrawer } from "../../orders/components/OrderDrawer";
 
 type Props = {
   open: boolean;
@@ -42,6 +43,8 @@ export function ClientDrawer({ open, client, onClose }: Props) {
 
   const [tab, setTab] = useState<Tab>("details");
   const [generalError, setGeneralError] = useState<string | undefined>();
+  const [orderDrawerId, setOrderDrawerId] = useState<string | null>(null);
+  const [orderDrawerOpen, setOrderDrawerOpen] = useState(false);
 
   const {
     register,
@@ -60,6 +63,8 @@ export function ClientDrawer({ open, client, onClose }: Props) {
     if (!open) return;
     setTab("details");
     setGeneralError(undefined);
+    setOrderDrawerOpen(false);
+    setOrderDrawerId(null);
     if (client) {
       resetForm({
         phone: client.phone ?? "",
@@ -148,6 +153,7 @@ export function ClientDrawer({ open, client, onClose }: Props) {
   const watchedCategory = watch("clientCategory");
 
   return (
+    <>
     <Drawer
       open={open}
       title="Клиент"
@@ -249,11 +255,23 @@ export function ClientDrawer({ open, client, onClose }: Props) {
               )}
             </form>
           ) : (
-            <PurchaseHistoryStub />
+            <PurchaseHistoryTab
+              clientId={client.id}
+              onOpenOrder={(id) => {
+                setOrderDrawerId(id);
+                setOrderDrawerOpen(true);
+              }}
+            />
           )}
         </div>
       )}
     </Drawer>
+    <OrderDrawer
+      orderId={orderDrawerId}
+      open={orderDrawerOpen}
+      onClose={() => setOrderDrawerOpen(false)}
+    />
+    </>
   );
 }
 
