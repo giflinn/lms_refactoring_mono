@@ -39,9 +39,17 @@ class ProductActionBar extends ConsumerWidget {
     final isBookable = product.isBookable;
     final hasSelection = selectedStart != null;
     final subtitleText = _subtitleText(product, selectedStart);
+    // "In cart" only counts when both the product *and* the picked slot
+    // match — otherwise switching to a new time keeps the CTA as "В
+    // корзину" so the user can replace the existing entry instead of
+    // being silently blocked by the morphed "В корзине" remove button.
     final inCart = ref
         .watch(cartProvider)
-        .any((it) => it.productId == product.id);
+        .any(
+          (it) =>
+              it.productId == product.id &&
+              _sameSlot(it.bookedStart, selectedStart?.startsAt),
+        );
 
     final showTerms = !isOnRequest && !inCart;
     final canAdd =
@@ -149,7 +157,35 @@ class ProductActionBar extends ConsumerWidget {
     final priceNum = num.tryParse(product.price ?? '');
     if (priceNum == null) return;
 
-    ref.read(cartProvider.notifier).add(
+    // If the same product is already in cart with a different slot, ask the
+    // user to confirm a replace instead of silently overwriting (the
+    // CartController itself replaces by productId, so the actual mutation
+    // is unchanged — this dialog only adds the consent step).
+    final existing = ref
+        .read(cartProvider)
+        .where((it) => it.productId == product.id)
+        .firstOrNull;
+    if (existing != null &&
+        !_sameSlot(existing.bookedStart, selectedStart?.startsAt)) {
+      final confirmed = await showCartReplaceConfirmPopup(context);
+      if (!confirmed || !context.mounted) return;
+      ref
+          .read(cartProvider.notifier)
+          .add(
+            CartItem(
+              product: product,
+              price: priceNum,
+              bookedStart: selectedStart?.startsAt,
+            ),
+          );
+      // Skip the standard "added" popup — the explicit replace confirm is
+      // already an interaction; chaining a second dialog would feel noisy.
+      return;
+    }
+
+    ref
+        .read(cartProvider.notifier)
+        .add(
           CartItem(
             product: product,
             price: priceNum,
@@ -196,11 +232,9 @@ class _CtaButton extends StatelessWidget {
     this.enabled = true,
   }) : _outlined = false;
 
-  const _CtaButton.outlined({
-    required this.label,
-    required this.onTap,
-  })  : _outlined = true,
-        enabled = true;
+  const _CtaButton.outlined({required this.label, required this.onTap})
+    : _outlined = true,
+      enabled = true;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +285,15 @@ class _CtaButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// Compare two slot timestamps tolerant of UTC/local flag differences —
+// `==` on DateTime returns false when the isUtc flag differs even at the
+// same instant, but the cart and the picker can disagree on that flag.
+bool _sameSlot(DateTime? a, DateTime? b) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return a.isAtSameMomentAs(b);
 }
 
 String? _subtitleText(Product product, AvailableStart? selectedStart) {

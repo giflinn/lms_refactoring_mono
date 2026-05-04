@@ -41,6 +41,24 @@ Future<bool> showCartRemoveConfirmPopup(BuildContext context) async {
   return result == true;
 }
 
+/// Asks the user whether to overwrite an already-in-cart entry of the same
+/// product with a new time slot. Reuses the same dialog shell as add/remove
+/// for consistency. Returns true on confirmation, false/null on cancel.
+Future<bool> showCartReplaceConfirmPopup(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (ctx) => _CartActionDialog(
+      title: 'Заменить товар в корзине новым временем?',
+      primaryLabel: 'Заменить',
+      secondaryLabel: 'Отмена',
+      onPrimary: () => Navigator.of(ctx).pop(true),
+      onSecondary: () => Navigator.of(ctx).pop(false),
+    ),
+  );
+  return result == true;
+}
+
 class _CartActionDialog extends StatelessWidget {
   final String title;
   final String primaryLabel;

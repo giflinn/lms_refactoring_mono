@@ -33,6 +33,11 @@ class _CartPageState extends ConsumerState<CartPage> {
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
     return Column(
+      // Stretch so _Header fills the screen horizontally — without this the
+      // header sizes to its widest child (the BrandLogotype / "Корзина"
+      // text) and the parent Column's default center alignment pushes it
+      // into the middle of the screen instead of pinning it to the left.
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _Header(),
         Expanded(
@@ -158,9 +163,8 @@ class _FilledState extends ConsumerWidget {
               for (final item in items) ...[
                 CartItemCard(
                   item: item,
-                  onRemove: () => ref
-                      .read(cartProvider.notifier)
-                      .remove(item.productId),
+                  onRemove: () =>
+                      ref.read(cartProvider.notifier).remove(item.productId),
                   onOpen: () => context.push(
                     '/client/products/${item.productId}',
                     extra: item.product,
@@ -201,10 +205,7 @@ class _FilledState extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              TermsCheckboxRow(
-                value: termsAccepted,
-                onChanged: onTermsChanged,
-              ),
+              TermsCheckboxRow(value: termsAccepted, onChanged: onTermsChanged),
             ],
           ),
         ),

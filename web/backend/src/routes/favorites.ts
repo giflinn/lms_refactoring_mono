@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   productCategories,
   productFavorites,
   products,
+  productSlotTypes,
   users,
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -18,8 +19,14 @@ type ProductRow = typeof products.$inferSelect;
 type CategorySummary = { id: string; name: string };
 
 // Identical shape to clientCatalog's serializer — kept duplicated rather than
-// extracted into a shared helper while there's only two callers.
-function serialize(p: ProductRow, category: CategorySummary | null) {
+// extracted into a shared helper while there's only two callers. Must include
+// durationMinutes + slotTypeIds: the mobile detail screen derives `isBookable`
+// from them and silently hides the date/time picker when they're missing.
+function serialize(
+  p: ProductRow,
+  category: CategorySummary | null,
+  slotTypeIds: string[],
+) {
   return {
     id: p.id,
     categoryId: p.categoryId,
@@ -30,11 +37,33 @@ function serialize(p: ProductRow, category: CategorySummary | null) {
     buttonText: p.buttonText,
     price: p.price,
     daysUntilCancel: p.daysUntilCancel,
+    durationMinutes: p.durationMinutes,
+    slotTypeIds,
     isPromo: p.isPromo,
     isTopSearch: p.isTopSearch,
     coverKind: p.coverKind,
     coverImageUrl: p.coverImageUrl,
   };
+}
+
+async function loadSlotTypeIdsByProduct(
+  productIds: string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (productIds.length === 0) return out;
+  const rows = await db
+    .select({
+      productId: productSlotTypes.productId,
+      slotTypeId: productSlotTypes.slotTypeId,
+    })
+    .from(productSlotTypes)
+    .where(inArray(productSlotTypes.productId, productIds));
+  for (const r of rows) {
+    const list = out.get(r.productId);
+    if (list) list.push(r.slotTypeId);
+    else out.set(r.productId, [r.slotTypeId]);
+  }
+  return out;
 }
 
 // requireAuth gives us the Firebase UID. All FK targets in our schema use the
@@ -79,9 +108,17 @@ favoritesRouter.get("/favorites", requireAuth, async (req, res, next) => {
       )
       .orderBy(desc(productFavorites.createdAt));
 
+    const idsByProduct = await loadSlotTypeIdsByProduct(
+      rows.map((r) => r.product.id),
+    );
+
     res.json({
       products: rows.map((r) =>
-        serialize(r.product, r.category?.id ? r.category : null),
+        serialize(
+          r.product,
+          r.category?.id ? r.category : null,
+          idsByProduct.get(r.product.id) ?? [],
+        ),
       ),
     });
   } catch (err) {
