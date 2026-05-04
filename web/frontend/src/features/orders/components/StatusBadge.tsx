@@ -41,10 +41,7 @@ export function statusLabel(status: OrderStatus): string {
   return STATUS_LABELS[status];
 }
 
-export const STATUS_OPTIONS: ReadonlyArray<{
-  value: OrderStatus;
-  label: string;
-}> = [
+export const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: "new", label: STATUS_LABELS.new },
   { value: "paid", label: STATUS_LABELS.paid },
   { value: "unpaid", label: STATUS_LABELS.unpaid },
