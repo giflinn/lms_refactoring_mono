@@ -470,14 +470,6 @@ export function ProductFormDrawer({
               {...register("daysUntilCancel")}
               error={errors.daysUntilCancel?.message}
             />
-            <Input
-              fullWidth
-              label="Срок активности, дней"
-              inputMode="numeric"
-              placeholder="пусто — бессрочно"
-              {...register("activeDurationDays")}
-              error={errors.activeDurationDays?.message}
-            />
           </div>
 
           <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
@@ -568,6 +560,48 @@ export function ProductFormDrawer({
                 </div>
               </>
             )}
+          </section>
+
+          <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
+            <label
+              className={clsx(
+                "flex items-center justify-between gap-3",
+                watched.bookingEnabled
+                  ? "cursor-not-allowed opacity-60"
+                  : "cursor-pointer",
+              )}
+            >
+              <div className="flex flex-col">
+                <span className="text-[14px] font-medium text-grey-dark">
+                  Срок доступа после оплаты
+                </span>
+                <span className="text-[12px] text-grey-medium">
+                  {watched.bookingEnabled
+                    ? "Не применяется к бронируемым товарам"
+                    : "Например, курс на 30 дней. Без срока — доступ навсегда."}
+                </span>
+              </div>
+              <Toggle
+                checked={watched.activeDurationDays.trim() !== ""}
+                disabled={watched.bookingEnabled}
+                onChange={(v) => {
+                  setValue("activeDurationDays", v ? "30" : "", {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+            </label>
+            {!watched.bookingEnabled &&
+              watched.activeDurationDays.trim() !== "" && (
+                <Input
+                  fullWidth
+                  label="Дней"
+                  inputMode="numeric"
+                  placeholder="30"
+                  {...register("activeDurationDays")}
+                  error={errors.activeDurationDays?.message}
+                />
+              )}
           </section>
 
         {generalError && (
