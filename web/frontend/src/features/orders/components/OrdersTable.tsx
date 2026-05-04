@@ -3,6 +3,7 @@ import { Avatar } from "../../../components/Avatar";
 import type { OrderListItem } from "../api";
 import { StatusBadge } from "./StatusBadge";
 import { formatOrderDate, formatTenge } from "../format";
+import kaspiIcon from "../../../assets/icons/payment/kaspi.png";
 
 type Props = {
   orders: OrderListItem[];
@@ -28,6 +29,7 @@ export function OrdersTable({ orders, onOpen }: Props) {
           <div className="w-[140px]">Статус</div>
           <div className="w-[70px]">Товаров</div>
           <div className="w-[110px]">Сумма</div>
+          <div className="w-[100px]">Оплата</div>
           {/* CTA column has no header — matches managers/clients tables. */}
           <div className="w-[140px]" aria-hidden />
         </div>
@@ -132,6 +134,14 @@ function OrderRow({
         <div className="w-[70px]">{order.itemsCount}</div>
         <div className="w-[110px] font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
+        </div>
+        <div className="flex w-[100px] items-center gap-2">
+          <img
+            src={kaspiIcon}
+            alt="Kaspi"
+            className="h-6 w-6 shrink-0 rounded-full"
+          />
+          <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
         </div>
         <div className="flex w-[140px]">
           <button
