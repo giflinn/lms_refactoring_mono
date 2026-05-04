@@ -68,6 +68,7 @@ function serializeUser(u: typeof users.$inferSelect) {
     managerCode: u.managerCode,
     managerId: u.managerId,
     avatarUrl: u.avatarUrl,
+    clientCategory: u.clientCategory,
     createdAt: u.createdAt,
   };
 }

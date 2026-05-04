@@ -5,13 +5,13 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../../cart/presentation/controller/cart_controller.dart';
+import '../../../cabinet/presentation/pages/cabinet_page.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../catalog/presentation/pages/favorites_page.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../controller/client_shell_tab_controller.dart';
 import '../widgets/role_bottom_nav.dart';
-import 'under_construction_page.dart';
 
 class ClientShellPage extends ConsumerWidget {
   const ClientShellPage({super.key});
@@ -67,7 +67,7 @@ class ClientShellPage extends ConsumerWidget {
     // Scaffold's appBar null — they'd otherwise stack a redundant AppBar on
     // top of their own. Tabs still under construction keep the generic
     // AppBar + logout affordance.
-    final ownsHeader = index == 0 || index == 2 || index == 3;
+    final ownsHeader = index == 0 || index == 2 || index == 3 || index == 4;
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -102,7 +102,7 @@ class ClientShellPage extends ConsumerWidget {
             const SizedBox.shrink(),
             CartPage(onGoToCatalog: () => goTo(0)),
             FavoritesPage(onGoToCatalog: () => goTo(0)),
-            UnderConstructionPage(title: items[4].label),
+            const CabinetPage(),
           ],
         ),
         bottomNavigationBar: RoleBottomNav(

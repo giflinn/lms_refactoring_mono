@@ -16,6 +16,10 @@ class AppUser {
   final String? managerCode;
   final String? managerId;
   final String? avatarUrl;
+  /// One of 'new' | 'regular' | 'vip'. Set manually by admin; defaults to 'new'
+  /// at registration. Null on staff rows (the column is non-null in DB but
+  /// stays meaningless for non-clients).
+  final String? clientCategory;
   final DateTime createdAt;
 
   const AppUser({
@@ -29,6 +33,7 @@ class AppUser {
     required this.managerCode,
     required this.managerId,
     required this.avatarUrl,
+    required this.clientCategory,
     required this.createdAt,
   });
 
@@ -44,6 +49,7 @@ class AppUser {
       managerCode: json['managerCode'] as String?,
       managerId: json['managerId'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      clientCategory: json['clientCategory'] as String?,
       createdAt: parseServerTime(json['createdAt'] as String),
     );
   }

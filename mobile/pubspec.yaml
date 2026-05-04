@@ -93,6 +93,7 @@ flutter:
     - assets/icons/favorites/
     - assets/icons/cart/
     - assets/icons/chat/
+    - assets/icons/cabinet/
     - assets/product_cover/
 
 flutter_launcher_icons:

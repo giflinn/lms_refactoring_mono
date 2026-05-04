@@ -1,0 +1,289 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/widgets/brand_logotype.dart';
+import '../../../../core/widgets/user_avatar.dart';
+import '../../../auth/presentation/controller/auth_controller.dart';
+
+/// "Кабинет" tab — client profile hub. Header (logotype + large title) +
+/// account card (avatar, name, optional VIP chip, "Личные данные" link) +
+/// 4 settings rows + logout.
+///
+/// Sub-pages (Личные данные, Уведомления, Мои покупки, Мои отзывы, Настройки)
+/// are not built yet; their taps surface a "В разработке" snackbar.
+class CabinetPage extends ConsumerWidget {
+  const CabinetPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Safe: ClientShellPage is only mounted when authProvider has data.
+    final user = ref.watch(authProvider).requireValue!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _Header(),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              _AccountCard(
+                firstName: user.firstName,
+                lastName: user.lastName,
+                avatarUrl: user.avatarUrl,
+                isVip: user.clientCategory == 'vip',
+                onTap: () => _stub(context),
+              ),
+              const SizedBox(height: 16),
+              _SettingsRow(
+                iconAsset: 'assets/icons/cabinet/notifications.svg',
+                label: 'Уведомления',
+                onTap: () => _stub(context),
+              ),
+              const SizedBox(height: 16),
+              _SettingsRow(
+                iconAsset: 'assets/icons/cabinet/purchases.svg',
+                label: 'Мои покупки',
+                onTap: () => _stub(context),
+              ),
+              const SizedBox(height: 16),
+              _SettingsRow(
+                iconAsset: 'assets/icons/cabinet/reviews.svg',
+                label: 'Мои отзывы',
+                onTap: () => _stub(context),
+              ),
+              const SizedBox(height: 16),
+              _SettingsRow(
+                iconAsset: 'assets/icons/cabinet/setting.svg',
+                label: 'Настройки',
+                onTap: () => _stub(context),
+              ),
+              const SizedBox(height: 16),
+              _SettingsRow(
+                iconAsset: 'assets/icons/cabinet/logout.svg',
+                label: 'Выйти',
+                onTap: () => ref.read(authProvider.notifier).signOut(),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static void _stub(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('В разработке'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: BrandLogotype(height: 26),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Text(
+              'Кабинет',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+                letterSpacing: -0.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountCard extends StatelessWidget {
+  final String firstName;
+  final String lastName;
+  final String? avatarUrl;
+  final bool isVip;
+  final VoidCallback onTap;
+
+  const _AccountCard({
+    required this.firstName,
+    required this.lastName,
+    required this.avatarUrl,
+    required this.isVip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+          child: Row(
+            children: [
+              UserAvatar(
+                avatarUrl: avatarUrl,
+                firstName: firstName,
+                lastName: lastName,
+                size: 60,
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 16, 9),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              firstName.isEmpty ? 'Профиль' : firstName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w500,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                          if (isVip) ...[
+                            const SizedBox(width: 8),
+                            const _VipChip(),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Личные данные',
+                        style: TextStyle(
+                          color: AppColors.purpleTertiary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.purpleTertiary,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VipChip extends StatelessWidget {
+  const _VipChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.yellowGradientTop, AppColors.yellowGradientBottom],
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Text(
+        'VIP',
+        style: TextStyle(
+          color: AppColors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          height: 16 / 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  final String iconAsset;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SettingsRow({
+    required this.iconAsset,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              SvgPicture.asset(
+                iconAsset,
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.purpleTertiary,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
