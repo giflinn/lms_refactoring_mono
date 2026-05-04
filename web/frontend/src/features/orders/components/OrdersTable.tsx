@@ -13,7 +13,7 @@ export function OrdersTable({ orders, onOpen }: Props) {
   return (
     <div className="w-full overflow-hidden rounded-[12px] border border-[rgba(102,112,133,0.3)] bg-white shadow-[0_4px_8px_-2px_rgba(16,24,40,0.05),0_2px_4px_-2px_rgba(16,24,40,0.05)]">
       <div className="flex items-center bg-background text-[14px] font-medium text-grey-dark">
-        <div className="w-[110px] border-r border-[#EAECF0] bg-[#F9F9F9] px-4 py-3">
+        <div className="w-[160px] border-r border-[#EAECF0] bg-[#F9F9F9] px-4 py-3">
           № Заказа
         </div>
         <div className="flex flex-1 items-center gap-4 px-4 py-3">
@@ -27,7 +27,8 @@ export function OrdersTable({ orders, onOpen }: Props) {
           <div aria-hidden className="flex-1" />
           <div className="w-[70px] text-right">Товаров</div>
           <div className="w-[110px] text-right">Сумма</div>
-          <div className="w-[120px] text-left">Статус</div>
+          {/* CTA column has no header — matches managers/clients tables. */}
+          <div className="w-[140px]" aria-hidden />
         </div>
       </div>
       <div className="flex flex-col">
@@ -92,16 +93,17 @@ function OrderRow({
   onOpen: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <div
       className={clsx(
-        "flex w-full cursor-pointer items-center border-b border-[#EAECF0] text-left transition-colors hover:bg-grey-lighter/60",
+        "flex items-stretch border-b border-[#EAECF0]",
         striped && "bg-[#FBFBFB]",
       )}
     >
-      <div className="w-[110px] border-r border-[#EAECF0] bg-white px-4 py-3 text-[14px] font-medium text-[#0E131F]">
-        {order.orderNumber}
+      <div className="flex w-[160px] flex-col items-start justify-center gap-2 border-r border-[#EAECF0] bg-white px-4 py-3">
+        <span className="text-[14px] font-medium text-[#0E131F]">
+          {order.orderNumber}
+        </span>
+        <StatusBadge status={order.status} />
       </div>
       <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
         <div className="w-[150px]">{formatOrderDate(order.createdAt)}</div>
@@ -130,10 +132,16 @@ function OrderRow({
         <div className="w-[110px] text-right font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
-        <div className="flex w-[120px] justify-start">
-          <StatusBadge status={order.status} />
+        <div className="flex w-[140px] justify-end">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-4 py-2 text-[14px] font-medium text-[#0E131F] hover:bg-grey-lighter transition-colors"
+          >
+            Просмотреть
+          </button>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
