@@ -28,7 +28,6 @@ export function OrdersTable({ orders, onOpen }: Props) {
           <div aria-hidden className="flex-1" />
           <div className="w-[110px]">Сумма</div>
           <div className="w-[100px]">Оплата</div>
-          <div className="w-[70px]">Товаров</div>
           <div className="w-[140px]">Статус</div>
           {/* CTA column has no header — matches managers/clients tables. */}
           <div className="w-[140px]" aria-hidden />
@@ -139,7 +138,6 @@ function OrderRow({
           />
           <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
         </div>
-        <div className="w-[70px]">{order.itemsCount}</div>
         <div className="w-[140px]">
           <StatusBadge status={order.status} />
         </div>
