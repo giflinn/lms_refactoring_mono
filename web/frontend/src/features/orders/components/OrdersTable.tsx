@@ -16,13 +16,13 @@ export function OrdersTable({ orders, onOpen }: Props) {
         <div className="w-[110px] border-r border-[#EAECF0] bg-[#F9F9F9] px-4 py-3">
           № Заказа
         </div>
-        <div className="flex flex-1 items-center justify-end gap-6 px-4 py-3">
-          <div className="w-[60px] text-center">Товаров</div>
-          <div className="w-[260px]">Клиент</div>
-          <div className="w-[260px]">Менеджер</div>
+        <div className="flex flex-1 items-center gap-4 px-4 py-3">
+          <div className="w-[70px] text-center">Товаров</div>
+          <div className="min-w-0 flex-1 basis-0">Клиент</div>
+          <div className="min-w-0 flex-1 basis-0">Менеджер</div>
           <div className="w-[140px]">Статус</div>
           <div className="w-[170px] text-center">Дата</div>
-          <div className="w-[90px] text-right">Сумма</div>
+          <div className="w-[110px] text-right">Сумма</div>
         </div>
       </div>
       <div className="flex flex-col">
@@ -98,9 +98,9 @@ function OrderRow({
       <div className="w-[110px] border-r border-[#EAECF0] bg-white px-4 py-3 text-[14px] font-medium text-[#0E131F]">
         {order.orderNumber}
       </div>
-      <div className="flex flex-1 items-center justify-end gap-6 px-4 py-3 text-[13px] text-grey-dark">
-        <div className="w-[60px] text-center">{order.itemsCount}</div>
-        <div className="w-[260px]">
+      <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
+        <div className="w-[70px] text-center">{order.itemsCount}</div>
+        <div className="min-w-0 flex-1 basis-0">
           <PersonCell
             firstName={order.client.firstName}
             lastName={order.client.lastName}
@@ -108,7 +108,7 @@ function OrderRow({
             avatarUrl={order.client.avatarUrl}
           />
         </div>
-        <div className="w-[260px]">
+        <div className="min-w-0 flex-1 basis-0">
           {order.manager ? (
             <PersonCell
               firstName={order.manager.firstName}
@@ -126,7 +126,7 @@ function OrderRow({
         <div className="w-[170px] text-center">
           {formatOrderDate(order.createdAt)}
         </div>
-        <div className="w-[90px] text-right font-medium text-[#0E131F]">
+        <div className="w-[110px] text-right font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
       </div>
