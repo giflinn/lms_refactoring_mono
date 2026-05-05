@@ -350,8 +350,9 @@ notificationsRouter.delete(
 
 const INBOX_LIMIT = 100;
 
-// GET /me/notifications — last 100 deliveries for the authed user joined
-// against the parent notification for title/body. Sorted newest first.
+// GET /me/notifications — last 100 deliveries for the authed user. title /
+// body are snapshotted on the delivery row, so this works for both scheduled
+// admin notifications and ad-hoc system pushes (notification_id NULL).
 notificationsRouter.get(
   "/me/notifications",
   requireAuth,
@@ -362,16 +363,12 @@ notificationsRouter.get(
       const rows = await db
         .select({
           id: notificationDeliveries.id,
-          title: notifications.title,
-          body: notifications.body,
+          title: notificationDeliveries.title,
+          body: notificationDeliveries.body,
           sentAt: notificationDeliveries.sentAt,
           readAt: notificationDeliveries.readAt,
         })
         .from(notificationDeliveries)
-        .innerJoin(
-          notifications,
-          eq(notifications.id, notificationDeliveries.notificationId),
-        )
         .where(eq(notificationDeliveries.userId, userId))
         .orderBy(desc(notificationDeliveries.sentAt))
         .limit(INBOX_LIMIT);

@@ -304,25 +304,41 @@ class _SettingsRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Row(
             children: [
-              // PNG icons (Figma-exported @2x rasters) get tinted via Image.color;
-              // SVG icons go through SvgPicture's colorFilter. Same visual result.
-              iconAsset.endsWith('.svg')
-                  ? SvgPicture.asset(
-                      iconAsset,
-                      width: 24,
-                      height: 24,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.white,
-                        BlendMode.srcIn,
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // PNG icons (Figma-exported @2x rasters) get tinted via
+                    // Image.color; SVG icons go through SvgPicture's
+                    // colorFilter. Same visual result.
+                    iconAsset.endsWith('.svg')
+                        ? SvgPicture.asset(
+                            iconAsset,
+                            width: 24,
+                            height: 24,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.white,
+                              BlendMode.srcIn,
+                            ),
+                          )
+                        : Image.asset(
+                            iconAsset,
+                            width: 24,
+                            height: 24,
+                            color: AppColors.white,
+                            colorBlendMode: BlendMode.srcIn,
+                          ),
+                    if (hasBadge)
+                      const Positioned(
+                        top: -1,
+                        right: -1,
+                        child: _BadgeDot(),
                       ),
-                    )
-                  : Image.asset(
-                      iconAsset,
-                      width: 24,
-                      height: 24,
-                      color: AppColors.white,
-                      colorBlendMode: BlendMode.srcIn,
-                    ),
+                  ],
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -335,18 +351,28 @@ class _SettingsRow extends StatelessWidget {
                   ),
                 ),
               ),
-              if (hasBadge)
-                Container(
-                  width: 7.5,
-                  height: 7.5,
-                  decoration: const BoxDecoration(
-                    color: AppColors.yellowPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Same yellow dot as the bottom-nav unread indicator
+/// (`role_bottom_nav.dart:_Badge`). Reuse the visual to keep unread language
+/// consistent across the app.
+class _BadgeDot extends StatelessWidget {
+  const _BadgeDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 7.5,
+      height: 7.5,
+      decoration: const BoxDecoration(
+        color: AppColors.yellowPrimary,
+        shape: BoxShape.circle,
       ),
     );
   }

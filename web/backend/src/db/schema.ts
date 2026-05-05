@@ -418,20 +418,25 @@ export const notifications = pgTable(
   (t) => [index("notifications_next_fire_at_idx").on(t.nextFireAt)],
 );
 
-// Per-recipient delivery audit. One row per (notification, user, fire). For
-// recurring notifications the same notification_id+user_id pair can appear
-// multiple times — once per fire — distinguished by sent_at. The mobile
-// inbox UI (deferred) will read this table.
+// Per-recipient delivery audit + the client-facing inbox. One row per push
+// to a user, regardless of source: scheduled admin notifications (have a
+// notification_id), or system pushes like order-status changes (notification_id
+// NULL). title and body are SNAPSHOTTED at send time so editing or deleting
+// the parent notifications row doesn't mutate what the user already saw —
+// hence the SET NULL FK rather than CASCADE.
 export const notificationDeliveries = pgTable(
   "notification_deliveries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    notificationId: uuid("notification_id")
-      .notNull()
-      .references(() => notifications.id, { onDelete: "cascade" }),
+    notificationId: uuid("notification_id").references(
+      () => notifications.id,
+      { onDelete: "set null" },
+    ),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
     sentAt: timestamp("sent_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

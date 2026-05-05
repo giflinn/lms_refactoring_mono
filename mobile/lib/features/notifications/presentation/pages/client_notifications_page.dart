@@ -191,12 +191,18 @@ class _InboxList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Chat-style layout: backend returns DESC (newest first); with
+    // `reverse: true` the ListView anchors at pixel 0 = bottom of viewport,
+    // and itemBuilder index 0 maps to that bottom row. Feeding items[0]
+    // (newest) at index 0 puts the newest card at the bottom on entry — no
+    // explicit jumpTo needed, no animation. Scrolling up reveals older.
     return RefreshIndicator(
       color: AppColors.purplePrimary,
       onRefresh: () =>
           ref.read(notificationsInboxProvider.notifier).refresh(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
+        reverse: true,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(height: 16),

@@ -101,9 +101,13 @@ async function fire(n: typeof notifications.$inferSelect): Promise<void> {
 
   for (const r of recipients) {
     // Inbox row first — it's the durable record. FCM is best-effort.
+    // title/body snapshotted so a later edit/delete of the parent
+    // notifications row doesn't mutate what the user already received.
     await db.insert(notificationDeliveries).values({
       notificationId: n.id,
       userId: r.id,
+      title: n.title,
+      body: n.body,
       sentAt: firedAt,
     });
 
