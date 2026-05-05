@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   orderCancellations,
@@ -256,7 +256,7 @@ export async function pendingCancellationsByOrderId(
     .where(
       and(
         eq(orderCancellations.status, "requested"),
-        sql`${orderCancellations.orderId} = ANY(${orderIds})`,
+        inArray(orderCancellations.orderId, orderIds as string[]),
       ),
     )
     .orderBy(asc(orderCancellations.createdAt));
