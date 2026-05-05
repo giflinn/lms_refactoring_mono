@@ -659,6 +659,68 @@ export const coachBookings = pgTable(
   ],
 );
 
+// Client-initiated request to cancel an active order. Distinct from staff
+// flipping fulfillment_status to 'cancelled' directly from the order drawer:
+// cancellations are an inbox of *requests* the manager decides on. When a
+// request is approved, fulfillment_status is moved to 'cancelled' via the
+// existing changeOrderFulfillmentStatus path (cascading coach_bookings).
+//
+// manager_id is a snapshot copied from orders.manager_id at request time —
+// reassigning the client's manager later does not migrate historical
+// requests. Nullable because some clients have no assigned manager (the
+// admin-only seed window). At most one 'requested' row per order is enforced
+// by a partial unique index — once decided, the row stays and the client may
+// open a new request.
+export const cancellationStatusEnum = pgEnum("cancellation_status", [
+  "requested",
+  "approved",
+  "rejected",
+]);
+
+export const orderCancellations = pgTable(
+  "order_cancellations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    managerId: uuid("manager_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    status: cancellationStatusEnum("status").notNull().default("requested"),
+    // Optional free-form text the client typed into the confirmation dialog.
+    // Shown to staff in the drawer; never shown back to the client.
+    clientReason: text("client_reason"),
+    // Internal note written by staff at decision time. Never surfaced to the
+    // client (their only feedback is the approval/rejection push).
+    decisionComment: text("decision_comment"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("order_cancellations_order_id_idx").on(t.orderId),
+    index("order_cancellations_manager_id_idx").on(t.managerId),
+    index("order_cancellations_status_idx").on(t.status),
+    index("order_cancellations_created_at_idx").on(t.createdAt),
+    // At most one open request per order. Once decided the row stays in the
+    // table for audit; a fresh row may then be inserted.
+    uniqueIndex("order_cancellations_one_open_per_order")
+      .on(t.orderId)
+      .where(sql`${t.status} = 'requested'`),
+  ],
+);
+
 // Generic key/value store for runtime-mutable settings edited from the admin
 // panel. Starts with support_whatsapp + support_hours (shown to clients in
 // the chat help dialog) and grows as more settings move out of constants.

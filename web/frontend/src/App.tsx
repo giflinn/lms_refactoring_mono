@@ -11,6 +11,7 @@ import { CoachCalendarPage } from "./features/coachCalendar/pages/CoachCalendarP
 import { ChatsPage } from "./features/chat/pages/ChatsPage";
 import { NotificationsPage } from "./features/notifications/pages/NotificationsPage";
 import { OrdersPage } from "./features/orders/pages/OrdersPage";
+import { CancellationsPage } from "./features/cancellations/pages/CancellationsPage";
 
 export default function App() {
   return (
@@ -34,7 +35,7 @@ export default function App() {
           <Route path="/" element={<StubPage title="Главная" />} />
           <Route path="/reports" element={<StubPage title="Отчеты" />} />
           <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/cancellations" element={<StubPage title="Отмены" />} />
+          <Route path="/cancellations" element={<CancellationsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/products" element={<ProductsPage />} />

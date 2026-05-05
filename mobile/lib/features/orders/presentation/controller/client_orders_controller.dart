@@ -28,6 +28,23 @@ class ClientOrdersController extends AsyncNotifier<List<ClientOrder>> {
       return ref.read(ordersApiProvider).listMine(token);
     });
   }
+
+  /// Submits a cancellation request and refreshes the list so the affected
+  /// row picks up its new `pendingCancellation` field. Errors propagate to
+  /// the caller (page) — the API throws CancellationRequestException with a
+  /// snake_case code.
+  Future<void> requestCancellation({
+    required String orderId,
+    required String? reason,
+  }) async {
+    final token = await _idToken();
+    await ref.read(ordersApiProvider).requestCancellation(
+          orderId: orderId,
+          reason: reason,
+          idToken: token,
+        );
+    await refresh();
+  }
 }
 
 final clientOrdersProvider =

@@ -33,6 +33,15 @@ class OrderManagerSummary {
   }
 }
 
+/// Set on each order while a manager is reviewing the client's cancel
+/// request. Drives the "Отменить заказ" button gating on the active tab.
+class PendingCancellationSummary {
+  final String id;
+  final DateTime createdAt;
+
+  const PendingCancellationSummary({required this.id, required this.createdAt});
+}
+
 /// One row in the client's "Мои покупки" list.
 class ClientOrder {
   final String id;
@@ -44,6 +53,9 @@ class ClientOrder {
   /// the order isn't paid yet (no firstPaidAt) or has no items. Used to
   /// decide whether to show the "Отменить заказ" button.
   final DateTime? cancellationDeadline;
+  /// Non-null while a 'requested' cancellation is awaiting staff decision —
+  /// the cancel button is replaced by a "Запрос отправлен" hint.
+  final PendingCancellationSummary? pendingCancellation;
   final List<String> productTitles;
   final OrderManagerSummary? manager;
 
@@ -54,11 +66,13 @@ class ClientOrder {
     required this.totalTenge,
     required this.createdAt,
     required this.cancellationDeadline,
+    required this.pendingCancellation,
     required this.productTitles,
     required this.manager,
   });
 
   bool get canCancel {
+    if (pendingCancellation != null) return false;
     final d = cancellationDeadline;
     if (d == null) return false;
     return d.isAfter(DateTime.now());
@@ -67,6 +81,7 @@ class ClientOrder {
   factory ClientOrder.fromJson(Map<String, dynamic> json) {
     final managerJson = json['manager'] as Map<String, dynamic>?;
     final deadlineRaw = json['cancellationDeadline'] as String?;
+    final pendingJson = json['pendingCancellation'] as Map<String, dynamic>?;
     return ClientOrder(
       id: json['id'] as String,
       orderNumber: json['orderNumber'] as int,
@@ -75,6 +90,12 @@ class ClientOrder {
       createdAt: DateTime.parse(json['createdAt'] as String),
       cancellationDeadline:
           deadlineRaw == null ? null : DateTime.parse(deadlineRaw),
+      pendingCancellation: pendingJson == null
+          ? null
+          : PendingCancellationSummary(
+              id: pendingJson['id'] as String,
+              createdAt: DateTime.parse(pendingJson['createdAt'] as String),
+            ),
       productTitles: (json['productTitles'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??

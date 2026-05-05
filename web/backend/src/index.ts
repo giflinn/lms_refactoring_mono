@@ -23,6 +23,7 @@ import { settingsRouter } from "./routes/settings";
 import { fcmTokensRouter } from "./routes/fcmTokens";
 import { notificationsRouter } from "./routes/notifications";
 import { ordersRouter } from "./routes/orders";
+import { cancellationsRouter } from "./routes/cancellations";
 import { AVATAR_DIR } from "./services/avatarUpload";
 import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
 import { CHAT_DIR } from "./services/chatAttachments";
@@ -60,6 +61,7 @@ app.use(settingsRouter);
 app.use(fcmTokensRouter);
 app.use(notificationsRouter);
 app.use(ordersRouter);
+app.use(cancellationsRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params

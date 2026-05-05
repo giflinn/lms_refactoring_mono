@@ -34,6 +34,25 @@ class OrderCreationException implements Exception {
   String toString() => 'OrderCreationException($code, http=$statusCode)';
 }
 
+/// Error returned by POST /me/orders/:id/cancellation. Codes worth handling
+/// in the UI: `cancellation_already_pending` (we should refresh and reflect
+/// the existing request), `order_not_cancellable` /
+/// `cancellation_window_closed` (the order moved out from under us between
+/// list refresh and tap).
+class CancellationRequestException implements Exception {
+  final String code;
+  final int statusCode;
+
+  const CancellationRequestException({
+    required this.code,
+    required this.statusCode,
+  });
+
+  @override
+  String toString() =>
+      'CancellationRequestException($code, http=$statusCode)';
+}
+
 class OrdersApi {
   final ApiClient _client;
 
@@ -83,5 +102,33 @@ class OrdersApi {
         .cast<Map<String, dynamic>>()
         .map(ClientOrder.fromJson)
         .toList();
+  }
+
+  /// Submit a cancellation request for an active order. [reason] is optional;
+  /// when provided it's shown to staff in the admin drawer. Throws
+  /// [CancellationRequestException] on any non-200, [NetworkException] on
+  /// transport failure.
+  Future<String> requestCancellation({
+    required String orderId,
+    required String? reason,
+    required String idToken,
+  }) async {
+    final body = <String, Object>{
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+    };
+    final res = await _client.postJson(
+      '/me/orders/$orderId/cancellation',
+      idToken: idToken,
+      body: body,
+    );
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      final cancellation = json['cancellation'] as Map<String, dynamic>;
+      return cancellation['id'] as String;
+    }
+    throw CancellationRequestException(
+      code: ApiClient.parseErrorCode(res.body),
+      statusCode: res.statusCode,
+    );
   }
 }

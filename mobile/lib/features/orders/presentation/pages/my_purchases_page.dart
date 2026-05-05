@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../home/presentation/controller/client_shell_tab_controller.dart';
+import '../../data/orders_api.dart';
 import '../../domain/order.dart';
 import '../controller/client_orders_controller.dart';
 import '../widgets/cancel_order_dialog.dart';
@@ -446,13 +447,16 @@ class _NewOrderActions extends StatelessWidget {
   }
 }
 
-class _ActiveOrderActions extends StatelessWidget {
+class _ActiveOrderActions extends ConsumerWidget {
   final ClientOrder order;
 
   const _ActiveOrderActions({required this.order});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasPending = order.pendingCancellation != null;
+    final canCancel = order.canCancel;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -468,30 +472,77 @@ class _ActiveOrderActions extends StatelessWidget {
             );
           },
         ),
-        // Cancel button only stays as long as the per-order cancellation
-        // window (firstPaidAt + min(daysUntilCancel)) hasn't elapsed.
-        if (order.canCancel) ...[
+        // Three states in priority order:
+        //   1) a 'requested' cancellation exists → disabled hint button (no
+        //      double-submits)
+        //   2) cancel window still open → active "Отменить заказ" button
+        //   3) window elapsed → no button
+        if (hasPending) ...[
+          const SizedBox(height: 8),
+          const _TextOnlyButton(
+            label: 'Запрос на отмену отправлен',
+            enabled: false,
+          ),
+        ] else if (canCancel) ...[
           const SizedBox(height: 8),
           _TextOnlyButton(
             label: 'Отменить заказ',
-            onTap: () async {
-              final confirmed = await showCancelOrderDialog(context);
-              if (!confirmed) return;
-              if (!context.mounted) return;
-              // Confirm is a stub for now — the backend cancel endpoint is
-              // wired separately. Show feedback so the user sees the action
-              // landed.
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('В разработке'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
+            onTap: () => _onCancelTap(context, ref),
           ),
         ],
       ],
     );
+  }
+
+  Future<void> _onCancelTap(BuildContext context, WidgetRef ref) async {
+    final reason = await showCancelOrderDialog(context);
+    if (reason == null) return;
+    if (!context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(clientOrdersProvider.notifier).requestCancellation(
+            orderId: order.id,
+            reason: reason.isEmpty ? null : reason,
+          );
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Запрос на отмену отправлен'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } on CancellationRequestException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_friendlyCancelError(e.code)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      // The order may have moved out from under us (deadline elapsed, status
+      // changed, or there's already a pending request) — refresh so the
+      // button state reflects reality.
+      await ref.read(clientOrdersProvider.notifier).refresh();
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось отправить запрос. Попробуйте позже.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+}
+
+String _friendlyCancelError(String code) {
+  switch (code) {
+    case 'cancellation_already_pending':
+      return 'Запрос уже отправлен и ожидает ответа менеджера.';
+    case 'cancellation_window_closed':
+      return 'Срок отмены этого заказа уже истёк.';
+    case 'order_not_cancellable':
+      return 'Этот заказ нельзя отменить.';
+    default:
+      return 'Не удалось отправить запрос. Попробуйте позже.';
   }
 }
 
@@ -604,20 +655,27 @@ class _OutlineButton extends StatelessWidget {
 
 class _TextOnlyButton extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool enabled;
 
-  const _TextOnlyButton({required this.label, required this.onTap});
+  const _TextOnlyButton({
+    required this.label,
+    this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 48,
       child: TextButton(
-        onPressed: onTap,
+        onPressed: enabled ? onTap : null,
         child: Text(
           label,
-          style: const TextStyle(
-            color: AppColors.white,
+          style: TextStyle(
+            color: enabled
+                ? AppColors.white
+                : AppColors.white.withValues(alpha: 0.4),
             fontSize: 15,
             fontWeight: FontWeight.w500,
             height: 1.34,

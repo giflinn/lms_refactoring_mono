@@ -27,6 +27,7 @@ import {
   changeOrderFulfillmentStatus,
   changeOrderPaymentStatus,
 } from "../services/orderStatus";
+import { pendingCancellationsByOrderId } from "../services/cancellationService";
 
 export const ordersRouter = Router();
 
@@ -125,6 +126,10 @@ ordersRouter.get(
         }
       }
 
+      // Open cancellation requests blot out the "Отменить заказ" button on
+      // mobile while a manager is reviewing them.
+      const pendingByOrder = await pendingCancellationsByOrderId(orderIds);
+
       res.json({
         orders: rows.map((r) => {
           const minDays = minDaysByOrder.get(r.order.id);
@@ -138,6 +143,7 @@ ordersRouter.get(
                   r.order.firstPaidAt.getTime() + minDays * 86_400_000,
                 )
               : null;
+          const pending = pendingByOrder.get(r.order.id);
           return {
             id: r.order.id,
             orderNumber: r.order.orderNumber,
@@ -148,6 +154,9 @@ ordersRouter.get(
             firstPaidAt: r.order.firstPaidAt,
             statusChangedAt: r.order.statusChangedAt,
             cancellationDeadline: deadline,
+            pendingCancellation: pending
+              ? { id: pending.id, createdAt: pending.createdAt }
+              : null,
             productTitles: titlesByOrder.get(r.order.id) ?? [],
             manager:
               r.manager?.id !== null && r.manager?.id !== undefined
