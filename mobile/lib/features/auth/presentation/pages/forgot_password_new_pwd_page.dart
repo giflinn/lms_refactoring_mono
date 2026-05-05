@@ -11,7 +11,7 @@ import '../../../../core/widgets/success_dialog.dart';
 import '../../data/auth_api.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
-import '../widgets/auth_text_field.dart';
+import '../../../../core/widgets/labeled_text_field.dart';
 import '../widgets/password_rules_tooltip.dart';
 
 class ForgotPasswordNewPwdPage extends ConsumerStatefulWidget {
@@ -135,7 +135,7 @@ class _ForgotPasswordNewPwdPageState
                   ),
                 ),
                 const SizedBox(height: 24),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Пароль',
                   controller: _passwordCtrl,
                   errorText: _passwordError,
@@ -155,7 +155,7 @@ class _ForgotPasswordNewPwdPageState
                   ),
                 ],
                 const SizedBox(height: 16),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Повторите пароль',
                   controller: _confirmCtrl,
                   errorText: _confirmError,

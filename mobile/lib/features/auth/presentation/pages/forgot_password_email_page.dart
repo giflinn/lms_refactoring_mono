@@ -11,7 +11,7 @@ import '../../../../core/widgets/secondary_button.dart';
 import '../../data/auth_api.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
-import '../widgets/auth_text_field.dart';
+import '../../../../core/widgets/labeled_text_field.dart';
 
 class ForgotPasswordEmailPage extends ConsumerStatefulWidget {
   const ForgotPasswordEmailPage({super.key});
@@ -113,7 +113,7 @@ class _ForgotPasswordEmailPageState
                   ),
                 ),
                 const SizedBox(height: 24),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Электронная почта',
                   controller: _emailCtrl,
                   errorText: _emailError,

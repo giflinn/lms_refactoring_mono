@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import '../../../../core/design/tokens.dart';
+import '../design/tokens.dart';
 
-/// Wrapper around intl_phone_field that mirrors the look of AuthTextField.
+/// Wrapper around intl_phone_field that mirrors the look of [LabeledTextField].
 /// Outputs the canonical E.164 string ('+77081234567') via [onChanged] and
 /// reports validity via [onValidityChanged].
 class PhoneField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<bool> onValidityChanged;
   final String? errorText;
+  /// Pre-filled national-only number (no country code), e.g. "7081234567" for
+  /// KZ. The country itself is set via [initialCountryCode].
+  final String? initialNational;
+  final String initialCountryCode;
 
   const PhoneField({
     super.key,
     required this.onChanged,
     required this.onValidityChanged,
     this.errorText,
+    this.initialNational,
+    this.initialCountryCode = 'KZ',
   });
 
   @override
@@ -45,7 +51,8 @@ class PhoneField extends StatelessWidget {
             ),
           ),
           child: IntlPhoneField(
-            initialCountryCode: 'KZ',
+            initialCountryCode: initialCountryCode,
+            initialValue: initialNational,
             disableLengthCheck: false,
             dropdownTextStyle:
                 const TextStyle(color: AppColors.white, fontSize: 17),
@@ -66,7 +73,7 @@ class PhoneField extends StatelessWidget {
               ),
             ),
             // We don't want intl_phone_field's red error text — we render our
-            // own underneath in the same style as AuthTextField.
+            // own underneath in the same style as LabeledTextField.
             invalidNumberMessage: null,
             onChanged: (phone) {
               onChanged(phone.completeNumber);

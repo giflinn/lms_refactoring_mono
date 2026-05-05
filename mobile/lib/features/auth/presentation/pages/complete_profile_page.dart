@@ -13,8 +13,8 @@ import '../../data/auth_api.dart';
 import '../../domain/registration_data.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
-import '../widgets/auth_text_field.dart';
-import '../widgets/phone_field.dart';
+import '../../../../core/widgets/labeled_text_field.dart';
+import '../../../../core/widgets/phone_field.dart';
 
 /// Shown after a successful Google sign-in for users who don't yet have a row
 /// in our DB. Asks for the few fields Google didn't give us (phone, manager
@@ -226,7 +226,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  AuthTextField(
+                  LabeledTextField(
                     label: 'Имя',
                     controller: _firstNameCtrl,
                     errorText: _firstNameError,
@@ -238,7 +238,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  AuthTextField(
+                  LabeledTextField(
                     label: 'Фамилия',
                     controller: _lastNameCtrl,
                     errorText: _lastNameError,
@@ -261,7 +261,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     onValidityChanged: (v) => _phoneValid = v,
                   ),
                   const SizedBox(height: 12),
-                  AuthTextField(
+                  LabeledTextField(
                     label: 'Код менеджера (необязательно)',
                     controller: _managerCodeCtrl,
                     errorText: _managerCodeError,

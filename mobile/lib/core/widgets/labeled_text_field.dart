@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../core/design/tokens.dart';
+import '../design/tokens.dart';
 
-class AuthTextField extends StatefulWidget {
+/// Brand-styled labeled text field: 13px secondary label, 17px white input on
+/// a 10%-white pill, 12px red error text underneath. Used for auth forms,
+/// profile edit, and any list/edit form on the purple gradient.
+class LabeledTextField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
   final String? errorText;
@@ -14,7 +17,7 @@ class AuthTextField extends StatefulWidget {
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLength;
 
-  const AuthTextField({
+  const LabeledTextField({
     super.key,
     required this.label,
     required this.controller,
@@ -29,10 +32,10 @@ class AuthTextField extends StatefulWidget {
   });
 
   @override
-  State<AuthTextField> createState() => _AuthTextFieldState();
+  State<LabeledTextField> createState() => _LabeledTextFieldState();
 }
 
-class _AuthTextFieldState extends State<AuthTextField> {
+class _LabeledTextFieldState extends State<LabeledTextField> {
   bool _obscure = true;
 
   @override

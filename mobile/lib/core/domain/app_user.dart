@@ -20,6 +20,8 @@ class AppUser {
   /// at registration. Null on staff rows (the column is non-null in DB but
   /// stays meaningless for non-clients).
   final String? clientCategory;
+  /// `YYYY-MM-DD` string from the DB `date` column, or null if unset.
+  final String? birthDate;
   final DateTime createdAt;
 
   const AppUser({
@@ -34,6 +36,7 @@ class AppUser {
     required this.managerId,
     required this.avatarUrl,
     required this.clientCategory,
+    required this.birthDate,
     required this.createdAt,
   });
 
@@ -50,6 +53,7 @@ class AppUser {
       managerId: json['managerId'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       clientCategory: json['clientCategory'] as String?,
+      birthDate: json['birthDate'] as String?,
       createdAt: parseServerTime(json['createdAt'] as String),
     );
   }

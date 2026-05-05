@@ -185,14 +185,19 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Back button only when this page was pushed (e.g. deep-link from a push
+    // notification). When chat is rendered as a tab inside ClientShellPage
+    // there's nothing to pop — exit happens via the bottom nav.
+    final canPop = Navigator.of(context).canPop();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      padding: EdgeInsets.fromLTRB(canPop ? 8 : 16, 8, 8, 8),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          ),
+          if (canPop)
+            IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back, color: AppColors.white),
+            ),
           if (manager != null) ChatAvatar(user: manager!, size: 40),
           if (manager != null) const SizedBox(width: 12),
           Expanded(

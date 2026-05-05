@@ -13,7 +13,7 @@ import '../../../../core/widgets/keyboard_dismiss.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
-import '../widgets/auth_text_field.dart';
+import '../../../../core/widgets/labeled_text_field.dart';
 import '../widgets/social_button.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -192,7 +192,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  AuthTextField(
+                  LabeledTextField(
                     label: 'Электронная почта',
                     controller: _emailCtrl,
                     errorText: _emailError,
@@ -205,7 +205,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  AuthTextField(
+                  LabeledTextField(
                     label: 'Пароль',
                     controller: _passwordCtrl,
                     errorText: _passwordError,

@@ -3,7 +3,12 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
-import { avatarUpload, avatarUrlFor } from "../services/avatarUpload";
+import {
+  avatarUpload,
+  avatarUrlFor,
+  managerAvatarUpload,
+  persistManagerAvatar,
+} from "../services/avatarUpload";
 import {
   isValidEmail,
   isValidManagerCode,
@@ -69,9 +74,13 @@ function serializeUser(u: typeof users.$inferSelect) {
     managerId: u.managerId,
     avatarUrl: u.avatarUrl,
     clientCategory: u.clientCategory,
+    birthDate: u.birthDate,
     createdAt: u.createdAt,
   };
 }
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const NAME_MAX_LEN = 50;
 
 // POST /auth/sync — find-or-create the DB row for the authenticated Firebase
 // identity. Mobile registration calls this with multipart/form-data carrying
@@ -149,6 +158,102 @@ authRouter.post(
         .returning();
 
       res.json({ user: serializeUser(created) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PATCH /me — partial profile update for the authenticated user. Multipart
+// so an avatar file can ride along. All fields are optional; only those
+// present in the body get touched. Used by the mobile "Личные данные" screen.
+authRouter.patch(
+  "/me",
+  requireAuth,
+  managerAvatarUpload.single("avatar"),
+  async (req, res, next) => {
+    try {
+      const uid = req.uid!;
+      const body = req.body as Record<string, string | undefined>;
+      const patch: Partial<typeof users.$inferInsert> = {};
+
+      if (body.firstName !== undefined) {
+        const v = body.firstName.trim();
+        if (!v || v.length > NAME_MAX_LEN) {
+          res.status(400).json({ error: "invalid_first_name" });
+          return;
+        }
+        patch.firstName = v;
+      }
+      if (body.lastName !== undefined) {
+        const v = body.lastName.trim();
+        if (!v || v.length > NAME_MAX_LEN) {
+          res.status(400).json({ error: "invalid_last_name" });
+          return;
+        }
+        patch.lastName = v;
+      }
+      if (body.phone !== undefined) {
+        const v = body.phone.trim();
+        if (!v || !isValidPhone(v)) {
+          res.status(400).json({ error: "invalid_phone" });
+          return;
+        }
+        patch.phone = v;
+      }
+      if (body.birthDate !== undefined) {
+        const v = body.birthDate.trim();
+        if (v === "") {
+          patch.birthDate = null;
+        } else {
+          if (!DATE_RE.test(v)) {
+            res.status(400).json({ error: "invalid_birth_date" });
+            return;
+          }
+          // Reject future dates and absurdly old ones.
+          const parsed = new Date(`${v}T00:00:00Z`);
+          if (Number.isNaN(parsed.getTime())) {
+            res.status(400).json({ error: "invalid_birth_date" });
+            return;
+          }
+          const year = parsed.getUTCFullYear();
+          if (year < 1900 || parsed.getTime() > Date.now()) {
+            res.status(400).json({ error: "invalid_birth_date" });
+            return;
+          }
+          patch.birthDate = v;
+        }
+      }
+      if (req.file) {
+        patch.avatarUrl = await persistManagerAvatar(uid, req.file);
+      }
+
+      // Nothing to change → just echo current state. Lets the mobile page
+      // treat "save with no edits" as a no-op without a special branch.
+      if (Object.keys(patch).length === 0) {
+        const current = await db
+          .select()
+          .from(users)
+          .where(eq(users.firebaseUid, uid))
+          .limit(1);
+        if (current.length === 0) {
+          res.status(404).json({ error: "user_not_registered" });
+          return;
+        }
+        res.json({ user: serializeUser(current[0]) });
+        return;
+      }
+
+      const updated = await db
+        .update(users)
+        .set(patch)
+        .where(eq(users.firebaseUid, uid))
+        .returning();
+      if (updated.length === 0) {
+        res.status(404).json({ error: "user_not_registered" });
+        return;
+      }
+      res.json({ user: serializeUser(updated[0]) });
     } catch (err) {
       next(err);
     }

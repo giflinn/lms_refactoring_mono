@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
+import '../../../../core/widgets/action_dialog.dart';
 import '../../../../core/widgets/brand_logotype.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
@@ -24,15 +26,19 @@ class CabinetPage extends ConsumerWidget {
       children: [
         const _Header(),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
+          child: RefreshIndicator(
+            onRefresh: () => ref.read(authProvider.notifier).refresh(),
+            color: AppColors.purplePrimary,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
               _AccountCard(
                 firstName: user.firstName,
                 lastName: user.lastName,
                 avatarUrl: user.avatarUrl,
                 isVip: user.clientCategory == 'vip',
-                onTap: () => _stub(context),
+                onTap: () => context.push('/client/personal-data'),
               ),
               const SizedBox(height: 16),
               _SettingsRow(
@@ -54,7 +60,7 @@ class CabinetPage extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               _SettingsRow(
-                iconAsset: 'assets/icons/cabinet/setting.svg',
+                iconAsset: 'assets/icons/cabinet/setting.png',
                 label: 'Настройки',
                 onTap: () => _stub(context),
               ),
@@ -62,9 +68,10 @@ class CabinetPage extends ConsumerWidget {
               _SettingsRow(
                 iconAsset: 'assets/icons/cabinet/logout.svg',
                 label: 'Выйти',
-                onTap: () => ref.read(authProvider.notifier).signOut(),
+                onTap: () => _confirmAndSignOut(context, ref),
               ),
             ],
+            ),
           ),
         ),
       ],
@@ -78,6 +85,36 @@ class CabinetPage extends ConsumerWidget {
         duration: Duration(seconds: 1),
       ),
     );
+  }
+
+  static Future<void> _confirmAndSignOut(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (ctx) => ActionDialog(
+        icon: SvgPicture.asset(
+          'assets/icons/cabinet/logout.svg',
+          width: 50,
+          height: 50,
+          colorFilter: const ColorFilter.mode(
+            AppColors.white,
+            BlendMode.srcIn,
+          ),
+        ),
+        title: 'Вы уверены что хотите выйти?',
+        primaryLabel: 'Подтвердить',
+        secondaryLabel: 'Отмена',
+        secondaryLabelColor: AppColors.purpleTertiary,
+        onPrimary: () => Navigator.of(ctx).pop(true),
+        onSecondary: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(authProvider.notifier).signOut();
+    }
   }
 }
 
@@ -254,15 +291,25 @@ class _SettingsRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Row(
             children: [
-              SvgPicture.asset(
-                iconAsset,
-                width: 24,
-                height: 24,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.white,
-                  BlendMode.srcIn,
-                ),
-              ),
+              // PNG icons (Figma-exported @2x rasters) get tinted via Image.color;
+              // SVG icons go through SvgPicture's colorFilter. Same visual result.
+              iconAsset.endsWith('.svg')
+                  ? SvgPicture.asset(
+                      iconAsset,
+                      width: 24,
+                      height: 24,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.white,
+                        BlendMode.srcIn,
+                      ),
+                    )
+                  : Image.asset(
+                      iconAsset,
+                      width: 24,
+                      height: 24,
+                      color: AppColors.white,
+                      colorBlendMode: BlendMode.srcIn,
+                    ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -274,11 +321,6 @@ class _SettingsRow extends StatelessWidget {
                     height: 1.3,
                   ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.purpleTertiary,
-                size: 22,
               ),
             ],
           ),

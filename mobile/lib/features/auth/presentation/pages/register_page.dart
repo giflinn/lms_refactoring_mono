@@ -15,10 +15,10 @@ import '../../data/auth_api.dart';
 import '../../domain/registration_data.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
-import '../widgets/auth_text_field.dart';
+import '../../../../core/widgets/labeled_text_field.dart';
 import '../widgets/avatar_picker.dart';
 import '../widgets/password_rules_tooltip.dart';
-import '../widgets/phone_field.dart';
+import '../../../../core/widgets/phone_field.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -252,7 +252,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Имя',
                   controller: _firstNameCtrl,
                   errorText: _firstNameError,
@@ -264,7 +264,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   },
                 ),
                 const SizedBox(height: 12),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Фамилия',
                   controller: _lastNameCtrl,
                   errorText: _lastNameError,
@@ -276,7 +276,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   },
                 ),
                 const SizedBox(height: 12),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Электронная почта',
                   controller: _emailCtrl,
                   errorText: _emailError,
@@ -300,7 +300,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   onValidityChanged: (v) => _phoneValid = v,
                 ),
                 const SizedBox(height: 12),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Пароль',
                   controller: _passwordCtrl,
                   errorText: _passwordError,
@@ -320,7 +320,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                 ],
                 const SizedBox(height: 12),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Повторите пароль',
                   controller: _confirmPasswordCtrl,
                   errorText: _confirmPasswordError,
@@ -333,7 +333,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   },
                 ),
                 const SizedBox(height: 12),
-                AuthTextField(
+                LabeledTextField(
                   label: 'Код менеджера (необязательно)',
                   controller: _managerCodeCtrl,
                   errorText: _managerCodeError,

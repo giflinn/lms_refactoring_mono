@@ -68,6 +68,15 @@ class AuthController extends AsyncNotifier<AppUser?> {
     return _resolveExisting(fbUser);
   }
 
+  /// Re-fetches /me using the current Firebase user so server-side profile
+  /// changes (e.g. admin flipping clientCategory) surface without re-login.
+  /// Used by pull-to-refresh on profile-driven screens.
+  Future<void> refresh() async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser == null || !fbUser.emailVerified) return;
+    state = AsyncData(await _resolveExisting(fbUser));
+  }
+
   Future<AppUser> _resolveExisting(fb.User fbUser) async {
     final token = await fbUser.getIdToken();
     if (token == null) {
