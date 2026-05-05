@@ -53,6 +53,21 @@ class ClientsApi {
     );
   }
 
+  /// Single fetch — used by the staff client profile when arriving from a
+  /// path that didn't go through the list (e.g. tapping the header in a
+  /// chat conversation, or a deep link).
+  Future<Client> getById({
+    required String idToken,
+    required String clientId,
+  }) async {
+    final res = await _client.get('/clients/$clientId', idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException('GET /clients/$clientId: ${res.statusCode}');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return Client.fromJson(json['client'] as Map<String, dynamic>);
+  }
+
   /// Partial update. We only edit `comment` from the staff profile screen
   /// today; the API supports phone / birthDate / clientCategory / managerId
   /// too — exposed via named params so the UI can opt in later.

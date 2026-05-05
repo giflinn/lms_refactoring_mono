@@ -40,6 +40,24 @@ class ChatApi {
     return ChatThread.fromJson(json['thread'] as Map<String, dynamic>);
   }
 
+  /// senior_manager / admin only — start participating in a thread they
+  /// don't own. Idempotent server-side. After this returns, a fresh
+  /// `getThread()` will report `access.canWrite=true`.
+  Future<void> joinThread({
+    required String idToken,
+    required String threadId,
+  }) async {
+    final res = await _client.postJson(
+      '/chat/threads/$threadId/join',
+      idToken: idToken,
+    );
+    if (res.statusCode != 200) {
+      throw HttpException(
+        'POST /chat/threads/$threadId/join: ${res.statusCode}',
+      );
+    }
+  }
+
   /// Staff-only: get-or-create the thread for [clientId] and return its id.
   /// Used by the "Клиенты" → client profile chat icon. Throws on non-200
   /// (404 = client_not_found, 403 = manager doesn't own this client).

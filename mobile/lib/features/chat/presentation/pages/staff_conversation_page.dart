@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
@@ -44,6 +45,7 @@ class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
   List<ChatMessage> _messages = const [];
   bool _loadingOlder = false;
   bool _hasMoreOlder = true;
+  bool _joining = false;
 
   @override
   void initState() {
@@ -197,6 +199,34 @@ class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
     }
   }
 
+  /// senior_manager / admin tapping "Присоединиться к чату" — join then
+  /// re-pull access so the input replaces the button.
+  Future<void> _join() async {
+    if (_joining) return;
+    setState(() => _joining = true);
+    try {
+      final api = ref.read(chatApiProvider);
+      final token = await _idToken();
+      await api.joinThread(idToken: token, threadId: widget.threadId);
+      final detail = await api.getThread(
+        idToken: token,
+        threadId: widget.threadId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _thread = detail.thread;
+        _access = detail.access;
+        _joining = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _joining = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось присоединиться к чату')),
+      );
+    }
+  }
+
   Future<void> _send(String body, List<File> files) async {
     final api = ref.read(chatApiProvider);
     final token = await _idToken();
@@ -226,40 +256,47 @@ class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
             icon: const Icon(Icons.arrow_back, color: AppColors.white),
             onPressed: () => Navigator.of(context).pop(),
           ),
+          titleSpacing: 0,
           title: _thread == null
               ? const SizedBox.shrink()
-              : Row(
-                  children: [
-                    ChatAvatar(user: _thread!.client, size: 32),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _thread!.client.fullName,
-                            style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+              : InkWell(
+                  onTap: () => context.push(
+                    '/staff/clients/${_thread!.client.id}',
+                  ),
+                  child: Row(
+                    children: [
+                      ChatAvatar(user: _thread!.client, size: 40),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _thread!.client.fullName,
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.4,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            formatPresence(
-                              _thread!.client.online,
-                              _thread!.client.lastSeenAt,
+                            Text(
+                              formatPresence(
+                                _thread!.client.online,
+                                _thread!.client.lastSeenAt,
+                              ),
+                              style: TextStyle(
+                                color: AppColors.white.withValues(alpha: 0.7),
+                                fontSize: 11,
+                              ),
                             ),
-                            style: TextStyle(
-                              color: AppColors.white.withValues(alpha: 0.7),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
         ),
         body: SafeArea(top: false, child: _buildBody()),
@@ -317,8 +354,75 @@ class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
                   },
                 ),
         ),
-        if (_access?.canWrite == true) MessageInput(onSend: _send),
+        if (_access?.canWrite == true)
+          MessageInput(onSend: _send)
+        else if (_access?.isSeniorOrAdmin == true)
+          _JoinBar(loading: _joining, onJoin: _join),
       ],
+    );
+  }
+}
+
+/// Footer for senior_manager / admin who isn't the assigned manager —
+/// mirrors the admin panel's join CTA. Tapping it posts to
+/// `/chat/threads/:id/join` and the conversation refreshes; on success the
+/// regular `MessageInput` takes over.
+class _JoinBar extends StatelessWidget {
+  final bool loading;
+  final VoidCallback onJoin;
+  const _JoinBar({required this.loading, required this.onJoin});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.yellowGradientTop,
+                  AppColors.yellowGradientBottom,
+                ],
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: loading ? null : onJoin,
+                child: Center(
+                  child: loading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.purpleDark,
+                          ),
+                        )
+                      : const Text(
+                          'Присоединиться к чату',
+                          style: TextStyle(
+                            color: AppColors.purpleDark,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

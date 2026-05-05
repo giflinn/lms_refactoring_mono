@@ -164,6 +164,55 @@ clientsRouter.get(
   },
 );
 
+// GET /clients/:id — single client lookup. Used by the mobile staff app
+// when arriving at a client profile from a context where we don't already
+// have the row in cache (e.g. tapping the header on a chat conversation).
+clientsRouter.get(
+  "/clients/:id",
+  requireAuth,
+  requireStaff,
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId as string;
+      const actorRole = req.actorRole as StaffRole;
+      const targetId = req.params.id;
+
+      const rows = await db
+        .select({
+          client: users,
+          manager: {
+            id: managers.id,
+            firstName: managers.firstName,
+            lastName: managers.lastName,
+            email: managers.email,
+            avatarUrl: managers.avatarUrl,
+          },
+        })
+        .from(users)
+        .leftJoin(managers, eq(managers.id, users.managerId))
+        .where(eq(users.id, targetId))
+        .limit(1);
+      if (rows.length === 0 || rows[0].client.role !== "client") {
+        res.status(404).json({ error: "client_not_found" });
+        return;
+      }
+      const target = rows[0].client;
+      if (actorRole === "manager" && target.managerId !== actorId) {
+        res.status(403).json({ error: "forbidden" });
+        return;
+      }
+      res.json({
+        client: serialize(
+          target,
+          rows[0].manager?.id ? (rows[0].manager as ManagerSummary) : null,
+        ),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // PATCH /clients/:id — update phone / comment / birthDate / clientCategory /
 // managerId. Email and name are not editable (Figma drawer doesn't expose them
 // and we treat email as identity).

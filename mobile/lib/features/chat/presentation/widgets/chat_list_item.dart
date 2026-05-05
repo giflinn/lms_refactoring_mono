@@ -25,7 +25,7 @@ class ChatListItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ChatAvatar(user: thread.client, size: 60),
+              ChatAvatar(user: thread.client, size: 48),
               const SizedBox(width: 12),
               Expanded(
                 child: Container(
@@ -55,8 +55,9 @@ class ChatListItem extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: AppColors.white,
-                                  fontSize: 17,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w500,
+                                  letterSpacing: -0.4,
                                   height: 1.3,
                                 ),
                               ),
@@ -84,17 +85,17 @@ class ChatListItem extends StatelessWidget {
                               : MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            SizedBox(
-                              width: 41,
-                              child: Text(
-                                formatListStamp(thread.lastMessageAt),
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  color: AppColors.purpleTertiary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  height: 16 / 14,
-                                ),
+                            Text(
+                              formatListStamp(thread.lastMessageAt),
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.clip,
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                color: AppColors.purpleTertiary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                height: 16 / 13,
                               ),
                             ),
                             if (hasUnread) _UnreadBadge(count: thread.unreadCount),

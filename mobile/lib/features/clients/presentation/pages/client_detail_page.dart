@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tokens.dart';
@@ -10,6 +11,7 @@ import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../chat/data/chat_api_provider.dart';
 import '../../data/clients_api.dart';
+import '../../data/clients_api_provider.dart';
 import '../../domain/client.dart';
 import '../controller/client_detail_controller.dart';
 
@@ -30,6 +32,10 @@ class _ClientDetailPageState extends ConsumerState<ClientDetailPage> {
   String _initialComment = '';
   bool _saving = false;
   bool _openingChat = false;
+  /// Loaded by `_fetchIfMissing` when we arrive here without a list-cache hit
+  /// (e.g. tapped the chat conversation header). The cached row from
+  /// `clientByIdProvider` is preferred whenever it's non-null.
+  Client? _fallback;
 
   @override
   void initState() {
@@ -38,6 +44,33 @@ class _ClientDetailPageState extends ConsumerState<ClientDetailPage> {
     _initialComment = cached?.comment ?? '';
     _commentCtrl = TextEditingController(text: _initialComment)
       ..addListener(_rebuild);
+    if (cached == null) {
+      Future.microtask(_fetchIfMissing);
+    }
+  }
+
+  Future<void> _fetchIfMissing() async {
+    try {
+      final fbUser = fb.FirebaseAuth.instance.currentUser;
+      if (fbUser == null) return;
+      final token = await fbUser.getIdToken();
+      if (token == null) return;
+      final c = await ref.read(clientsApiProvider).getById(
+            idToken: token,
+            clientId: widget.clientId,
+          );
+      if (!mounted) return;
+      setState(() {
+        _fallback = c;
+        _initialComment = c.comment ?? '';
+        _commentCtrl.text = _initialComment;
+      });
+    } catch (_) {
+      // Leave _fallback null — build() shows a spinner; the user can
+      // retry by leaving and re-entering. We don't surface a snackbar
+      // here because the screen is otherwise blank, which is its own
+      // error signal.
+    }
   }
 
   @override
@@ -150,7 +183,8 @@ class _ClientDetailPageState extends ConsumerState<ClientDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final client = ref.watch(clientByIdProvider(widget.clientId));
+    final client =
+        ref.watch(clientByIdProvider(widget.clientId)) ?? _fallback;
     final canSave = _isDirty && !_saving;
 
     return PopScope(
@@ -323,10 +357,14 @@ class _NavBar extends StatelessWidget {
                             color: AppColors.white,
                           ),
                         )
-                      : const Icon(
-                          Icons.chat_bubble_outline,
-                          color: AppColors.white,
-                          size: 22,
+                      : SvgPicture.asset(
+                          'assets/icons/nav/chat_inactive.svg',
+                          width: 24,
+                          height: 24,
+                          colorFilter: const ColorFilter.mode(
+                            AppColors.white,
+                            BlendMode.srcIn,
+                          ),
                         ),
                   tooltip: 'Открыть чат',
                 ),
