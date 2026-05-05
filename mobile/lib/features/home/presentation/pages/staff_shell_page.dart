@@ -7,9 +7,13 @@ import '../../../../core/widgets/brand_logotype.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
+import '../../../cancellations/presentation/controller/staff_cancellations_controller.dart';
+import '../../../cancellations/presentation/pages/staff_cancellations_list_page.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../../../chat/presentation/pages/staff_chat_list_page.dart';
 import '../../../clients/presentation/pages/clients_list_page.dart';
+import '../../../orders/presentation/controller/staff_orders_controller.dart';
+import '../../../orders/presentation/pages/staff_orders_list_page.dart';
 import '../widgets/role_bottom_nav.dart';
 import 'under_construction_page.dart';
 
@@ -63,11 +67,14 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
   @override
   Widget build(BuildContext context) {
     final unread = ref.watch(unreadCountProvider).value ?? 0;
+    final hasNewOrders = ref.watch(hasNewStaffOrdersProvider);
+    final hasPendingCancellations =
+        ref.watch(hasPendingCancellationsProvider);
     final user = ref.watch(authProvider).value;
     final items = [
       _baseItems[0].copyWith(hasBadge: unread > 0),
-      _baseItems[1],
-      _baseItems[2],
+      _baseItems[1].copyWith(hasBadge: hasNewOrders),
+      _baseItems[2].copyWith(hasBadge: hasPendingCancellations),
       _baseItems[3],
       _baseItems[4],
     ];
@@ -101,7 +108,9 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
           index: _index,
           children: [
             const StaffChatListPage(),
-            for (var i = 1; i < items.length - 1; i++)
+            const StaffOrdersListPage(),
+            const StaffCancellationsListPage(),
+            for (var i = 3; i < items.length - 1; i++)
               UnderConstructionPage(title: items[i].label),
             const ClientsListPage(),
           ],

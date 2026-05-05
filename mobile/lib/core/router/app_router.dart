@@ -22,7 +22,9 @@ import '../../features/chat/presentation/pages/staff_conversation_page.dart';
 import '../../features/home/presentation/pages/client_shell_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../../features/notifications/presentation/pages/client_notifications_page.dart';
+import '../../features/cancellations/presentation/pages/staff_cancellation_detail_page.dart';
 import '../../features/orders/presentation/pages/my_purchases_page.dart';
+import '../../features/orders/presentation/pages/staff_order_detail_page.dart';
 import '../domain/app_user.dart';
 import '../domain/role.dart';
 
@@ -194,6 +196,17 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ClientPurchasesPage(clientId: state.pathParameters['id']!),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/staff/orders/:id',
+        builder: (_, state) =>
+            StaffOrderDetailPage(orderId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/staff/cancellations/:id',
+        builder: (_, state) => StaffCancellationDetailPage(
+          cancellationId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/staff/profile',

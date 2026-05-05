@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import '../../../core/network/api_client.dart';
 import '../domain/order.dart';
+import '../domain/staff_order.dart';
 
 /// One item in the create-order payload. Mirrors the backend's
 /// CreateOrderInputItem: every product needs an id, plus an optional
@@ -51,6 +52,21 @@ class CancellationRequestException implements Exception {
   @override
   String toString() =>
       'CancellationRequestException($code, http=$statusCode)';
+}
+
+/// Error returned by PATCH /orders/:id. Notable codes the staff UI must
+/// handle distinctly:
+/// - `booking_conflict` (409) — only emitted when reverting fulfillment from
+///   `cancelled`. Re-issue with `force: true` to drop conflicting bookings.
+/// - `forbidden` (403) — manager opened a deep-link to a non-own order.
+class OrderPatchException implements Exception {
+  final String code;
+  final int statusCode;
+
+  const OrderPatchException({required this.code, required this.statusCode});
+
+  @override
+  String toString() => 'OrderPatchException($code, http=$statusCode)';
 }
 
 class OrdersApi {
@@ -127,6 +143,85 @@ class OrdersApi {
       return cancellation['id'] as String;
     }
     throw CancellationRequestException(
+      code: ApiClient.parseErrorCode(res.body),
+      statusCode: res.statusCode,
+    );
+  }
+
+  /// Staff list with optional search and filters. Backend already enforces
+  /// RBAC (manager → only own clients' orders, senior_manager/admin → all),
+  /// so the mobile side just renders what comes back.
+  Future<StaffOrdersPage> listForStaff({
+    required String idToken,
+    String? query,
+    int page = 1,
+    int pageSize = 20,
+    FulfillmentStatus? fulfillmentStatus,
+    PaymentStatus? paymentStatus,
+  }) async {
+    final qp = <String>['page=$page', 'pageSize=$pageSize'];
+    if (query != null && query.isNotEmpty) {
+      qp.add('q=${Uri.encodeQueryComponent(query)}');
+    }
+    if (fulfillmentStatus != null) {
+      qp.add('fulfillmentStatus=${fulfillmentStatusToString(fulfillmentStatus)}');
+    }
+    if (paymentStatus != null) {
+      qp.add('paymentStatus=${paymentStatusToString(paymentStatus)}');
+    }
+    final path = '/orders?${qp.join('&')}';
+    final res = await _client.get(path, idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException('GET $path: ${res.statusCode}');
+    }
+    return StaffOrdersPage.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<StaffOrderDetail> getOrder({
+    required String idToken,
+    required String orderId,
+  }) async {
+    final res = await _client.get('/orders/$orderId', idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException('GET /orders/$orderId: ${res.statusCode}');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return StaffOrderDetail.fromJson(
+      json['order'] as Map<String, dynamic>,
+    );
+  }
+
+  /// PATCH /orders/:id — change payment and/or fulfillment status. At least
+  /// one of [paymentStatus] / [fulfillmentStatus] must be non-null. [force]
+  /// is honored only on a fulfillment revert from `cancelled` and lets the
+  /// caller drop conflicting bookings (the same `force=true` the admin web
+  /// drawer uses after the BookingConflictDialog).
+  Future<StaffOrder> patchOrder({
+    required String idToken,
+    required String orderId,
+    PaymentStatus? paymentStatus,
+    FulfillmentStatus? fulfillmentStatus,
+    bool force = false,
+  }) async {
+    final body = <String, Object>{
+      if (paymentStatus != null)
+        'paymentStatus': paymentStatusToString(paymentStatus),
+      if (fulfillmentStatus != null)
+        'fulfillmentStatus': fulfillmentStatusToString(fulfillmentStatus),
+      if (force) 'force': true,
+    };
+    final res = await _client.patchJson(
+      '/orders/$orderId',
+      idToken: idToken,
+      body: body,
+    );
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return StaffOrder.fromJson(json['order'] as Map<String, dynamic>);
+    }
+    throw OrderPatchException(
       code: ApiClient.parseErrorCode(res.body),
       statusCode: res.statusCode,
     );
