@@ -195,7 +195,7 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
               </button>
             </Section>
 
-            <Section label="Товаров">
+            <Section label="Товары">
               <div className="flex flex-col gap-2">
                 {order.items.map((it) => (
                   <ItemCard

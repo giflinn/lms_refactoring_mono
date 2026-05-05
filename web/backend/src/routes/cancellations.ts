@@ -2,6 +2,7 @@ import { Router } from "express";
 import { alias } from "drizzle-orm/pg-core";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -10,7 +11,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { db } from "../db";
-import { orderCancellations, orders, users } from "../db/schema";
+import { orderCancellations, orderItems, orders, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole, requireStaff } from "../middleware/requireRole";
 import {
@@ -295,6 +296,12 @@ cancellationsRouter.get(
         return;
       }
 
+      const items = await db
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, r.cancellation.orderId))
+        .orderBy(asc(orderItems.createdAt));
+
       res.json({
         cancellation: {
           id: r.cancellation.id,
@@ -317,6 +324,18 @@ cancellationsRouter.get(
             r.decidedBy?.id !== null && r.decidedBy?.id !== undefined
               ? (r.decidedBy as UserSummary)
               : null,
+          items: items.map((it) => ({
+            id: it.id,
+            productId: it.productId,
+            productTitle: it.productTitle,
+            productCategoryName: it.productCategoryName,
+            productSubtitle: it.productSubtitle,
+            unitPriceTenge: it.unitPriceTenge,
+            quantity: it.quantity,
+            bookedStart: it.bookedStart,
+            bookedEnd: it.bookedEnd,
+            expiresAt: it.expiresAt,
+          })),
         },
       });
     } catch (err) {

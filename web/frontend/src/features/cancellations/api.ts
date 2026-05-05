@@ -23,6 +23,19 @@ export type CancellationListItem = {
   manager: CancellationUserSummary | null;
 };
 
+export type CancellationOrderItem = {
+  id: string;
+  productId: string;
+  productTitle: string;
+  productCategoryName: string;
+  productSubtitle: string | null;
+  unitPriceTenge: string;
+  quantity: number;
+  bookedStart: string | null;
+  bookedEnd: string | null;
+  expiresAt: string | null;
+};
+
 export type CancellationDetail = {
   id: string;
   orderId: string;
@@ -38,6 +51,7 @@ export type CancellationDetail = {
   client: CancellationUserSummary;
   manager: CancellationUserSummary | null;
   decidedBy: CancellationUserSummary | null;
+  items: CancellationOrderItem[];
 };
 
 export type CancellationsList = {

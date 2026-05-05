@@ -6,7 +6,11 @@ import { Avatar } from "../../../components/Avatar";
 import { useCancellation, useDecideCancellation } from "../queries";
 import type { CancellationDecision, CancellationStatus } from "../api";
 import { CancellationStatusMenu } from "./StatusMenu";
-import { formatTenge, formatOrderDate } from "../../orders/format";
+import {
+  formatBookingRange,
+  formatOrderDate,
+  formatTenge,
+} from "../../orders/format";
 
 type Props = {
   cancellationId: string | null;
@@ -73,8 +77,8 @@ export function CancellationDrawer({ cancellationId, open, onClose }: Props) {
   }
 
   const title = cancellation
-    ? `Запрос на отмену №${cancellation.orderNumber}`
-    : "Запрос на отмену";
+    ? `Запрос на отмену заказа №${cancellation.orderNumber}`
+    : "Запрос на отмену заказа";
 
   return (
     <>
@@ -201,6 +205,26 @@ export function CancellationDrawer({ cancellationId, open, onClose }: Props) {
               </Section>
             )}
 
+            <Section label="Товары">
+              <div className="flex flex-col gap-2">
+                {cancellation.items.map((it) => (
+                  <ItemCard
+                    key={it.id}
+                    chip={it.productCategoryName}
+                    title={it.productTitle}
+                    dateLabel={
+                      it.bookedStart && it.bookedEnd
+                        ? formatBookingRange(it.bookedStart, it.bookedEnd)
+                        : it.expiresAt
+                          ? `до ${formatOrderDate(it.expiresAt)}`
+                          : (it.productSubtitle ?? "—")
+                    }
+                    price={formatTenge(it.unitPriceTenge)}
+                  />
+                ))}
+              </div>
+            </Section>
+
             {errorCode && (
               <div className="rounded-[8px] border border-red-error/40 bg-red-error/5 p-3 text-[13px] text-red-error">
                 {friendlyError(errorCode)}
@@ -277,6 +301,32 @@ function PersonRow({
         <p className="truncate text-[13px] font-medium leading-tight text-[#96999D]">
           {email}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function ItemCard({
+  chip,
+  title,
+  dateLabel,
+  price,
+}: {
+  chip: string;
+  title: string;
+  dateLabel: string;
+  price: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] bg-[#F9F9F9] p-3">
+      <span className="inline-flex w-fit items-center rounded-[6px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-2.5 py-1 text-[12px] font-medium text-grey-medium">
+        {chip}
+      </span>
+      <p className="text-[15px] font-medium text-grey-dark">{title}</p>
+      <div className="h-px w-full bg-[#EAECF0]" />
+      <div className="flex items-center justify-between text-[14px] font-medium">
+        <span className="text-grey-dark/60">{dateLabel}</span>
+        <span className="text-purple-primary">{price}</span>
       </div>
     </div>
   );
