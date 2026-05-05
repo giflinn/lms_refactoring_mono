@@ -40,6 +40,10 @@ class ClientOrder {
   final OrderStatus status;
   final num totalTenge;
   final DateTime createdAt;
+  /// Computed server-side as `firstPaidAt + min(daysUntilCancel)`. NULL when
+  /// the order isn't paid yet (no firstPaidAt) or has no items. Used to
+  /// decide whether to show the "Отменить заказ" button.
+  final DateTime? cancellationDeadline;
   final List<String> productTitles;
   final OrderManagerSummary? manager;
 
@@ -49,18 +53,28 @@ class ClientOrder {
     required this.status,
     required this.totalTenge,
     required this.createdAt,
+    required this.cancellationDeadline,
     required this.productTitles,
     required this.manager,
   });
 
+  bool get canCancel {
+    final d = cancellationDeadline;
+    if (d == null) return false;
+    return d.isAfter(DateTime.now());
+  }
+
   factory ClientOrder.fromJson(Map<String, dynamic> json) {
     final managerJson = json['manager'] as Map<String, dynamic>?;
+    final deadlineRaw = json['cancellationDeadline'] as String?;
     return ClientOrder(
       id: json['id'] as String,
       orderNumber: json['orderNumber'] as int,
       status: orderStatusFromString(json['fulfillmentStatus'] as String),
       totalTenge: num.parse(json['totalTenge'].toString()),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      cancellationDeadline:
+          deadlineRaw == null ? null : DateTime.parse(deadlineRaw),
       productTitles: (json['productTitles'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??

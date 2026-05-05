@@ -319,6 +319,7 @@ class _OrdersTab extends ConsumerWidget {
       case OrderStatus.active:
         return _ActiveOrderActions(order: order);
       case OrderStatus.completed:
+        return _CompletedOrderActions(order: order);
       case OrderStatus.cancelled:
         return null;
     }
@@ -467,25 +468,51 @@ class _ActiveOrderActions extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 8),
-        _TextOnlyButton(
-          label: 'Отменить заказ',
-          onTap: () async {
-            final confirmed = await showCancelOrderDialog(context);
-            if (!confirmed) return;
-            if (!context.mounted) return;
-            // Confirm is a stub for now — the backend cancel endpoint is
-            // wired separately. Show feedback so the user sees the action
-            // landed.
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('В разработке'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          },
-        ),
+        // Cancel button only stays as long as the per-order cancellation
+        // window (firstPaidAt + min(daysUntilCancel)) hasn't elapsed.
+        if (order.canCancel) ...[
+          const SizedBox(height: 8),
+          _TextOnlyButton(
+            label: 'Отменить заказ',
+            onTap: () async {
+              final confirmed = await showCancelOrderDialog(context);
+              if (!confirmed) return;
+              if (!context.mounted) return;
+              // Confirm is a stub for now — the backend cancel endpoint is
+              // wired separately. Show feedback so the user sees the action
+              // landed.
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('В разработке'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _CompletedOrderActions extends StatelessWidget {
+  final ClientOrder order;
+
+  const _CompletedOrderActions({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    return _OutlineButton(
+      label: 'Оставить отзыв',
+      onTap: () {
+        // Stub — review flow not built yet.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('В разработке'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
     );
   }
 }

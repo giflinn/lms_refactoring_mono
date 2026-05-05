@@ -12,7 +12,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { db } from "../db";
-import { orderItems, orders, users } from "../db/schema";
+import { orderItems, orders, products, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole, requireStaff } from "../middleware/requireRole";
 import {
@@ -95,6 +95,9 @@ ordersRouter.get(
         .orderBy(desc(orders.createdAt));
 
       const orderIds = rows.map((r) => r.order.id);
+      // Fetch items joined with their product so we can read
+      // daysUntilCancel — used to compute the cancel deadline shown to the
+      // client (mobile hides "Отменить заказ" once it passes).
       const itemRows =
         orderIds.length === 0
           ? []
@@ -102,39 +105,60 @@ ordersRouter.get(
               .select({
                 orderId: orderItems.orderId,
                 productTitle: orderItems.productTitle,
+                daysUntilCancel: products.daysUntilCancel,
                 createdAt: orderItems.createdAt,
               })
               .from(orderItems)
+              .innerJoin(products, eq(products.id, orderItems.productId))
               .where(inArray(orderItems.orderId, orderIds))
               .orderBy(asc(orderItems.createdAt));
 
       const titlesByOrder = new Map<string, string[]>();
+      const minDaysByOrder = new Map<string, number>();
       for (const it of itemRows) {
         const list = titlesByOrder.get(it.orderId) ?? [];
         list.push(it.productTitle);
         titlesByOrder.set(it.orderId, list);
+        const prev = minDaysByOrder.get(it.orderId);
+        if (prev === undefined || it.daysUntilCancel < prev) {
+          minDaysByOrder.set(it.orderId, it.daysUntilCancel);
+        }
       }
 
       res.json({
-        orders: rows.map((r) => ({
-          id: r.order.id,
-          orderNumber: r.order.orderNumber,
-          paymentStatus: r.order.paymentStatus,
-          fulfillmentStatus: r.order.fulfillmentStatus,
-          totalTenge: r.order.totalTenge,
-          createdAt: r.order.createdAt,
-          firstPaidAt: r.order.firstPaidAt,
-          statusChangedAt: r.order.statusChangedAt,
-          productTitles: titlesByOrder.get(r.order.id) ?? [],
-          manager:
-            r.manager?.id !== null && r.manager?.id !== undefined
-              ? {
-                  id: r.manager.id,
-                  firstName: r.manager.firstName,
-                  lastName: r.manager.lastName,
-                }
-              : null,
-        })),
+        orders: rows.map((r) => {
+          const minDays = minDaysByOrder.get(r.order.id);
+          // Cancel window opens when payment first lands and runs for the
+          // strictest (smallest) daysUntilCancel of any item in the order.
+          // Without firstPaidAt or items the deadline is unknown — return
+          // null and let the client decide.
+          const deadline =
+            r.order.firstPaidAt && minDays !== undefined
+              ? new Date(
+                  r.order.firstPaidAt.getTime() + minDays * 86_400_000,
+                )
+              : null;
+          return {
+            id: r.order.id,
+            orderNumber: r.order.orderNumber,
+            paymentStatus: r.order.paymentStatus,
+            fulfillmentStatus: r.order.fulfillmentStatus,
+            totalTenge: r.order.totalTenge,
+            createdAt: r.order.createdAt,
+            firstPaidAt: r.order.firstPaidAt,
+            statusChangedAt: r.order.statusChangedAt,
+            cancellationDeadline: deadline,
+            productTitles: titlesByOrder.get(r.order.id) ?? [],
+            manager:
+              r.manager?.id !== null && r.manager?.id !== undefined
+                ? {
+                    id: r.manager.id,
+                    firstName: r.manager.firstName,
+                    lastName: r.manager.lastName,
+                  }
+                : null,
+          };
+        }),
       });
     } catch (err) {
       next(err);

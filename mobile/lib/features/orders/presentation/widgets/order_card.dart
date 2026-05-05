@@ -108,7 +108,7 @@ class _ProductsRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Товаров',
+          'Товары',
           style: TextStyle(
             color: AppColors.purpleTertiary,
             fontSize: 15,
