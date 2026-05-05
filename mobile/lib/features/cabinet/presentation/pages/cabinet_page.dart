@@ -8,6 +8,7 @@ import '../../../../core/widgets/brand_logotype.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../../notifications/presentation/controller/notifications_controllers.dart';
+import '../../../orders/presentation/controller/client_orders_controller.dart';
 
 /// "Кабинет" tab — client profile hub. Header (logotype + large title) +
 /// account card (avatar, name, optional VIP chip, "Личные данные" link) +
@@ -24,6 +25,7 @@ class CabinetPage extends ConsumerWidget {
     final user = ref.watch(authProvider).requireValue!;
     final hasUnreadNotifications =
         (ref.watch(notificationsUnreadCountProvider).value ?? 0) > 0;
+    final hasNewOrders = ref.watch(hasNewOrdersProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -36,6 +38,7 @@ class CabinetPage extends ConsumerWidget {
                 ref
                     .read(notificationsUnreadCountProvider.notifier)
                     .refresh(),
+                ref.read(clientOrdersProvider.notifier).refresh(),
               ]);
             },
             color: AppColors.purplePrimary,
@@ -61,7 +64,8 @@ class CabinetPage extends ConsumerWidget {
               _SettingsRow(
                 iconAsset: 'assets/icons/cabinet/purchases.svg',
                 label: 'Мои покупки',
-                onTap: () => _stub(context),
+                hasBadge: hasNewOrders,
+                onTap: () => context.push('/client/purchases'),
               ),
               const SizedBox(height: 16),
               _SettingsRow(

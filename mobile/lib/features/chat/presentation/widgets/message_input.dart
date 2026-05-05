@@ -10,17 +10,31 @@ typedef SendCallback = Future<void> Function(String body, List<File> files);
 class MessageInput extends StatefulWidget {
   final SendCallback onSend;
   final bool enabled;
+  /// One-shot draft to seed the input with on first build (e.g. "По поводу
+  /// заказа: №N" pre-fill from the "Мои покупки" → chat handoff).
+  final String? initialText;
 
-  const MessageInput({super.key, required this.onSend, this.enabled = true});
+  const MessageInput({
+    super.key,
+    required this.onSend,
+    this.enabled = true,
+    this.initialText,
+  });
 
   @override
   State<MessageInput> createState() => _MessageInputState();
 }
 
 class _MessageInputState extends State<MessageInput> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
   final _files = <File>[];
   bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText ?? '');
+  }
 
   @override
   void dispose() {

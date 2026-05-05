@@ -7,6 +7,7 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
   or,
   type SQL,
 } from "drizzle-orm";
@@ -61,6 +62,85 @@ function scopeFilter(actorId: string, actorRole: StaffRole): SQL | undefined {
   if (actorRole === "manager") return eq(orders.managerId, actorId);
   return undefined;
 }
+
+// GET /me/orders — the calling client's own purchases. Mobile cabinet uses
+// this for the "Мои покупки" tabs (новые/активные/завершенные/отмененные).
+// Includes per-order item titles so the card can list product names instead
+// of an item count, and the assigned manager's name.
+ordersRouter.get(
+  "/me/orders",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId as string;
+      const actorRole = req.actorRole;
+      if (actorRole !== "client") {
+        res.status(403).json({ error: "forbidden" });
+        return;
+      }
+
+      const rows = await db
+        .select({
+          order: orders,
+          manager: {
+            id: managerUsers.id,
+            firstName: managerUsers.firstName,
+            lastName: managerUsers.lastName,
+          },
+        })
+        .from(orders)
+        .leftJoin(managerUsers, eq(managerUsers.id, orders.managerId))
+        .where(eq(orders.clientId, actorId))
+        .orderBy(desc(orders.createdAt));
+
+      const orderIds = rows.map((r) => r.order.id);
+      const itemRows =
+        orderIds.length === 0
+          ? []
+          : await db
+              .select({
+                orderId: orderItems.orderId,
+                productTitle: orderItems.productTitle,
+                createdAt: orderItems.createdAt,
+              })
+              .from(orderItems)
+              .where(inArray(orderItems.orderId, orderIds))
+              .orderBy(asc(orderItems.createdAt));
+
+      const titlesByOrder = new Map<string, string[]>();
+      for (const it of itemRows) {
+        const list = titlesByOrder.get(it.orderId) ?? [];
+        list.push(it.productTitle);
+        titlesByOrder.set(it.orderId, list);
+      }
+
+      res.json({
+        orders: rows.map((r) => ({
+          id: r.order.id,
+          orderNumber: r.order.orderNumber,
+          paymentStatus: r.order.paymentStatus,
+          fulfillmentStatus: r.order.fulfillmentStatus,
+          totalTenge: r.order.totalTenge,
+          createdAt: r.order.createdAt,
+          firstPaidAt: r.order.firstPaidAt,
+          statusChangedAt: r.order.statusChangedAt,
+          productTitles: titlesByOrder.get(r.order.id) ?? [],
+          manager:
+            r.manager?.id !== null && r.manager?.id !== undefined
+              ? {
+                  id: r.manager.id,
+                  firstName: r.manager.firstName,
+                  lastName: r.manager.lastName,
+                }
+              : null,
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // GET /orders?q=&page=&pageSize=&clientId=&managerId=&paymentStatus=&fulfillmentStatus=
 ordersRouter.get(

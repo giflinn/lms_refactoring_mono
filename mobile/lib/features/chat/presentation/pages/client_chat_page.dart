@@ -13,7 +13,12 @@ import '../widgets/message_bubble.dart';
 import '../widgets/message_input.dart';
 
 class ClientChatPage extends ConsumerStatefulWidget {
-  const ClientChatPage({super.key});
+  /// Optional one-shot draft used to pre-fill the input on first open.
+  /// Set when the page is pushed from "Мои покупки" → chat handoff so the
+  /// manager sees which order the client is asking about.
+  final String? initialDraft;
+
+  const ClientChatPage({super.key, this.initialDraft});
 
   @override
   ConsumerState<ClientChatPage> createState() => _ClientChatPageState();
@@ -160,6 +165,7 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
                           ),
                   ),
                   MessageInput(
+                    initialText: widget.initialDraft,
                     onSend: (body, files) async {
                       await ref
                           .read(clientChatProvider.notifier)

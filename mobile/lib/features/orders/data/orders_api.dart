@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import '../../../core/network/api_client.dart';
+import '../domain/order.dart';
 
 /// One item in the create-order payload. Mirrors the backend's
 /// CreateOrderInputItem: every product needs an id, plus an optional
@@ -69,5 +71,17 @@ class OrdersApi {
       code: ApiClient.parseErrorCode(res.body),
       statusCode: res.statusCode,
     );
+  }
+
+  Future<List<ClientOrder>> listMine(String idToken) async {
+    final res = await _client.get('/me/orders', idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException('GET /me/orders: ${res.statusCode}');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return (json['orders'] as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map(ClientOrder.fromJson)
+        .toList();
   }
 }

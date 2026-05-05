@@ -21,6 +21,7 @@ import '../../features/home/presentation/pages/client_shell_page.dart';
 import '../../features/home/presentation/pages/staff_profile_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../../features/notifications/presentation/pages/client_notifications_page.dart';
+import '../../features/orders/presentation/pages/my_purchases_page.dart';
 import '../domain/app_user.dart';
 import '../domain/role.dart';
 
@@ -151,7 +152,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/client/chat',
-        builder: (_, _) => const ClientChatPage(),
+        builder: (_, state) {
+          // /client/chat accepts an optional ChatPrefill via state.extra so
+          // the "Мои покупки" → chat handoff can seed the input. Anything
+          // else (or null) → no draft.
+          final extra = state.extra;
+          final draft = extra is ChatPrefill ? extra.text : null;
+          return ClientChatPage(initialDraft: draft);
+        },
       ),
       GoRoute(
         path: '/client/personal-data',
@@ -164,6 +172,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/notifications',
         builder: (_, _) => const ClientNotificationsPage(),
+      ),
+      GoRoute(
+        path: '/client/purchases',
+        builder: (_, _) => const MyPurchasesPage(),
       ),
       GoRoute(
         path: '/staff/chat/:id',
