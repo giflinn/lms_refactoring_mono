@@ -9,9 +9,14 @@ class PhoneField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<bool> onValidityChanged;
   final String? errorText;
-  /// Pre-filled national-only number (no country code), e.g. "7081234567" for
-  /// KZ. The country itself is set via [initialCountryCode].
-  final String? initialNational;
+  /// Pre-filled E.164 phone (e.g. "+77081234567") or null/empty for a blank
+  /// field. We deliberately accept E.164 instead of the bare national number
+  /// because intl_phone_field 3.2's initialValue handler strips the country
+  /// code via a regex that's anchored at "+": passing "7081234567" with
+  /// initialCountryCode='KZ' eats the leading "7" and the user sees
+  /// "081234567". Passing the E.164 form lets the package's "+"-aware
+  /// branch run and the digits survive.
+  final String? initialPhone;
   final String initialCountryCode;
 
   const PhoneField({
@@ -19,7 +24,7 @@ class PhoneField extends StatelessWidget {
     required this.onChanged,
     required this.onValidityChanged,
     this.errorText,
-    this.initialNational,
+    this.initialPhone,
     this.initialCountryCode = 'KZ',
   });
 
@@ -52,7 +57,7 @@ class PhoneField extends StatelessWidget {
           ),
           child: IntlPhoneField(
             initialCountryCode: initialCountryCode,
-            initialValue: initialNational,
+            initialValue: initialPhone,
             disableLengthCheck: false,
             dropdownTextStyle:
                 const TextStyle(color: AppColors.white, fontSize: 17),

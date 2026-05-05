@@ -36,7 +36,7 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
   late TextEditingController _lastName;
   late String _phoneE164;
   late bool _phoneValid;
-  late String _initialPhoneNational;
+  late String _initialPhoneE164;
   DateTime? _birthDate;
   String? _avatarLocalPath;
 
@@ -57,7 +57,7 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
       ..addListener(_rebuild);
     _phoneE164 = _initial.phone ?? '';
     _phoneValid = _initial.phone == null || isValidPhone(_initial.phone!);
-    _initialPhoneNational = _splitNational(_initial.phone);
+    _initialPhoneE164 = _initial.phone ?? '';
     _birthDate = _parseIsoDate(_initial.birthDate);
   }
 
@@ -70,14 +70,6 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
 
   void _rebuild() {
     if (mounted) setState(() {});
-  }
-
-  // E.164 like "+77081234567" → "7081234567" (national digits only) when KZ.
-  // Returns "" for non-KZ or malformed numbers; caller falls back to a blank
-  // field with the default country code.
-  static String _splitNational(String? e164) {
-    if (e164 == null || !e164.startsWith('+7') || e164.length != 12) return '';
-    return e164.substring(2);
   }
 
   static DateTime? _parseIsoDate(String? iso) {
@@ -379,7 +371,7 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
                               ),
                               const SizedBox(height: 16),
                               PhoneField(
-                                initialNational: _initialPhoneNational,
+                                initialPhone: _initialPhoneE164,
                                 errorText: _phoneError,
                                 onChanged: (v) {
                                   _phoneE164 = v;
