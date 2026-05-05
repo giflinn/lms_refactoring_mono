@@ -40,6 +40,26 @@ class ChatApi {
     return ChatThread.fromJson(json['thread'] as Map<String, dynamic>);
   }
 
+  /// Staff-only: get-or-create the thread for [clientId] and return its id.
+  /// Used by the "Клиенты" → client profile chat icon. Throws on non-200
+  /// (404 = client_not_found, 403 = manager doesn't own this client).
+  Future<String> openThreadWithClient({
+    required String idToken,
+    required String clientId,
+  }) async {
+    final res = await _client.postJson(
+      '/chat/threads/by-client/$clientId',
+      idToken: idToken,
+    );
+    if (res.statusCode != 200) {
+      throw HttpException(
+        'POST /chat/threads/by-client/$clientId: ${res.statusCode}',
+      );
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return json['threadId'] as String;
+  }
+
   /// GET /chat/threads — staff list with optional search/filter/sort.
   Future<List<ChatThread>> listThreads({
     required String idToken,

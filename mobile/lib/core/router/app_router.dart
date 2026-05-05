@@ -14,11 +14,12 @@ import '../../features/catalog/domain/product.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/cabinet/presentation/pages/personal_data_page.dart';
 import '../../features/cabinet/presentation/pages/settings_page.dart';
+import '../../features/clients/presentation/pages/client_detail_page.dart';
+import '../../features/clients/presentation/pages/client_purchases_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/chat/presentation/pages/client_chat_page.dart';
 import '../../features/chat/presentation/pages/staff_conversation_page.dart';
 import '../../features/home/presentation/pages/client_shell_page.dart';
-import '../../features/home/presentation/pages/staff_profile_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../../features/notifications/presentation/pages/client_notifications_page.dart';
 import '../../features/orders/presentation/pages/my_purchases_page.dart';
@@ -183,8 +184,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             StaffConversationPage(threadId: state.pathParameters['id']!),
       ),
       GoRoute(
+        path: '/staff/clients/:id',
+        builder: (_, state) =>
+            ClientDetailPage(clientId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'purchases',
+            builder: (_, state) =>
+                ClientPurchasesPage(clientId: state.pathParameters['id']!),
+          ),
+        ],
+      ),
+      GoRoute(
         path: '/staff/profile',
-        builder: (_, _) => const StaffProfilePage(),
+        builder: (_, _) => const PersonalDataPage(
+          showVipBadge: false,
+          showSignOut: true,
+        ),
       ),
     ],
   );

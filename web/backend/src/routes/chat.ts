@@ -51,6 +51,54 @@ chatRouter.post(
   },
 );
 
+// POST /chat/threads/by-client/:clientId — staff-only: get-or-create the
+// thread for a specific client. Used by the staff "Клиенты" → client profile
+// chat icon, which routes the user into /staff/chat/:threadId. Manager-role
+// actors may only open threads for clients they own; senior_manager / admin
+// can open any.
+chatRouter.post(
+  "/chat/threads/by-client/:clientId",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId!;
+      const actorRole = req.actorRole!;
+      if (actorRole === "client") {
+        res.status(403).json({ error: "staff_only" });
+        return;
+      }
+      const clientId = req.params.clientId;
+      const rows = await db
+        .select({
+          id: users.id,
+          role: users.role,
+          managerId: users.managerId,
+          deactivatedAt: users.deactivatedAt,
+        })
+        .from(users)
+        .where(eq(users.id, clientId))
+        .limit(1);
+      if (
+        rows.length === 0 ||
+        rows[0].role !== "client" ||
+        rows[0].deactivatedAt !== null
+      ) {
+        res.status(404).json({ error: "client_not_found" });
+        return;
+      }
+      if (actorRole === "manager" && rows[0].managerId !== actorId) {
+        res.status(403).json({ error: "forbidden" });
+        return;
+      }
+      const thread = await getOrCreateClientThread(clientId);
+      res.json({ threadId: thread.id });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /chat/threads — staff-only list with search/filter/sort.
 chatRouter.get(
   "/chat/threads",

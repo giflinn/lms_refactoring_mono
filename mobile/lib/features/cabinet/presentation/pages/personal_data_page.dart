@@ -18,13 +18,24 @@ import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../data/profile_api.dart';
 import '../../data/profile_api_provider.dart';
 
-/// "Личные данные" — client edits firstName / lastName / birthDate / phone /
+/// "Личные данные" — edits firstName / lastName / birthDate / phone /
 /// avatar. Email is read-only (Firebase owns it; changing it is a separate
 /// re-auth + verify flow that we haven't built yet). The "Готово" button is
 /// disabled until the form is dirty AND valid; back press with unsaved
 /// changes prompts a confirm dialog.
+///
+/// Used by both clients and staff. Staff get [showVipBadge]=false (VIP is a
+/// client-only concept) and [showSignOut]=true (their cabinet has no other
+/// "выйти" exit, so the personal-data screen doubles as the sign-out trap).
 class PersonalDataPage extends ConsumerStatefulWidget {
-  const PersonalDataPage({super.key});
+  final bool showVipBadge;
+  final bool showSignOut;
+
+  const PersonalDataPage({
+    super.key,
+    this.showVipBadge = true,
+    this.showSignOut = false,
+  });
 
   @override
   ConsumerState<PersonalDataPage> createState() => _PersonalDataPageState();
@@ -165,6 +176,29 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
     }
   }
 
+  /// Always-on confirm before sign-out. The subtitle adapts to whether the
+  /// form has unsaved edits, so a dirty signout doesn't silently lose work.
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (ctx) => ActionDialog(
+        icon: const Icon(Icons.logout, size: 50, color: AppColors.white),
+        title: 'Выйти из аккаунта?',
+        subtitle: _isDirty
+            ? 'Несохранённые изменения будут потеряны.'
+            : 'Понадобится войти заново.',
+        primaryLabel: 'Выйти',
+        secondaryLabel: 'Отмена',
+        secondaryLabelColor: AppColors.purpleTertiary,
+        onPrimary: () => Navigator.of(ctx).pop(true),
+        onSecondary: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(authProvider.notifier).signOut();
+  }
+
   /// Returns true if the user has no unsaved changes OR confirmed discard.
   Future<bool> _confirmDiscardIfDirty() async {
     if (!_isDirty) return true;
@@ -296,7 +330,15 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).requireValue!;
+    // After sign-out the auth state flips to null and the router unmounts us.
+    // For the one frame between those, fall back to a blank scaffold instead
+    // of crashing on `requireValue!`.
+    final user = ref.watch(authProvider).value;
+    if (user == null) {
+      return const GradientBackground(
+        child: Scaffold(backgroundColor: Colors.transparent),
+      );
+    }
     final canSave = _isDirty && !_hasErrors && !_saving;
 
     return PopScope(
@@ -330,6 +372,7 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
                           user: user,
                           localPath: _avatarLocalPath,
                           onPick: _pickAvatar,
+                          showVipBadge: widget.showVipBadge,
                         ),
                         const SizedBox(height: 16),
                         Padding(
@@ -391,6 +434,10 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
                                 label: 'Электронная почта',
                                 value: user.email,
                               ),
+                              if (widget.showSignOut) ...[
+                                const SizedBox(height: 32),
+                                _SignOutButton(onPressed: _signOut),
+                              ],
                             ],
                           ),
                         ),
@@ -493,16 +540,18 @@ class _AvatarBlock extends StatelessWidget {
   final AppUser user;
   final String? localPath;
   final VoidCallback onPick;
+  final bool showVipBadge;
 
   const _AvatarBlock({
     required this.user,
     required this.localPath,
     required this.onPick,
+    required this.showVipBadge,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isVip = user.clientCategory == 'vip';
+    final isVip = showVipBadge && user.clientCategory == 'vip';
     return Column(
       children: [
         GestureDetector(
@@ -665,6 +714,52 @@ class _TapRow extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SignOutButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SignOutButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.yellowGradientTop,
+              AppColors.yellowGradientBottom,
+            ],
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onPressed,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Center(
+                child: Text(
+                  'Выйти',
+                  style: TextStyle(
+                    color: AppColors.purpleDark,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

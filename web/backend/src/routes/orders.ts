@@ -175,6 +175,127 @@ ordersRouter.get(
   },
 );
 
+// GET /clients/:id/orders — staff view of a single client's order history.
+// Mirrors /me/orders payload (productTitles, deadlines, pendingCancellation)
+// so the mobile staff "История покупок" can reuse the existing client-side
+// OrderCard. Manager-role actors must own the target client; senior_manager
+// and admin may view any client. Read-only — no per-card actions.
+ordersRouter.get(
+  "/clients/:id/orders",
+  requireAuth,
+  requireStaff,
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId as string;
+      const actorRole = req.actorRole as StaffRole;
+      const clientId = req.params.id;
+
+      const targetRows = await db
+        .select({
+          id: users.id,
+          role: users.role,
+          managerId: users.managerId,
+          deactivatedAt: users.deactivatedAt,
+        })
+        .from(users)
+        .where(eq(users.id, clientId))
+        .limit(1);
+      if (
+        targetRows.length === 0 ||
+        targetRows[0].role !== "client" ||
+        targetRows[0].deactivatedAt !== null
+      ) {
+        res.status(404).json({ error: "client_not_found" });
+        return;
+      }
+      if (actorRole === "manager" && targetRows[0].managerId !== actorId) {
+        res.status(403).json({ error: "forbidden" });
+        return;
+      }
+
+      const rows = await db
+        .select({
+          order: orders,
+          manager: {
+            id: managerUsers.id,
+            firstName: managerUsers.firstName,
+            lastName: managerUsers.lastName,
+          },
+        })
+        .from(orders)
+        .leftJoin(managerUsers, eq(managerUsers.id, orders.managerId))
+        .where(eq(orders.clientId, clientId))
+        .orderBy(desc(orders.createdAt));
+
+      const orderIds = rows.map((r) => r.order.id);
+      const itemRows =
+        orderIds.length === 0
+          ? []
+          : await db
+              .select({
+                orderId: orderItems.orderId,
+                productTitle: orderItems.productTitle,
+                daysUntilCancel: products.daysUntilCancel,
+                createdAt: orderItems.createdAt,
+              })
+              .from(orderItems)
+              .innerJoin(products, eq(products.id, orderItems.productId))
+              .where(inArray(orderItems.orderId, orderIds))
+              .orderBy(asc(orderItems.createdAt));
+
+      const titlesByOrder = new Map<string, string[]>();
+      const minDaysByOrder = new Map<string, number>();
+      for (const it of itemRows) {
+        const list = titlesByOrder.get(it.orderId) ?? [];
+        list.push(it.productTitle);
+        titlesByOrder.set(it.orderId, list);
+        const prev = minDaysByOrder.get(it.orderId);
+        if (prev === undefined || it.daysUntilCancel < prev) {
+          minDaysByOrder.set(it.orderId, it.daysUntilCancel);
+        }
+      }
+
+      const pendingByOrder = await pendingCancellationsByOrderId(orderIds);
+
+      res.json({
+        orders: rows.map((r) => {
+          const minDays = minDaysByOrder.get(r.order.id);
+          const deadline =
+            r.order.firstPaidAt && minDays !== undefined
+              ? new Date(r.order.firstPaidAt.getTime() + minDays * 86_400_000)
+              : null;
+          const pending = pendingByOrder.get(r.order.id);
+          return {
+            id: r.order.id,
+            orderNumber: r.order.orderNumber,
+            paymentStatus: r.order.paymentStatus,
+            fulfillmentStatus: r.order.fulfillmentStatus,
+            totalTenge: r.order.totalTenge,
+            createdAt: r.order.createdAt,
+            firstPaidAt: r.order.firstPaidAt,
+            statusChangedAt: r.order.statusChangedAt,
+            cancellationDeadline: deadline,
+            pendingCancellation: pending
+              ? { id: pending.id, createdAt: pending.createdAt }
+              : null,
+            productTitles: titlesByOrder.get(r.order.id) ?? [],
+            manager:
+              r.manager?.id !== null && r.manager?.id !== undefined
+                ? {
+                    id: r.manager.id,
+                    firstName: r.manager.firstName,
+                    lastName: r.manager.lastName,
+                  }
+                : null,
+          };
+        }),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /orders?q=&page=&pageSize=&clientId=&managerId=&paymentStatus=&fulfillmentStatus=
 ordersRouter.get(
   "/orders",

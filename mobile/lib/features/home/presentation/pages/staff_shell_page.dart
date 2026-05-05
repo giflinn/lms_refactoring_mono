@@ -9,6 +9,7 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../../../chat/presentation/pages/staff_chat_list_page.dart';
+import '../../../clients/presentation/pages/clients_list_page.dart';
 import '../widgets/role_bottom_nav.dart';
 import 'under_construction_page.dart';
 
@@ -100,8 +101,9 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
           index: _index,
           children: [
             const StaffChatListPage(),
-            for (var i = 1; i < items.length; i++)
+            for (var i = 1; i < items.length - 1; i++)
               UnderConstructionPage(title: items[i].label),
+            const ClientsListPage(),
           ],
         ),
         bottomNavigationBar: RoleBottomNav(
