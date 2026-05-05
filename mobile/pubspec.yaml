@@ -52,6 +52,8 @@ dependencies:
   flutter_svg: ^2.0.10
   socket_io_client: ^3.1.4
   firebase_messaging: ^16.2.0
+  shared_preferences: ^2.3.0
+  app_settings: ^5.1.1
 
 # Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
 # 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's
@@ -94,6 +96,7 @@ flutter:
     - assets/icons/cart/
     - assets/icons/chat/
     - assets/icons/cabinet/
+    - assets/icons/settings/
     - assets/product_cover/
 
 flutter_launcher_icons:

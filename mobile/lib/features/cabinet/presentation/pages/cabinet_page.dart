@@ -73,7 +73,7 @@ class CabinetPage extends ConsumerWidget {
               _SettingsRow(
                 iconAsset: 'assets/icons/cabinet/setting.png',
                 label: 'Настройки',
-                onTap: () => _stub(context),
+                onTap: () => context.push('/client/settings'),
               ),
               const SizedBox(height: 16),
               _SettingsRow(

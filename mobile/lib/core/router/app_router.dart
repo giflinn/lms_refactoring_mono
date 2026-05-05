@@ -13,6 +13,7 @@ import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/catalog/domain/product.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/cabinet/presentation/pages/personal_data_page.dart';
+import '../../features/cabinet/presentation/pages/settings_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/chat/presentation/pages/client_chat_page.dart';
 import '../../features/chat/presentation/pages/staff_conversation_page.dart';
@@ -155,6 +156,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/personal-data',
         builder: (_, _) => const PersonalDataPage(),
+      ),
+      GoRoute(
+        path: '/client/settings',
+        builder: (_, _) => const SettingsPage(),
       ),
       GoRoute(
         path: '/client/notifications',

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/log.dart';
+import '../../../core/push_preference.dart';
 import '../../../core/router/app_router.dart';
 import 'chat_api.dart';
 import 'chat_api_provider.dart';
@@ -83,13 +84,19 @@ class PushService {
   }
 
   /// Registers the current FCM token with the backend. Call after sign-in.
+  /// No-op (and skips the OS permission prompt) if the user has turned pushes
+  /// off in Settings — re-enabling there calls this again.
   Future<void> registerForCurrentUser() async {
+    final enabled = await _ref.read(pushPreferenceProvider.future);
+    if (!enabled) return;
     await requestPermissionAndStart();
     _lastToken ??= await FirebaseMessaging.instance.getToken();
     await _registerCurrent();
   }
 
   Future<void> _registerCurrent() async {
+    final enabled = _ref.read(pushPreferenceProvider).value ?? true;
+    if (!enabled) return;
     final token = _lastToken;
     if (token == null) return;
     final fbUser = fb.FirebaseAuth.instance.currentUser;
