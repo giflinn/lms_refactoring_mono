@@ -7,6 +7,7 @@ import '../../../../core/widgets/action_dialog.dart';
 import '../../../../core/widgets/brand_logotype.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
+import '../../../notifications/presentation/controller/notifications_controllers.dart';
 
 /// "Кабинет" tab — client profile hub. Header (logotype + large title) +
 /// account card (avatar, name, optional VIP chip, "Личные данные" link) +
@@ -21,13 +22,22 @@ class CabinetPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Safe: ClientShellPage is only mounted when authProvider has data.
     final user = ref.watch(authProvider).requireValue!;
+    final hasUnreadNotifications =
+        (ref.watch(notificationsUnreadCountProvider).value ?? 0) > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _Header(),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () => ref.read(authProvider.notifier).refresh(),
+            onRefresh: () async {
+              await Future.wait([
+                ref.read(authProvider.notifier).refresh(),
+                ref
+                    .read(notificationsUnreadCountProvider.notifier)
+                    .refresh(),
+              ]);
+            },
             color: AppColors.purplePrimary,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -44,7 +54,8 @@ class CabinetPage extends ConsumerWidget {
               _SettingsRow(
                 iconAsset: 'assets/icons/cabinet/notifications.svg',
                 label: 'Уведомления',
-                onTap: () => _stub(context),
+                hasBadge: hasUnreadNotifications,
+                onTap: () => context.push('/client/notifications'),
               ),
               const SizedBox(height: 16),
               _SettingsRow(
@@ -271,12 +282,14 @@ class _VipChip extends StatelessWidget {
 class _SettingsRow extends StatelessWidget {
   final String iconAsset;
   final String label;
+  final bool hasBadge;
   final VoidCallback onTap;
 
   const _SettingsRow({
     required this.iconAsset,
     required this.label,
     required this.onTap,
+    this.hasBadge = false,
   });
 
   @override
@@ -322,6 +335,15 @@ class _SettingsRow extends StatelessWidget {
                   ),
                 ),
               ),
+              if (hasBadge)
+                Container(
+                  width: 7.5,
+                  height: 7.5,
+                  decoration: const BoxDecoration(
+                    color: AppColors.yellowPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
             ],
           ),
         ),

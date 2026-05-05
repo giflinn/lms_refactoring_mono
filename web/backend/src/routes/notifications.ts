@@ -3,11 +3,12 @@ import { and, desc, eq, isNull, type SQL } from "drizzle-orm";
 import { db } from "../db";
 import {
   notifications,
+  notificationDeliveries,
   type clientCategoryEnum,
   type notificationRecurrenceUnitEnum,
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
-import { requireStaffAdmin } from "../middleware/requireRole";
+import { requireAnyRole, requireStaffAdmin } from "../middleware/requireRole";
 import {
   computeNextFireAt,
   VALID_WEEKDAYS,
@@ -345,3 +346,89 @@ notificationsRouter.delete(
   },
 );
 
+// ─────────────── Client-facing inbox (mobile cabinet → notifications) ──────
+
+const INBOX_LIMIT = 100;
+
+// GET /me/notifications — last 100 deliveries for the authed user joined
+// against the parent notification for title/body. Sorted newest first.
+notificationsRouter.get(
+  "/me/notifications",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const userId = req.actorId as string;
+      const rows = await db
+        .select({
+          id: notificationDeliveries.id,
+          title: notifications.title,
+          body: notifications.body,
+          sentAt: notificationDeliveries.sentAt,
+          readAt: notificationDeliveries.readAt,
+        })
+        .from(notificationDeliveries)
+        .innerJoin(
+          notifications,
+          eq(notifications.id, notificationDeliveries.notificationId),
+        )
+        .where(eq(notificationDeliveries.userId, userId))
+        .orderBy(desc(notificationDeliveries.sentAt))
+        .limit(INBOX_LIMIT);
+
+      res.json({ notifications: rows });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /me/notifications/unread-count — used by the cabinet badge.
+notificationsRouter.get(
+  "/me/notifications/unread-count",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const userId = req.actorId as string;
+      const rows = await db
+        .select({ id: notificationDeliveries.id })
+        .from(notificationDeliveries)
+        .where(
+          and(
+            eq(notificationDeliveries.userId, userId),
+            isNull(notificationDeliveries.readAt),
+          ),
+        );
+      res.json({ count: rows.length });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /me/notifications/mark-read — flips read_at on every still-unread row
+// for this user. The mobile inbox calls this on page-open (Figma has no per-
+// row read action), so a "mark all" is the only mode we need.
+notificationsRouter.post(
+  "/me/notifications/mark-read",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const userId = req.actorId as string;
+      await db
+        .update(notificationDeliveries)
+        .set({ readAt: new Date() })
+        .where(
+          and(
+            eq(notificationDeliveries.userId, userId),
+            isNull(notificationDeliveries.readAt),
+          ),
+        );
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);

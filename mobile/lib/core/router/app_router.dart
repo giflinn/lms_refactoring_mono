@@ -19,6 +19,7 @@ import '../../features/chat/presentation/pages/staff_conversation_page.dart';
 import '../../features/home/presentation/pages/client_shell_page.dart';
 import '../../features/home/presentation/pages/staff_profile_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
+import '../../features/notifications/presentation/pages/client_notifications_page.dart';
 import '../domain/app_user.dart';
 import '../domain/role.dart';
 
@@ -154,6 +155,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/personal-data',
         builder: (_, _) => const PersonalDataPage(),
+      ),
+      GoRoute(
+        path: '/client/notifications',
+        builder: (_, _) => const ClientNotificationsPage(),
       ),
       GoRoute(
         path: '/staff/chat/:id',
