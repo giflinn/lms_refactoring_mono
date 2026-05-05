@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../home/presentation/controller/client_shell_tab_controller.dart';
 import '../../domain/order.dart';
 import '../controller/client_orders_controller.dart';
 import '../widgets/cancel_order_dialog.dart';
@@ -324,13 +325,13 @@ class _OrdersTab extends ConsumerWidget {
   }
 }
 
-class _EmptyTab extends StatelessWidget {
+class _EmptyTab extends ConsumerWidget {
   final OrderStatus status;
 
   const _EmptyTab({required this.status});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final message = switch (status) {
       OrderStatus.newOrder => 'Здесь появятся товары которые вы приобрели',
       OrderStatus.active => 'Здесь будут активные заказы',
@@ -370,6 +371,10 @@ class _EmptyTab extends StatelessWidget {
           child: _LargeYellowButton(
             label: 'Перейти в каталог',
             onTap: () {
+              // Switch the shell to "Главная" first, then pop this page so
+              // the user lands on the catalog instead of the cabinet tab
+              // they pushed from.
+              ref.read(clientShellTabProvider.notifier).goTo(0);
               Navigator.of(context).pop();
             },
           ),
