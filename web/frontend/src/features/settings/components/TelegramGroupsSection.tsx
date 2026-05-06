@@ -269,7 +269,10 @@ function BotStatusPill({ status }: { status: TelegramGroupBotStatus }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center self-start rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight",
+        // justify-self-start is what hugs the chip to its content inside a
+        // grid cell. self-start is align-self (vertical) only — leaves the
+        // grid to stretch us across the full column width.
+        "inline-flex items-center justify-self-start rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight whitespace-nowrap",
         palette[tone],
       )}
     >
