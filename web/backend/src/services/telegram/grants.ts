@@ -268,7 +268,8 @@ async function revokeOneMembership(
   m: typeof telegramMemberships.$inferSelect,
 ): Promise<void> {
   // Mark teardown timestamp first so a concurrent grant can't pick it up
-  // again on the way through the door.
+  // again on the way through the door. Clear inviteLink so future grants
+  // for this user/group won't reuse a now-revoked URL.
   const wasJoined = m.status === "joined";
   const now = new Date();
   await db
@@ -277,12 +278,18 @@ async function revokeOneMembership(
       status: wasJoined ? "kicked" : "revoked",
       kickedAt: wasJoined ? now : null,
       revokedAt: !wasJoined ? now : null,
+      inviteLink: null,
+      inviteLinkName: null,
       updatedAt: now,
     })
     .where(eq(telegramMemberships.id, m.id));
 
-  // Revoke the invite link if it was still pending. Idempotent on Telegram.
-  if (!wasJoined && m.inviteLink) {
+  // Always revoke the invite link on the Telegram side, even when the user
+  // had already joined. `member_limit=1` only caps *concurrent* members from
+  // a link — once the user leaves or gets kicked, the slot frees up and
+  // they can rejoin via the same URL. Revoking is the only way to make the
+  // link permanently dead. Idempotent on Telegram.
+  if (m.inviteLink) {
     const groupRows = await db
       .select({ chatId: telegramGroups.chatId })
       .from(telegramGroups)
