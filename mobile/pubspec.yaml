@@ -54,6 +54,10 @@ dependencies:
   firebase_messaging: ^16.2.0
   shared_preferences: ^2.3.0
   app_settings: ^5.1.1
+  flutter_html: ^3.0.0
+  chewie: ^1.14.0
+  video_player: ^2.11.1
+  cached_network_image: ^3.4.1
 
 # Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
 # 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's

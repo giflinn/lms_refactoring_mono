@@ -15,6 +15,8 @@ import '../../features/catalog/domain/product.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/cabinet/presentation/pages/personal_data_page.dart';
 import '../../features/cabinet/presentation/pages/settings_page.dart';
+import '../../features/courses/presentation/pages/course_detail_page.dart';
+import '../../features/courses/presentation/pages/lesson_page.dart';
 import '../../features/clients/presentation/pages/client_detail_page.dart';
 import '../../features/clients/presentation/pages/client_purchases_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
@@ -204,6 +206,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: ':id',
             builder: (_, state) => ClientOrderDetailPage(
               orderId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/client/courses/:id',
+        builder: (_, state) => CourseDetailPage(
+          courseId: state.pathParameters['id']!,
+        ),
+        routes: [
+          GoRoute(
+            path: 'lessons/:lessonId',
+            builder: (_, state) => LessonPage(
+              courseId: state.pathParameters['id']!,
+              lessonId: state.pathParameters['lessonId']!,
             ),
           ),
         ],

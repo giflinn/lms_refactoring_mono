@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm";
 import { db } from "../db";
 import {
+  lmsCourses,
   productCategories,
   products,
   productCoverKindEnum,
@@ -50,12 +51,14 @@ type TelegramGroupSummary = {
   title: string;
   chatType: "channel" | "supergroup";
 };
+type LmsCourseSummary = { id: string; title: string };
 
 function serialize(
   p: ProductRow,
   category: CategorySummary | null,
   slotTypeIds: string[],
   telegramGroup: TelegramGroupSummary | null,
+  lmsCourse: LmsCourseSummary | null,
 ) {
   return {
     id: p.id,
@@ -74,6 +77,8 @@ function serialize(
     slotTypeIds,
     telegramGroupId: p.telegramGroupId,
     telegramGroup,
+    lmsCourseId: p.lmsCourseId,
+    lmsCourse,
     isPromo: p.isPromo,
     isActive: p.isActive,
     isTopSearch: p.isTopSearch,
@@ -104,6 +109,26 @@ async function loadTelegramGroupsForProducts(
     })
     .from(telegramGroups)
     .where(inArray(telegramGroups.id, ids));
+  for (const r of rows) out.set(r.id, r);
+  return out;
+}
+
+async function loadLmsCoursesForProducts(
+  productRows: ProductRow[],
+): Promise<Map<string, LmsCourseSummary>> {
+  const out = new Map<string, LmsCourseSummary>();
+  const ids = Array.from(
+    new Set(
+      productRows
+        .map((p) => p.lmsCourseId)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  if (ids.length === 0) return out;
+  const rows = await db
+    .select({ id: lmsCourses.id, title: lmsCourses.title })
+    .from(lmsCourses)
+    .where(inArray(lmsCourses.id, ids));
   for (const r of rows) out.set(r.id, r);
   return out;
 }
@@ -199,6 +224,9 @@ productsRouter.get(
       const tgGroups = await loadTelegramGroupsForProducts(
         rows.map((r) => r.product),
       );
+      const lmsCoursesById = await loadLmsCoursesForProducts(
+        rows.map((r) => r.product),
+      );
 
       res.json({
         products: rows.map((r) =>
@@ -208,6 +236,9 @@ productsRouter.get(
             slotTypeIdsByProduct.get(r.product.id) ?? [],
             r.product.telegramGroupId
               ? tgGroups.get(r.product.telegramGroupId) ?? null
+              : null,
+            r.product.lmsCourseId
+              ? lmsCoursesById.get(r.product.lmsCourseId) ?? null
               : null,
           ),
         ),
@@ -233,6 +264,7 @@ type CreateInput = {
   durationMinutes: number | null;
   slotTypeIds: string[];
   telegramGroupId: string | null;
+  lmsCourseId: string | null;
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -404,7 +436,8 @@ function parseBody(
 
   // telegramGroupId: optional. Empty string / explicit "null" maps to null
   // (no group). When set, the product becomes a Telegram-grant — mutually
-  // exclusive with bookable. The DB CHECK constraint backs this up.
+  // exclusive with bookable and with LMS courses. The DB CHECK constraint
+  // backs this up.
   if (has("telegramGroupId")) {
     const raw = body.telegramGroupId;
     if (raw === null || raw === undefined || raw === "") {
@@ -418,16 +451,33 @@ function parseBody(
     data.telegramGroupId = null;
   }
 
-  // Cross-field invariant: a product is either a coach booking (duration +
-  // slot types) OR a Telegram grant — never both. Mirror the CHECK in the
-  // schema with a friendlier error code so the form can light up the right
-  // section.
-  if (
-    data.telegramGroupId &&
+  // lmsCourseId: same shape as telegramGroupId. Mutually exclusive with the
+  // other two fulfilment kinds.
+  if (has("lmsCourseId")) {
+    const raw = body.lmsCourseId;
+    if (raw === null || raw === undefined || raw === "") {
+      data.lmsCourseId = null;
+    } else if (typeof raw !== "string") {
+      return { ok: false, status: 400, error: "invalid_lms_course_id" };
+    } else {
+      data.lmsCourseId = raw.trim() || null;
+    }
+  } else if (!partial) {
+    data.lmsCourseId = null;
+  }
+
+  // Cross-field invariant: a product picks at most one fulfilment kind
+  // (booking, Telegram grant, LMS course) — mirrors the DB CHECK constraint
+  // with a friendlier error code so the form lights up the right section.
+  const fulfilmentKindsSet =
     (data.durationMinutes != null ||
-      (data.slotTypeIds && data.slotTypeIds.length > 0))
-  ) {
-    return { ok: false, status: 400, error: "booking_or_telegram_exclusive" };
+      (data.slotTypeIds && data.slotTypeIds.length > 0)
+      ? 1
+      : 0) +
+    (data.telegramGroupId ? 1 : 0) +
+    (data.lmsCourseId ? 1 : 0);
+  if (fulfilmentKindsSet > 1) {
+    return { ok: false, status: 400, error: "fulfilment_kind_exclusive" };
   }
 
   if (has("isPromo")) data.isPromo = parseBool(body.isPromo);
@@ -498,6 +548,23 @@ async function validateTelegramGroupId(
   }
   if (g.botStatus !== "admin") {
     return { ok: false, status: 400, error: "telegram_group_bot_not_admin" };
+  }
+  return { ok: true };
+}
+
+async function validateLmsCourseId(
+  id: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const rows = await db
+    .select({ id: lmsCourses.id, archivedAt: lmsCourses.archivedAt })
+    .from(lmsCourses)
+    .where(eq(lmsCourses.id, id))
+    .limit(1);
+  if (rows.length === 0) {
+    return { ok: false, status: 404, error: "lms_course_not_found" };
+  }
+  if (rows[0].archivedAt) {
+    return { ok: false, status: 400, error: "lms_course_archived" };
   }
   return { ok: true };
 }
@@ -592,6 +659,13 @@ productsRouter.post(
           return;
         }
       }
+      if (data.lmsCourseId) {
+        const lmsValidation = await validateLmsCourseId(data.lmsCourseId);
+        if (!lmsValidation.ok) {
+          res.status(lmsValidation.status).json({ error: lmsValidation.error });
+          return;
+        }
+      }
 
       const [created] = await db
         .insert(products)
@@ -606,6 +680,7 @@ productsRouter.post(
           activeDurationDays: data.activeDurationDays ?? null,
           durationMinutes: data.durationMinutes ?? null,
           telegramGroupId: data.telegramGroupId ?? null,
+          lmsCourseId: data.lmsCourseId ?? null,
           isPromo: data.isPromo ?? false,
           isActive: data.isActive ?? true,
           isTopSearch: data.isTopSearch ?? false,
@@ -627,6 +702,7 @@ productsRouter.post(
       }
 
       const tgGroups = await loadTelegramGroupsForProducts([finalRow]);
+      const lmsCoursesById = await loadLmsCoursesForProducts([finalRow]);
       res.json({
         product: serialize(
           finalRow,
@@ -634,6 +710,9 @@ productsRouter.post(
           slotTypeIds,
           finalRow.telegramGroupId
             ? tgGroups.get(finalRow.telegramGroupId) ?? null
+            : null,
+          finalRow.lmsCourseId
+            ? lmsCoursesById.get(finalRow.lmsCourseId) ?? null
             : null,
         ),
       });
@@ -694,12 +773,10 @@ productsRouter.patch(
         }
       }
 
-      // The new telegramGroupId, when present in the patch, must point at an
-      // active admin-bot group. Cross-field exclusion with bookable fields
-      // already enforced by parseBody (looks at data, not at existing row).
-      // Do an extra check against the merged "what the row will look like
-      // after this PATCH" so we don't accidentally allow flipping booking on
-      // a Telegram product or vice versa.
+      // Cross-field exclusion against the merged "what the row will look like
+      // after this PATCH" — parseBody only sees the patch payload, not the
+      // existing row, so it can't catch e.g. flipping bookingEnabled on a
+      // product that's already a Telegram-grant.
       const nextDuration =
         data.durationMinutes !== undefined
           ? data.durationMinutes
@@ -708,8 +785,16 @@ productsRouter.patch(
         data.telegramGroupId !== undefined
           ? data.telegramGroupId
           : existing.product.telegramGroupId;
-      if (nextDuration != null && nextTelegramId != null) {
-        res.status(400).json({ error: "booking_or_telegram_exclusive" });
+      const nextLmsCourseId =
+        data.lmsCourseId !== undefined
+          ? data.lmsCourseId
+          : existing.product.lmsCourseId;
+      const mergedKindsSet =
+        (nextDuration != null ? 1 : 0) +
+        (nextTelegramId != null ? 1 : 0) +
+        (nextLmsCourseId != null ? 1 : 0);
+      if (mergedKindsSet > 1) {
+        res.status(400).json({ error: "fulfilment_kind_exclusive" });
         return;
       }
       if (
@@ -719,6 +804,16 @@ productsRouter.patch(
         const tgValidation = await validateTelegramGroupId(data.telegramGroupId);
         if (!tgValidation.ok) {
           res.status(tgValidation.status).json({ error: tgValidation.error });
+          return;
+        }
+      }
+      if (
+        data.lmsCourseId &&
+        data.lmsCourseId !== existing.product.lmsCourseId
+      ) {
+        const lmsValidation = await validateLmsCourseId(data.lmsCourseId);
+        if (!lmsValidation.ok) {
+          res.status(lmsValidation.status).json({ error: lmsValidation.error });
           return;
         }
       }
@@ -736,6 +831,7 @@ productsRouter.patch(
       if (data.activeDurationDays !== undefined) patch.activeDurationDays = data.activeDurationDays;
       if (data.durationMinutes !== undefined) patch.durationMinutes = data.durationMinutes;
       if (data.telegramGroupId !== undefined) patch.telegramGroupId = data.telegramGroupId;
+      if (data.lmsCourseId !== undefined) patch.lmsCourseId = data.lmsCourseId;
       if (data.isPromo !== undefined) patch.isPromo = data.isPromo;
       if (data.isActive !== undefined) patch.isActive = data.isActive;
       if (data.isTopSearch !== undefined) patch.isTopSearch = data.isTopSearch;
@@ -766,6 +862,7 @@ productsRouter.patch(
 
       const idsByProduct = await loadSlotTypeIdsForProducts([id]);
       const tgGroups = await loadTelegramGroupsForProducts([refreshed.product]);
+      const lmsCoursesById = await loadLmsCoursesForProducts([refreshed.product]);
 
       res.json({
         product: serialize(
@@ -774,6 +871,9 @@ productsRouter.patch(
           idsByProduct.get(id) ?? [],
           refreshed.product.telegramGroupId
             ? tgGroups.get(refreshed.product.telegramGroupId) ?? null
+            : null,
+          refreshed.product.lmsCourseId
+            ? lmsCoursesById.get(refreshed.product.lmsCourseId) ?? null
             : null,
         ),
       });

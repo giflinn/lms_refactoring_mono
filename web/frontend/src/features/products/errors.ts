@@ -10,6 +10,7 @@ export type Fields = {
   durationMinutes?: string;
   slotTypeIds?: string;
   telegramGroupId?: string;
+  lmsCourseId?: string;
   coverFile?: string;
 };
 
@@ -99,6 +100,18 @@ const FIELD_MESSAGES: Record<string, { field: keyof Fields; message: string }> =
     message:
       "Бот не админ в этой группе. Восстановите права в Настройках → Telegram.",
   },
+  invalid_lms_course_id: {
+    field: "lmsCourseId",
+    message: "Неверный идентификатор курса.",
+  },
+  lms_course_not_found: {
+    field: "lmsCourseId",
+    message: "Курс не найден. Обновите страницу.",
+  },
+  lms_course_archived: {
+    field: "lmsCourseId",
+    message: "Курс в архиве — выберите другой.",
+  },
 };
 
 const GENERAL_MESSAGES: Record<string, string> = {
@@ -108,6 +121,8 @@ const GENERAL_MESSAGES: Record<string, string> = {
     "Длительность и типы слотов нужно сохранять вместе.",
   booking_or_telegram_exclusive:
     "Товар может быть либо бронированием времени коуча, либо Telegram-группой — не оба сразу.",
+  fulfilment_kind_exclusive:
+    "У товара только один тип доступа: бронирование, Telegram или курс LMS.",
   category_has_products:
     "В категории есть товары — перенесите их в другую категорию или удалите.",
   name_required: "Введите название.",

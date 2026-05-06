@@ -13,6 +13,7 @@ import { NotificationsPage } from "./features/notifications/pages/NotificationsP
 import { OrdersPage } from "./features/orders/pages/OrdersPage";
 import { CancellationsPage } from "./features/cancellations/pages/CancellationsPage";
 import { SettingsPage } from "./features/settings/pages/SettingsPage";
+import { LmsCoursePage } from "./features/lms/pages/LmsCoursePage";
 
 export default function App() {
   return (
@@ -48,6 +49,14 @@ export default function App() {
             element={
               <RequireAdmin>
                 <SettingsPage />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/settings/lms/:courseId"
+            element={
+              <RequireAdmin>
+                <LmsCoursePage />
               </RequireAdmin>
             }
           />

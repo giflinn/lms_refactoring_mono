@@ -14,6 +14,7 @@ import { Router } from "express";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
+  lmsCourses,
   orderItems,
   orders,
   products,
@@ -66,12 +67,18 @@ meOrdersRouter.get(
           item: orderItems,
           telegramGroupId: products.telegramGroupId,
           durationMinutes: products.durationMinutes,
+          lmsCourseId: products.lmsCourseId,
           telegramGroup: {
             id: telegramGroups.id,
             title: telegramGroups.title,
             chatType: telegramGroups.chatType,
             inviteUsername: telegramGroups.inviteUsername,
             description: telegramGroups.description,
+          },
+          lmsCourse: {
+            id: lmsCourses.id,
+            title: lmsCourses.title,
+            coverImageUrl: lmsCourses.coverImageUrl,
           },
         })
         .from(orderItems)
@@ -80,6 +87,7 @@ meOrdersRouter.get(
           telegramGroups,
           eq(telegramGroups.id, products.telegramGroupId),
         )
+        .leftJoin(lmsCourses, eq(lmsCourses.id, products.lmsCourseId))
         .where(eq(orderItems.orderId, orderId))
         .orderBy(asc(orderItems.createdAt));
 
@@ -160,6 +168,13 @@ meOrdersRouter.get(
                     inviteLink: m.inviteLink,
                     joinedAt: m.joinedAt?.toISOString() ?? null,
                     expiresAt: m.expiresAt?.toISOString() ?? null,
+                  }
+                : null,
+              lmsCourse: row.lmsCourse?.id
+                ? {
+                    id: row.lmsCourse.id,
+                    title: row.lmsCourse.title,
+                    coverImageUrl: row.lmsCourse.coverImageUrl,
                   }
                 : null,
             };

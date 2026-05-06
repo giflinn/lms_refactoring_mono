@@ -40,6 +40,10 @@ export const productFormSchema = z
     // Telegram-grant section. Mutually exclusive with bookingEnabled.
     telegramEnabled: z.boolean(),
     telegramGroupId: z.string(),
+    // LMS-course section. Mutually exclusive with bookingEnabled and
+    // telegramEnabled.
+    lmsCourseEnabled: z.boolean(),
+    lmsCourseId: z.string(),
   })
   .superRefine((vals, ctx) => {
     if (!vals.priceOnRequest) {
@@ -125,6 +129,23 @@ export const productFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["telegramGroupId"],
           message: "Выберите группу из списка",
+        });
+      }
+    }
+    if (vals.lmsCourseEnabled) {
+      if (vals.bookingEnabled || vals.telegramEnabled) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["lmsCourseEnabled"],
+          message:
+            "Курс нельзя совмещать с бронированием или Telegram. Выключите одно.",
+        });
+      }
+      if (!vals.lmsCourseId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["lmsCourseId"],
+          message: "Выберите курс из списка",
         });
       }
     }

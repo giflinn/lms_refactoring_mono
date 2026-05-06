@@ -2,6 +2,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { TelegramBotSection } from "../components/TelegramBotSection";
 import { TelegramGroupsSection } from "../components/TelegramGroupsSection";
+import { LmsCoursesSection } from "../../lms/components/LmsCoursesSection";
 
 // Admin-only settings. Tab bar groups by category so adding new sections
 // later (support contacts, payments, etc.) doesn't pile sections on a single
@@ -13,6 +14,7 @@ type Tab = {
 
 const TABS: Tab[] = [
   { id: "telegram", label: "Telegram" },
+  { id: "lms", label: "LMS" },
 ];
 
 export function SettingsPage() {
@@ -35,6 +37,11 @@ export function SettingsPage() {
         <div className="flex flex-col gap-6">
           <TelegramBotSection />
           <TelegramGroupsSection />
+        </div>
+      )}
+      {active === "lms" && (
+        <div className="flex flex-col gap-6">
+          <LmsCoursesSection />
         </div>
       )}
     </div>

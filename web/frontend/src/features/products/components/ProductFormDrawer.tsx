@@ -23,6 +23,7 @@ import {
 import { useCreateProduct, useUpdateProduct } from "../queries";
 import { useSlotTypes } from "../../coachCalendar/queries";
 import { useTelegramPickerGroups } from "../../settings/queries";
+import { useLmsCoursesPicker } from "../../lms/queries";
 import { mapError } from "../errors";
 
 type Props = {
@@ -52,6 +53,8 @@ const EMPTY: ProductFormValues = {
   slotTypeIds: [],
   telegramEnabled: false,
   telegramGroupId: "",
+  lmsCourseEnabled: false,
+  lmsCourseId: "",
 };
 
 const apiBase = import.meta.env.VITE_API_URL as string;
@@ -89,6 +92,7 @@ export function ProductFormDrawer({
   // Lazy-load picker groups: only fetch once the form is open. Keeps the
   // products page itself free of unrelated requests when the drawer is shut.
   const telegramPickerQ = useTelegramPickerGroups(open);
+  const lmsPickerQ = useLmsCoursesPicker(open);
 
   const [generalError, setGeneralError] = useState<string | undefined>();
   const [coverKind, setCoverKind] = useState<ProductCoverKind>("preset");
@@ -146,6 +150,8 @@ export function ProductFormDrawer({
         slotTypeIds: product.slotTypeIds,
         telegramEnabled: product.telegramGroupId != null,
         telegramGroupId: product.telegramGroupId ?? "",
+        lmsCourseEnabled: product.lmsCourseId != null,
+        lmsCourseId: product.lmsCourseId ?? "",
       });
     } else {
       setCoverKind("preset");
@@ -247,6 +253,10 @@ export function ProductFormDrawer({
         setError("telegramGroupId", { message: fields.telegramGroupId });
         handled = true;
       }
+      if (fields.lmsCourseId) {
+        setError("lmsCourseId", { message: fields.lmsCourseId });
+        handled = true;
+      }
       if (fields.coverFile) {
         setCoverError(fields.coverFile);
         handled = true;
@@ -289,6 +299,10 @@ export function ProductFormDrawer({
       telegramGroupId:
         values.telegramEnabled && values.telegramGroupId
           ? values.telegramGroupId
+          : null,
+      lmsCourseId:
+        values.lmsCourseEnabled && values.lmsCourseId
+          ? values.lmsCourseId
           : null,
       isPromo: values.isPromo,
       isActive: values.isActive,
@@ -492,7 +506,7 @@ export function ProductFormDrawer({
             <label
               className={clsx(
                 "flex items-center justify-between gap-2",
-                watched.telegramEnabled
+                watched.telegramEnabled || watched.lmsCourseEnabled
                   ? "cursor-not-allowed opacity-60"
                   : "cursor-pointer",
               )}
@@ -501,15 +515,15 @@ export function ProductFormDrawer({
                 <span className="text-[14px] font-medium text-grey-dark">
                   Бронирование времени коача
                 </span>
-                {watched.telegramEnabled && (
+                {(watched.telegramEnabled || watched.lmsCourseEnabled) && (
                   <span className="text-[12px] text-grey-medium">
-                    Выключено: товар уже привязан к Telegram-группе
+                    Выключено: товар уже привязан к {watched.telegramEnabled ? "Telegram-группе" : "курсу LMS"}
                   </span>
                 )}
               </div>
               <Toggle
                 checked={watched.bookingEnabled}
-                disabled={watched.telegramEnabled}
+                disabled={watched.telegramEnabled || watched.lmsCourseEnabled}
                 onChange={(v) => {
                   setValue("bookingEnabled", v, { shouldValidate: true });
                   // Clear paired errors when the toggle flips off so the form
@@ -597,7 +611,7 @@ export function ProductFormDrawer({
             <label
               className={clsx(
                 "flex items-center justify-between gap-2",
-                watched.bookingEnabled
+                watched.bookingEnabled || watched.lmsCourseEnabled
                   ? "cursor-not-allowed opacity-60"
                   : "cursor-pointer",
               )}
@@ -606,15 +620,15 @@ export function ProductFormDrawer({
                 <span className="text-[14px] font-medium text-grey-dark">
                   Доступ к Telegram-группе
                 </span>
-                {watched.bookingEnabled && (
+                {(watched.bookingEnabled || watched.lmsCourseEnabled) && (
                   <span className="text-[12px] text-grey-medium">
-                    Выключено: товар уже бронирует время коача
+                    Выключено: товар уже {watched.bookingEnabled ? "бронирует время коача" : "привязан к курсу LMS"}
                   </span>
                 )}
               </div>
               <Toggle
                 checked={watched.telegramEnabled}
-                disabled={watched.bookingEnabled}
+                disabled={watched.bookingEnabled || watched.lmsCourseEnabled}
                 onChange={(v) => {
                   setValue("telegramEnabled", v, { shouldValidate: true });
                   if (!v) setValue("telegramGroupId", "");
@@ -640,6 +654,48 @@ export function ProductFormDrawer({
           <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
             <label
               className={clsx(
+                "flex items-center justify-between gap-2",
+                watched.bookingEnabled || watched.telegramEnabled
+                  ? "cursor-not-allowed opacity-60"
+                  : "cursor-pointer",
+              )}
+            >
+              <div className="flex flex-col">
+                <span className="text-[14px] font-medium text-grey-dark">
+                  Доступ к курсу LMS
+                </span>
+                {(watched.bookingEnabled || watched.telegramEnabled) && (
+                  <span className="text-[12px] text-grey-medium">
+                    Выключено: товар уже {watched.bookingEnabled ? "бронирует время коача" : "привязан к Telegram-группе"}
+                  </span>
+                )}
+              </div>
+              <Toggle
+                checked={watched.lmsCourseEnabled}
+                disabled={watched.bookingEnabled || watched.telegramEnabled}
+                onChange={(v) => {
+                  setValue("lmsCourseEnabled", v, { shouldValidate: true });
+                  if (!v) setValue("lmsCourseId", "");
+                }}
+              />
+            </label>
+            {watched.lmsCourseEnabled && (
+              <LmsCoursePicker
+                value={watched.lmsCourseId}
+                onChange={(v) =>
+                  setValue("lmsCourseId", v ?? "", { shouldValidate: true })
+                }
+                error={errors.lmsCourseId?.message}
+                courses={lmsPickerQ.data ?? []}
+                loading={lmsPickerQ.isLoading}
+                loadFailed={lmsPickerQ.isError}
+              />
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
+            <label
+              className={clsx(
                 "flex items-center justify-between gap-3",
                 watched.bookingEnabled
                   ? "cursor-not-allowed opacity-60"
@@ -653,7 +709,7 @@ export function ProductFormDrawer({
                 <span className="text-[12px] text-grey-medium">
                   {watched.bookingEnabled
                     ? "Не применяется к бронируемым товарам"
-                    : "Например, курс на 30 дней. Без срока — доступ навсегда."}
+                    : "Например, доступ на 30 дней. Без срока — навсегда."}
                 </span>
               </div>
               <Toggle
@@ -725,6 +781,66 @@ function SecondaryButton({
     >
       {children}
     </button>
+  );
+}
+
+function LmsCoursePicker({
+  value,
+  onChange,
+  error,
+  courses,
+  loading,
+  loadFailed,
+}: {
+  value: string;
+  onChange: (v: string | null) => void;
+  error?: string;
+  courses: { id: string; title: string }[];
+  loading: boolean;
+  loadFailed: boolean;
+}) {
+  if (loading) {
+    return (
+      <p className="text-[12px] text-grey-medium">Загружаем список курсов…</p>
+    );
+  }
+  if (loadFailed) {
+    return (
+      <p className="text-[12px] text-red-error">
+        Не удалось загрузить курсы. Обновите страницу.
+      </p>
+    );
+  }
+  if (courses.length === 0) {
+    return (
+      <p className="text-[12px] text-grey-medium leading-snug">
+        Нет активных курсов. Откройте{" "}
+        <a
+          href="/settings"
+          className="text-purple-primary hover:underline"
+        >
+          Настройки → LMS
+        </a>{" "}
+        и создайте курс.
+      </p>
+    );
+  }
+  const options: SelectOption<string>[] = courses.map((c) => ({
+    value: c.id,
+    label: c.title,
+  }));
+  return (
+    <>
+      <Select<string>
+        label="Курс*"
+        value={value || null}
+        onChange={onChange}
+        options={options}
+        placeholder="Выберите курс"
+        searchable={options.length > 8}
+      />
+      {error && <p className="text-[12px] text-red-error">{error}</p>}
+    </>
   );
 }
 

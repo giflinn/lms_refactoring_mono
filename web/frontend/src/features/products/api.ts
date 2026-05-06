@@ -20,6 +20,11 @@ export type ProductTelegramGroup = {
   chatType: "channel" | "supergroup";
 };
 
+export type ProductLmsCourse = {
+  id: string;
+  title: string;
+};
+
 export type Product = {
   id: string;
   categoryId: string;
@@ -45,6 +50,10 @@ export type Product = {
   // doesn't need a second round-trip.
   telegramGroupId: string | null;
   telegramGroup: ProductTelegramGroup | null;
+  // LMS-course fields. Same exclusivity rule as telegramGroupId — at most one
+  // of (durationMinutes, telegramGroupId, lmsCourseId) is non-null.
+  lmsCourseId: string | null;
+  lmsCourse: ProductLmsCourse | null;
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -81,6 +90,8 @@ export type ProductInput = {
   // durationMinutes/slotTypeIds — the form keeps the toggles mutually
   // exclusive client-side too.
   telegramGroupId: string | null;
+  // LMS course id (or null). Same exclusivity as telegramGroupId.
+  lmsCourseId: string | null;
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -198,6 +209,7 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
   );
   fd.append("slotTypeIds", JSON.stringify(input.slotTypeIds));
   fd.append("telegramGroupId", input.telegramGroupId ?? "");
+  fd.append("lmsCourseId", input.lmsCourseId ?? "");
   fd.append("isPromo", input.isPromo ? "true" : "false");
   fd.append("isActive", input.isActive ? "true" : "false");
   fd.append("isTopSearch", input.isTopSearch ? "true" : "false");

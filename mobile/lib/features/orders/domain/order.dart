@@ -222,10 +222,32 @@ class OrderTelegramMembership {
   }
 }
 
-/// One row in the per-order detail page. Carries enough info for both card
-/// variants: bookable (booked range + slot info) and Telegram-grant (group
-/// info + membership state). When neither bookedStart nor telegramGroup are
-/// set, the row is a plain product (description / read access etc).
+/// Slim summary of the LMS course associated with an order item, when the
+/// underlying product has an lmsCourseId set.
+class OrderLmsCourse {
+  final String id;
+  final String title;
+  final String? coverImageUrl;
+
+  const OrderLmsCourse({
+    required this.id,
+    required this.title,
+    required this.coverImageUrl,
+  });
+
+  factory OrderLmsCourse.fromJson(Map<String, dynamic> json) {
+    return OrderLmsCourse(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      coverImageUrl: json['coverImageUrl'] as String?,
+    );
+  }
+}
+
+/// One row in the per-order detail page. Carries enough info for the three
+/// fulfilment-kind variants: bookable (booked range + slot info), Telegram
+/// grant (group + membership state), LMS course (course summary). When none
+/// of those are set, the row renders as a plain product.
 class ClientOrderDetailItem {
   final String id;
   final String productId;
@@ -240,6 +262,7 @@ class ClientOrderDetailItem {
   final int? durationMinutes;
   final OrderTelegramGroup? telegramGroup;
   final OrderTelegramMembership? telegramMembership;
+  final OrderLmsCourse? lmsCourse;
 
   const ClientOrderDetailItem({
     required this.id,
@@ -255,10 +278,12 @@ class ClientOrderDetailItem {
     required this.durationMinutes,
     required this.telegramGroup,
     required this.telegramMembership,
+    required this.lmsCourse,
   });
 
   bool get isBooking => bookedStart != null && bookedEnd != null;
   bool get isTelegram => telegramGroup != null;
+  bool get isLmsCourse => lmsCourse != null;
 
   factory ClientOrderDetailItem.fromJson(Map<String, dynamic> json) {
     return ClientOrderDetailItem(
@@ -288,6 +313,10 @@ class ClientOrderDetailItem {
               ? null
               : OrderTelegramMembership.fromJson(
                   json['telegramMembership'] as Map<String, dynamic>),
+      lmsCourse: (json['lmsCourse'] as Map<String, dynamic>?) == null
+          ? null
+          : OrderLmsCourse.fromJson(
+              json['lmsCourse'] as Map<String, dynamic>),
     );
   }
 }

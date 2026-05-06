@@ -139,10 +139,18 @@ export const products = pgTable(
     // When non-null, buying this product grants access to the linked Telegram
     // chat. ON DELETE RESTRICT — admin can archive a group instead, which
     // does not break attached products. Mutually exclusive with
-    // duration_minutes (a product is either a coach booking OR a Telegram
-    // grant; never both) — enforced by the CHECK below + by the route layer.
+    // duration_minutes and lms_course_id — enforced by the CHECK below + the
+    // route layer.
     telegramGroupId: uuid("telegram_group_id").references(
       (): AnyPgColumn => telegramGroups.id,
+      { onDelete: "restrict" },
+    ),
+    // When non-null, buying this product grants access to the linked LMS
+    // course. ON DELETE RESTRICT — admin archives a course instead. Mutually
+    // exclusive with duration_minutes and telegram_group_id (a product is
+    // exactly one fulfilment kind: booking, telegram, lms, or plain).
+    lmsCourseId: uuid("lms_course_id").references(
+      (): AnyPgColumn => lmsCourses.id,
       { onDelete: "restrict" },
     ),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -155,9 +163,15 @@ export const products = pgTable(
   (t) => [
     index("products_category_id_idx").on(t.categoryId),
     index("products_telegram_group_id_idx").on(t.telegramGroupId),
+    index("products_lms_course_id_idx").on(t.lmsCourseId),
+    // At most one fulfilment kind per row. Triple-pair pattern instead of an
+    // arithmetic sum keeps the constraint readable and lets each pair fail
+    // independently when staff submit a malformed payload directly.
     check(
-      "products_booking_or_telegram_exclusive",
-      sql`${t.durationMinutes} IS NULL OR ${t.telegramGroupId} IS NULL`,
+      "products_fulfilment_kind_exclusive",
+      sql`(${t.durationMinutes} IS NULL OR ${t.telegramGroupId} IS NULL)
+        AND (${t.durationMinutes} IS NULL OR ${t.lmsCourseId} IS NULL)
+        AND (${t.telegramGroupId} IS NULL OR ${t.lmsCourseId} IS NULL)`,
     ),
   ],
 );
@@ -1095,5 +1109,88 @@ export const emailVerificationCodes = pgTable(
   (t) => [
     index("email_verification_codes_firebase_uid_idx").on(t.firebaseUid),
     index("email_verification_codes_email_idx").on(t.email),
+  ],
+);
+
+// In-house LMS. A course is a flat list of modules; each module is a flat list
+// of lessons; each lesson holds an HTML body authored from the admin TipTap
+// editor (with images / videos uploaded via /lms/media and inlined as <img>
+// / <video> tags). Access to a course is *derived* — the user has it if they
+// own a paid + active order_item whose product.lms_course_id == course.id.
+// We deliberately don't materialise enrollments: the order pipeline already
+// is the source of truth for "what does this user own", same as for Telegram
+// access (which also goes through orders, not a separate access table).
+//
+// Soft-delete via archived_at on courses (so historical orders keep
+// referencing them via products.lms_course_id without RESTRICT failures).
+// Modules and lessons are hard-deleted with CASCADE — they only exist within
+// the course tree, never referenced from outside.
+export const lmsCourses = pgTable(
+  "lms_courses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    // Optional short description shown to clients on the course landing
+    // before they tap into a module. Authored in plain text from the admin
+    // (no HTML — that's lessons' job).
+    description: text("description"),
+    // Path under /lms-media/<file>; null falls back to the same purple gradient
+    // used as the default product cover.
+    coverImageUrl: text("cover_image_url"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("lms_courses_archived_at_idx").on(t.archivedAt)],
+);
+
+export const lmsModules = pgTable(
+  "lms_modules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => lmsCourses.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("lms_modules_course_id_sort_idx").on(t.courseId, t.sortOrder),
+  ],
+);
+
+export const lmsLessons = pgTable(
+  "lms_lessons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => lmsModules.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    // Authored HTML — output of the admin TipTap editor. Empty string until
+    // the author saves something. Mobile renders via flutter_html with custom
+    // <video> support; admin and client never share component code, only the
+    // HTML payload.
+    contentHtml: text("content_html").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("lms_lessons_module_id_sort_idx").on(t.moduleId, t.sortOrder),
   ],
 );
