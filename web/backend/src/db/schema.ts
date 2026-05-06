@@ -721,6 +721,105 @@ export const orderCancellations = pgTable(
   ],
 );
 
+// Product reviews. Created in 'pending' by the client (mobile) after a
+// completed order; staff flips status to 'published' or 'deleted' from the
+// staff "Отзывы" tab. 'deleted' is soft — the row stays for audit and the
+// client never sees a deleted review (it just disappears from "Мои отзывы";
+// no rejection notification per product spec). Multiple reviews per
+// (client, product) are allowed by design — managers decide whether a repeat
+// review is worth publishing.
+//
+// order_item_id is captured at submit time as the proof-of-purchase anchor
+// (the client tapped "Оставить отзыв" from the corresponding completed
+// order item). SET NULL on order_item delete keeps the review alive even if
+// order history is later purged.
+//
+// Manager scoping at read time uses the *live* users.manager_id of the
+// review's client_id — not a snapshot — so reassigning a client to a new
+// manager moves their historical reviews along. (Orders/cancellations use
+// snapshot manager_id today, pending a separate refactor.)
+export const reviewStatusEnum = pgEnum("review_status", [
+  "pending",
+  "published",
+  "deleted",
+]);
+
+export const productReviews = pgTable(
+  "product_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    orderItemId: uuid("order_item_id").references(() => orderItems.id, {
+      onDelete: "set null",
+    }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    rating: integer("rating").notNull(),
+    text: text("text").notNull(),
+    status: reviewStatusEnum("status").notNull().default("pending"),
+    statusChangedAt: timestamp("status_changed_at", { withTimezone: true }),
+    statusChangedByUserId: uuid("status_changed_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check("product_reviews_rating_range", sql`${t.rating} BETWEEN 1 AND 5`),
+    index("product_reviews_product_id_status_created_at_idx").on(
+      t.productId,
+      t.status,
+      t.createdAt,
+    ),
+    index("product_reviews_client_id_created_at_idx").on(
+      t.clientId,
+      t.createdAt,
+    ),
+    index("product_reviews_status_idx").on(t.status),
+  ],
+);
+
+// Staff replies to a review. Multiple replies allowed (one-level thread,
+// chronological). Soft-deleted via deleted_at — accidentally-deleted replies
+// can be restored from the DB and audit history is preserved. Cascades on
+// review hard-delete (which is an admin op only; the soft-delete UI flow
+// keeps replies attached).
+export const productReviewReplies = pgTable(
+  "product_review_replies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => productReviews.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    text: text("text").notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("product_review_replies_review_id_created_at_idx").on(
+      t.reviewId,
+      t.createdAt,
+    ),
+    index("product_review_replies_author_id_idx").on(t.authorId),
+  ],
+);
+
 // Generic key/value store for runtime-mutable settings edited from the admin
 // panel. Starts with support_whatsapp + support_hours (shown to clients in
 // the chat help dialog) and grows as more settings move out of constants.
