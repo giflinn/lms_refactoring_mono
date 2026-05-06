@@ -365,9 +365,13 @@ async function handleRegisterCommand(ctx: Context): Promise<void> {
         ? `Группа «${row.title}» зарегистрирована.`
         : `Группа «${row.title}» обновлена.`,
     );
-    lines.push(`chat_id: \`${row.chatId}\``);
+    lines.push(`chat_id: ${row.chatId}`);
     lines.push(statusHint(row.botStatus));
-    await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+    // Plain text — legacy Markdown breaks on the underscore in "chat_id:"
+    // (parser sees it as an italic-open with no closer) and the title may
+    // contain its own special chars too. No formatting is missed worth the
+    // escape complexity here.
+    await ctx.reply(lines.join("\n"));
   } catch (err) {
     console.error("[telegram] /register failed:", describeApiError(err));
     await ctx.reply("Внутренняя ошибка. Попробуйте ещё раз позже.");
