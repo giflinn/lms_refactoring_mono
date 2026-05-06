@@ -761,3 +761,30 @@ export const passwordResetCodes = pgTable(
   },
   (t) => [index("password_reset_codes_email_idx").on(t.email)],
 );
+
+// Custom OTP table for sign-up email verification. Replaces Firebase's default
+// magic-link "Verify your email" message — we send a 6-digit code from our own
+// SMTP and mark the Firebase user emailVerified=true via the admin SDK after a
+// successful match. Firebase-uid is the identity (email is also stored for the
+// hash salt + a search index).
+export const emailVerificationCodes = pgTable(
+  "email_verification_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    firebaseUid: text("firebase_uid").notNull(),
+    email: text("email").notNull(),
+    // SHA-256(code + email) — never store the plaintext OTP.
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("email_verification_codes_firebase_uid_idx").on(t.firebaseUid),
+    index("email_verification_codes_email_idx").on(t.email),
+  ],
+);

@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../data/chat_api_provider.dart';
 import '../../data/chat_socket.dart';
 import '../../domain/chat_format.dart';
 import '../../domain/chat_models.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/chat_empty_state.dart';
 import '../widgets/chat_messages_view.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input.dart';
@@ -299,7 +301,10 @@ class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
                   ),
                 ),
         ),
-        body: SafeArea(top: false, child: _buildBody()),
+        body: SafeArea(
+          top: false,
+          child: KeyboardDismiss(child: _buildBody()),
+        ),
       ),
     );
   }
@@ -326,13 +331,9 @@ class _StaffConversationPageState extends ConsumerState<StaffConversationPage> {
       children: [
         Expanded(
           child: _messages.isEmpty
-              ? Center(
-                  child: Text(
-                    'Сообщений пока нет',
-                    style: TextStyle(
-                      color: AppColors.white.withValues(alpha: 0.7),
-                    ),
-                  ),
+              ? const ChatEmptyState(
+                  title: 'Сообщений пока нет...',
+                  subtitle: 'Напишите первое сообщение клиенту.',
                 )
               : ChatMessagesView(
                   controller: _scroll,

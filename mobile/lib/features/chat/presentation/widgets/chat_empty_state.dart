@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/design/tokens.dart';
 
 /// Reusable "Сообщений пока нет..." illustration + caption used by the empty
@@ -23,25 +24,10 @@ class ChatEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.6),
-                  width: 2,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Container(
-                width: 64,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+            SvgPicture.asset(
+              'assets/icons/chat/empty.svg',
+              width: 100,
+              height: 100,
             ),
             const SizedBox(height: 16),
             Text(

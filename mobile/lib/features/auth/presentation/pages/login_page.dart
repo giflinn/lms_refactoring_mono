@@ -29,7 +29,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String? _emailError;
   String? _passwordError;
   bool _submitting = false;
-  bool _showResendVerification = false;
 
   @override
   void dispose() {
@@ -81,7 +80,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() {
       _emailError = null;
       _passwordError = null;
-      _showResendVerification = false;
     });
 
     final email = _emailCtrl.text.trim();
@@ -113,10 +111,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
     } on EmailNotVerifiedException {
       if (!mounted) return;
-      setState(() {
-        _passwordError = 'Email не подтвержден. Перейдите по ссылке из письма.';
-        _showResendVerification = true;
-      });
+      // Firebase session stays open (signIn doesn't sign out for unverified
+      // users) — the OTP page calls /auth/email-verification/* with the live
+      // ID token. User taps "Запросить код повторно" there if they need a
+      // fresh code.
+      context.push('/email-verification', extra: email);
     } on fb.FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -144,26 +143,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       setState(() => _passwordError = 'Не удалось войти. Попробуйте позже.');
     } finally {
       if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _resendVerification() async {
-    final email = _emailCtrl.text.trim();
-    final password = _passwordCtrl.text;
-    if (email.isEmpty || password.isEmpty) return;
-    try {
-      await ref.read(authProvider.notifier).resendVerification(email, password);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Письмо отправлено повторно на $email')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Не удалось отправить. Попробуйте позже.'),
-        ),
-      );
     }
   }
 
@@ -213,29 +192,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     autofillHint: AutofillHints.password,
                     onChanged: (_) {
                       if (_passwordError != null) {
-                        setState(() {
-                          _passwordError = null;
-                          _showResendVerification = false;
-                        });
+                        setState(() => _passwordError = null);
                       }
                     },
                   ),
-                  if (_showResendVerification)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6, left: 4),
-                      child: GestureDetector(
-                        onTap: _resendVerification,
-                        child: const Text(
-                          'Отправить письмо повторно',
-                          style: TextStyle(
-                            color: AppColors.yellowPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
                   const SizedBox(height: 24),
                   PrimaryButton(
                     label: 'Войти',

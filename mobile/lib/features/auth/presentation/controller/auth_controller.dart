@@ -25,8 +25,9 @@ final authProvider = AsyncNotifierProvider<AuthController, AppUser?>(
 );
 
 /// Thrown by [signIn] when Firebase auth succeeded but the user hasn't
-/// confirmed their email yet. The login page catches it to render an error
-/// + "resend verification" affordance.
+/// confirmed their email yet. The login page catches it to push the OTP
+/// entry screen at /email-verification while keeping the Firebase session
+/// open.
 class EmailNotVerifiedException implements Exception {
   const EmailNotVerifiedException();
 }
@@ -60,9 +61,9 @@ class AuthController extends AsyncNotifier<AppUser?> {
     final fbUser = await fb.FirebaseAuth.instance.authStateChanges().first;
     if (fbUser == null) return null;
     if (!fbUser.emailVerified) {
-      // Don't strand an unverified user in the app; force them back to login
-      // so they see the "verify your email" message.
-      await fb.FirebaseAuth.instance.signOut();
+      // Stay signed-in to Firebase so the user can resume the OTP flow on
+      // /email-verification (the verify endpoint needs a valid ID token).
+      // Surfacing them as logged-out keeps them off /home until verified.
       return null;
     }
     return _resolveExisting(fbUser);
@@ -94,18 +95,19 @@ class AuthController extends AsyncNotifier<AppUser?> {
     );
     final fbUser = cred.user!;
     if (!fbUser.emailVerified) {
-      // Sign out so we don't leave a half-authenticated session lying around.
-      // The login page will offer to resend the verification email.
-      await fb.FirebaseAuth.instance.signOut();
+      // Stay signed-in: /email-verification calls the verify endpoint with the
+      // current ID token. authProvider state stays null (build returns null
+      // for unverified users) so the router still treats them as logged-out.
       throw const EmailNotVerifiedException();
     }
     final user = await _resolveExisting(fbUser);
     state = AsyncData(user);
   }
 
-  /// Creates the Firebase user, sends the verification email, syncs the DB
-  /// row, and signs the user out so the login page handles the rest. We
-  /// intentionally don't drop them into the app — they have to verify first.
+  /// Creates the Firebase user, syncs the DB row, and asks the backend to
+  /// email a 6-digit OTP. The Firebase user stays signed-in so the
+  /// /email-verification page can call the verify endpoint with their ID
+  /// token; authProvider state stays null until they enter the code.
   Future<void> signUp(RegistrationData data) async {
     final cred = await fb.FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: data.email,
@@ -116,36 +118,55 @@ class AuthController extends AsyncNotifier<AppUser?> {
       final token = await fbUser.getIdToken();
       if (token == null) throw StateError('Firebase user has no ID token');
       await _api.syncRegistration(idToken: token, data: data);
-      await fbUser.sendEmailVerification();
+      await _api.requestEmailVerification(token);
     } catch (e, st) {
-      // If profile sync fails the Firebase user is "orphaned" — it would
-      // block re-registration with email-already-in-use AND can't log in
-      // because there's no DB row. Delete it so the user can retry cleanly.
+      // If profile sync or OTP request fails the Firebase user is "orphaned" —
+      // it would block re-registration with email-already-in-use AND can't log
+      // in because there's no verified DB row. Delete it so the user can
+      // retry cleanly.
       logd('signUp failed, cleaning up orphan firebase user', e, st);
       try {
         await fbUser.delete();
       } catch (e2) {
-        // delete() can fail if the auth session expired; not much we can do.
         logd('orphan firebase user delete failed', e2);
       }
       await fb.FirebaseAuth.instance.signOut();
       rethrow;
     }
-    await fb.FirebaseAuth.instance.signOut();
   }
 
-  /// Re-sends the email verification link for [email]+[password]. Requires
-  /// signing in to access Firebase's send API; we sign back out immediately.
-  Future<void> resendVerification(String email, String password) async {
-    final cred = await fb.FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    try {
-      await cred.user!.sendEmailVerification();
-    } finally {
-      await fb.FirebaseAuth.instance.signOut();
+  /// Re-sends the verification OTP for the currently signed-in (but not yet
+  /// verified) Firebase user. Called from /email-verification.
+  Future<void> resendEmailVerification() async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser == null) {
+      throw StateError('No Firebase user — cannot resend verification');
     }
+    final token = await fbUser.getIdToken();
+    if (token == null) throw StateError('Firebase user has no ID token');
+    await _api.requestEmailVerification(token);
+  }
+
+  /// Submits the 6-digit OTP. On success the backend marks the Firebase user
+  /// emailVerified=true; we force-refresh the local Firebase claims and lift
+  /// the auth state so the router redirects to /home.
+  Future<void> verifyEmailCode(String code) async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser == null) {
+      throw StateError('No Firebase user — cannot verify email');
+    }
+    final token = await fbUser.getIdToken();
+    if (token == null) throw StateError('Firebase user has no ID token');
+    await _api.verifyEmailCode(idToken: token, code: code);
+
+    // Pull the updated emailVerified=true claim from Firebase. reload()
+    // refreshes user metadata; getIdToken(true) forces a new token with the
+    // updated claim so subsequent backend calls see the verified state.
+    await fbUser.reload();
+    final refreshed = fb.FirebaseAuth.instance.currentUser!;
+    await refreshed.getIdToken(true);
+    final user = await _resolveExisting(refreshed);
+    state = AsyncData(user);
   }
 
   /// Google sign-in flow:

@@ -134,6 +134,30 @@ class AuthApi {
       throw PasswordResetException(ApiClient.parseErrorCode(res.body));
     }
   }
+
+  Future<void> requestEmailVerification(String idToken) async {
+    final res = await _client.postJson(
+      '/auth/email-verification/request',
+      idToken: idToken,
+    );
+    if (res.statusCode != 200) {
+      throw EmailVerificationException(ApiClient.parseErrorCode(res.body));
+    }
+  }
+
+  Future<void> verifyEmailCode({
+    required String idToken,
+    required String code,
+  }) async {
+    final res = await _client.postJson(
+      '/auth/email-verification/verify',
+      idToken: idToken,
+      body: {'code': code},
+    );
+    if (res.statusCode != 200) {
+      throw EmailVerificationException(ApiClient.parseErrorCode(res.body));
+    }
+  }
 }
 
 class RegistrationException implements Exception {
@@ -149,4 +173,11 @@ class PasswordResetException implements Exception {
   PasswordResetException(this.code);
   @override
   String toString() => 'PasswordResetException($code)';
+}
+
+class EmailVerificationException implements Exception {
+  final String code;
+  EmailVerificationException(this.code);
+  @override
+  String toString() => 'EmailVerificationException($code)';
 }

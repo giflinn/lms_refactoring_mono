@@ -9,7 +9,6 @@ import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/widgets/keyboard_dismiss.dart';
 import '../../../../core/widgets/primary_button.dart';
-import '../../../../core/widgets/success_dialog.dart';
 import '../../../../core/widgets/terms_checkbox_row.dart';
 import '../../data/auth_api.dart';
 import '../../domain/registration_data.dart';
@@ -155,15 +154,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           );
 
       if (!mounted) return;
-      await SuccessDialog.show(
-        context,
-        icon: Icons.mark_email_read_outlined,
-        title: 'Подтвердите email',
-        message:
-            'Мы отправили письмо на ${_emailCtrl.text.trim()}. Перейдите по ссылке из письма и затем войдите в приложение.',
+      context.pushReplacement(
+        '/email-verification',
+        extra: _emailCtrl.text.trim(),
       );
-      if (!mounted) return;
-      context.pop();
     } on NetworkException {
       if (!mounted) return;
       _showSnack('Нет соединения с сервером. Проверьте интернет.');

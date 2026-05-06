@@ -59,6 +59,39 @@ function passwordResetHtml(code: string): string {
   `.trim();
 }
 
+export async function sendEmailVerificationCode(
+  to: string,
+  code: string,
+): Promise<void> {
+  await getTransporter().sendMail({
+    from: getFromAddress(),
+    to,
+    subject: "Подтверждение email — Slyamova Zhanna",
+    text:
+      `Ваш код для подтверждения email: ${code}\n\n` +
+      `Код действителен 10 минут.\n\n` +
+      `Если вы не регистрировались — просто проигнорируйте это письмо.`,
+    html: emailVerificationHtml(code),
+  });
+}
+
+function emailVerificationHtml(code: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: -apple-system, sans-serif; background: #f6f6f6; padding: 24px;">
+    <div style="max-width: 480px; margin: 0 auto; background: white; border-radius: 12px; padding: 32px;">
+      <h2 style="color: #2D033B; margin: 0 0 16px;">Подтверждение email</h2>
+      <p style="color: #50555C; font-size: 15px;">Ваш код для подтверждения email:</p>
+      <div style="font-size: 32px; font-weight: 600; letter-spacing: 8px; color: #810CA8; padding: 16px; background: #F9F9F9; border-radius: 8px; text-align: center; margin: 16px 0;">${code}</div>
+      <p style="color: #667085; font-size: 13px;">Код действителен 10 минут.</p>
+      <p style="color: #667085; font-size: 13px;">Если вы не регистрировались — просто проигнорируйте это письмо.</p>
+    </div>
+  </body>
+</html>
+  `.trim();
+}
+
 export async function sendStaffInvite(
   to: string,
   password: string,

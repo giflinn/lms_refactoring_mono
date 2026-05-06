@@ -49,8 +49,8 @@ class MessageBubble extends ConsumerWidget {
       );
     }
     final isRight = side == BubbleSide.right;
-    final bg = isRight ? AppColors.purpleDark : AppColors.yellowGradientTop;
-    final fg = isRight ? AppColors.white : Colors.black87;
+    final bg = isRight ? AppColors.yellowGradientTop : AppColors.purpleDark;
+    final fg = isRight ? Colors.black87 : AppColors.white;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
@@ -189,15 +189,15 @@ class _AttachmentTile extends StatelessWidget {
         ),
       );
     }
-    final fg = onRight ? Colors.white : Colors.black87;
+    final fg = onRight ? Colors.black87 : Colors.white;
     return InkWell(
       onTap: _openExternal,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: onRight
-              ? Colors.white.withValues(alpha: 0.15)
-              : Colors.black.withValues(alpha: 0.05),
+              ? Colors.black.withValues(alpha: 0.05)
+              : Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(

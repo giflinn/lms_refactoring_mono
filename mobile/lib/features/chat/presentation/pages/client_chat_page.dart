@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/widgets/keyboard_dismiss.dart';
 import '../../data/support_provider.dart';
 import '../../domain/chat_models.dart';
 import '../controller/chat_controllers.dart';
@@ -100,7 +101,8 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: asyncState.when(
+          child: KeyboardDismiss(
+            child: asyncState.when(
             loading: () => const Center(
               child: CircularProgressIndicator(color: AppColors.white),
             ),
@@ -176,6 +178,7 @@ class _ClientChatPageState extends ConsumerState<ClientChatPage> {
                 ],
               );
             },
+          ),
           ),
         ),
       ),

@@ -7,8 +7,10 @@ import { attachSocketServer } from "./services/socketServer";
 import { startPushDispatcher } from "./services/pushNotifications";
 import { startNotificationDispatcher } from "./services/notificationDispatcher";
 import { startOrderLifecycleCron } from "./services/orderLifecycleCron";
+import { startUnverifiedUsersCleanupCron } from "./services/unverifiedUsersCleanupCron";
 import { authRouter } from "./routes/auth";
 import { passwordResetRouter } from "./routes/passwordReset";
+import { emailVerificationRouter } from "./routes/emailVerification";
 import { managersRouter } from "./routes/managers";
 import { clientsRouter } from "./routes/clients";
 import { productCategoriesRouter } from "./routes/productCategories";
@@ -47,6 +49,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 
 app.use(authRouter);
 app.use(passwordResetRouter);
+app.use(emailVerificationRouter);
 app.use(managersRouter);
 app.use(clientsRouter);
 app.use(productCategoriesRouter);
@@ -91,6 +94,7 @@ attachSocketServer(httpServer);
 startPushDispatcher();
 startNotificationDispatcher();
 startOrderLifecycleCron();
+startUnverifiedUsersCleanupCron();
 
 httpServer.listen(config.port, () => {
   console.log(`[lms-backend] listening on http://localhost:${config.port}`);
