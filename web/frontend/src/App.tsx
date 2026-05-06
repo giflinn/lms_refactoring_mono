@@ -14,6 +14,7 @@ import { OrdersPage } from "./features/orders/pages/OrdersPage";
 import { CancellationsPage } from "./features/cancellations/pages/CancellationsPage";
 import { SettingsPage } from "./features/settings/pages/SettingsPage";
 import { LmsCoursePage } from "./features/lms/pages/LmsCoursePage";
+import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 
 export default function App() {
   return (
@@ -34,7 +35,7 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<StubPage title="Главная" />} />
+          <Route path="/" element={<DashboardPage />} />
           <Route path="/reports" element={<StubPage title="Отчеты" />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/cancellations" element={<CancellationsPage />} />

@@ -22,7 +22,6 @@ function userToManager(u: User): Manager {
 }
 
 const ROUTE_TITLES: Record<string, string> = {
-  "/": "Главная",
   "/reports": "Отчеты",
   "/orders": "Заказы",
   "/cancellations": "Отмены",
@@ -35,7 +34,14 @@ const ROUTE_TITLES: Record<string, string> = {
   "/settings": "Настройки",
 };
 
-function titleFor(pathname: string): string {
+function titleFor(pathname: string, user: User | null): string {
+  // Dashboard greets the staff user by first name. firstName can be empty
+  // (legacy / seed-admin rows) — fall back to a plain "Привет!" so the
+  // header doesn't render as "Привет, !".
+  if (pathname === "/") {
+    const name = user?.firstName?.trim();
+    return name ? `Привет, ${name}!` : "Привет!";
+  }
   if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
   // Match the longest known prefix for nested routes (e.g. /managers/123).
   const match = Object.keys(ROUTE_TITLES)
@@ -48,7 +54,7 @@ export function Header() {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const { openEdit } = useManagerDrawer();
-  const title = titleFor(pathname);
+  const title = titleFor(pathname, user);
 
   return (
     <header className="flex items-center justify-between px-6 py-4">

@@ -33,6 +33,7 @@ import { meTelegramRouter } from "./routes/meTelegram";
 import { meOrdersRouter } from "./routes/meOrders";
 import { lmsRouter } from "./routes/lms";
 import { meLmsRouter } from "./routes/meLms";
+import { dashboardRouter } from "./routes/dashboard";
 import { initBot } from "./services/telegram/bot";
 import {
   startTelegramExpiryCron,
@@ -87,6 +88,7 @@ app.use(meTelegramRouter);
 app.use(meOrdersRouter);
 app.use(lmsRouter);
 app.use(meLmsRouter);
+app.use(dashboardRouter);
 
 // Global error handler — must be last in the middleware chain. Express
 // identifies error handlers by the 4-argument signature, so all four params

@@ -13,3 +13,37 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* react-day-picker theming inside the dashboard date range popover. The
+   library ships sensible structural CSS but tints the selection with its
+   default blue accent — these overrides remap it to the purple-primary
+   token used everywhere else in the admin. */
+.dashboard-rdp .rdp-root {
+  --rdp-accent-color: var(--color-purple-primary);
+  --rdp-accent-background-color: rgba(129, 12, 168, 0.1);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  font-size: 13px;
+}
+.dashboard-rdp .rdp-day_button {
+  border-radius: 8px;
+}
+.dashboard-rdp .rdp-selected .rdp-day_button {
+  background: var(--color-purple-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.dashboard-rdp .rdp-range_middle .rdp-day_button {
+  background: rgba(129, 12, 168, 0.1);
+  color: var(--color-grey-dark);
+  border-radius: 0;
+}
+.dashboard-rdp .rdp-range_start .rdp-day_button,
+.dashboard-rdp .rdp-range_end .rdp-day_button {
+  background: var(--color-purple-primary);
+  color: #fff;
+}
+.dashboard-rdp .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--color-purple-primary);
+  font-weight: 600;
+}
