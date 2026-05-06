@@ -677,8 +677,13 @@ async function fetchManagerSummaryAndChart(opts: {
   };
 }
 
+// Regex constraint stops `:id` from gobbling the `.csv` suffix on the
+// /reports/managers/:id.csv export route — both patterns would otherwise
+// match `<uuid>.csv` and Express picks first-registered. UUIDs are
+// hex-with-dashes, so `[0-9a-fA-F-]+` is sufficient and rejects literal
+// dots.
 reportsRouter.get(
-  "/reports/managers/:id",
+  "/reports/managers/:id([0-9a-fA-F-]+)",
   requireAuth,
   requireStaffAdmin,
   async (req, res, next) => {
@@ -840,7 +845,7 @@ async function fetchManagerClients(opts: {
 }
 
 reportsRouter.get(
-  "/reports/managers/:id/clients",
+  "/reports/managers/:id([0-9a-fA-F-]+)/clients",
   requireAuth,
   requireStaffAdmin,
   async (req, res, next) => {
