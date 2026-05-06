@@ -8,7 +8,12 @@ import { Input } from "../../../components/ui/Input";
 import { Textarea } from "../../../components/ui/Textarea";
 import { Toggle } from "../../../components/ui/Toggle";
 import { Button } from "../../../components/ui/Button";
+import { ImageLightbox } from "../../../components/ui/ImageLightbox";
 import { Avatar } from "../../../components/Avatar";
+
+const apiBase = import.meta.env.VITE_API_URL as string;
+const resolveAvatarUrl = (src: string | null | undefined): string | null =>
+  !src ? null : src.startsWith("/") ? `${apiBase}${src}` : src;
 import { useAuth } from "../../../auth/AuthContext";
 import {
   managerFormSchema,
@@ -57,6 +62,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
   >({ mode: "idle" });
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +97,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
     setResetState({ mode: "idle" });
     setPendingFile(null);
     setPreviewUrl(null);
+    setLightboxOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (manager) {
       resetForm({
@@ -217,21 +224,24 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
         className="flex flex-col gap-4 pb-2"
       >
         <div className="flex flex-col items-center gap-2">
-          {previewUrl ? (
-            <img
-              src={previewUrl}
-              alt=""
-              className="h-[150px] w-[150px] rounded-full object-cover"
-            />
-          ) : (
-            <Avatar
-              src={manager?.avatarUrl}
-              firstName={watch("firstName")}
-              lastName={watch("lastName")}
-              email={watch("email")}
-              size={150}
-            />
-          )}
+          {(() => {
+            const fullSrc = previewUrl ?? resolveAvatarUrl(manager?.avatarUrl);
+            return fullSrc ? (
+              <img
+                src={fullSrc}
+                alt=""
+                onClick={() => setLightboxOpen(true)}
+                className="h-[150px] w-[150px] cursor-zoom-in rounded-full object-cover"
+              />
+            ) : (
+              <Avatar
+                firstName={watch("firstName")}
+                lastName={watch("lastName")}
+                email={watch("email")}
+                size={150}
+              />
+            );
+          })()}
           <input
             ref={fileInputRef}
             type="file"
@@ -276,18 +286,18 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
         />
         <Input
           fullWidth
+          label="Номер телефона*"
+          placeholder="+7…"
+          {...register("phone")}
+          error={errors.phone?.message}
+        />
+        <Input
+          fullWidth
           label="Адрес электронной почты*"
           type="email"
           disabled={isEdit}
           {...register("email")}
           error={errors.email?.message}
-        />
-        <Input
-          fullWidth
-          label="Номер телефона*"
-          placeholder="+7…"
-          {...register("phone")}
-          error={errors.phone?.message}
         />
 
         {isEdit && manager?.managerCode && (
@@ -338,6 +348,13 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
           <p className="text-[13px] text-red-error">{generalError}</p>
         )}
       </form>
+
+      {lightboxOpen && (() => {
+        const src = previewUrl ?? resolveAvatarUrl(manager?.avatarUrl);
+        return src ? (
+          <ImageLightbox src={src} onClose={() => setLightboxOpen(false)} />
+        ) : null;
+      })()}
 
       <Modal
         open={resetState.mode === "confirm"}
