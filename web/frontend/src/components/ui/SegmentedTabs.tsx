@@ -33,7 +33,7 @@ export function SegmentedTabs<T extends string>({
             type="button"
             onClick={() => onChange(t.id)}
             className={clsx(
-              "h-10 cursor-pointer rounded-[6px] px-4 text-[14px] font-medium transition-colors",
+              "h-9 cursor-pointer rounded-[6px] px-4 text-[14px] font-medium transition-colors",
               active
                 ? "border border-[rgba(102,112,133,0.3)] bg-purple-lighter text-purple-primary"
                 : "text-[#0E131F] hover:bg-grey-lighter",

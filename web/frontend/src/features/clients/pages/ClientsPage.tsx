@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { SearchInput } from "../../../components/ui/SearchInput";
 import { ClientsTable } from "../components/ClientsTable";
 import { ClientDrawer } from "../components/ClientDrawer";
 import { DeleteClientDialog } from "../components/DeleteClientDialog";
@@ -106,23 +106,14 @@ export function ClientsPage() {
   return (
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex items-center gap-4">
-        <div className="relative w-[300px]">
-          <Search
-            size={20}
-            strokeWidth={1.5}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-medium"
-          />
-          <input
-            type="text"
-            placeholder="Поиск"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-            className="h-11 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white pl-10 pr-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
-          />
-        </div>
+        <SearchInput
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            setPage(1);
+          }}
+          className="w-[300px]"
+        />
         {showManagerFilter && (
           <div className="w-[220px]">
             <Select<string>

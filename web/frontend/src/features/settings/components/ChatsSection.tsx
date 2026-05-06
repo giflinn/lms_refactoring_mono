@@ -1,16 +1,8 @@
 import { useEffect, useState } from "react";
-import { Drawer } from "../../../components/ui/Drawer";
+import { toast } from "sonner";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
-import {
-  useSaveSettings,
-  useSettings,
-} from "../../settings/queries";
-
-type Props = {
-  open: boolean;
-  onClose: () => void;
-};
+import { useSaveSettings, useSettings } from "../queries";
 
 const FIELDS = [
   {
@@ -27,7 +19,7 @@ const FIELDS = [
   },
 ] as const;
 
-export function ChatSettingsDrawer({ open, onClose }: Props) {
+export function ChatsSection() {
   const settingsQuery = useSettings();
   const save = useSaveSettings();
   const [form, setForm] = useState<Record<string, string>>({});
@@ -35,12 +27,6 @@ export function ChatSettingsDrawer({ open, onClose }: Props) {
   useEffect(() => {
     if (settingsQuery.data) setForm({ ...settingsQuery.data });
   }, [settingsQuery.data]);
-
-  // Reset local edits whenever the drawer is reopened so a stale form from a
-  // previous cancellation doesn't show.
-  useEffect(() => {
-    if (open && settingsQuery.data) setForm({ ...settingsQuery.data });
-  }, [open, settingsQuery.data]);
 
   const dirty =
     settingsQuery.data &&
@@ -50,37 +36,16 @@ export function ChatSettingsDrawer({ open, onClose }: Props) {
 
   async function handleSave() {
     const updates: Record<string, string> = {};
-    for (const f of FIELDS) {
-      updates[f.key] = form[f.key] ?? "";
-    }
+    for (const f of FIELDS) updates[f.key] = form[f.key] ?? "";
     await save.mutateAsync(updates);
-    onClose();
+    toast.success("Настройки чатов сохранены");
   }
 
   return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      title="Настройки чатов"
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[8px] px-4 py-2 text-[13px] text-grey-dark hover:bg-grey-lighter"
-          >
-            Отмена
-          </button>
-          <Button
-            disabled={!dirty || save.isPending}
-            onClick={handleSave}
-            className="!w-auto"
-          >
-            {save.isPending ? "Сохранение..." : "Сохранить"}
-          </Button>
-        </div>
-      }
-    >
+    <section className="rounded-[12px] border border-[rgba(102,112,133,0.2)] bg-white p-6">
+      <h2 className="mb-1 text-[16px] font-semibold text-[#0E131F]">
+        Настройки чатов
+      </h2>
       <p className="mb-4 text-[12px] text-grey-medium">
         Значения сразу применяются к мобильному приложению — обновлять сборку
         не нужно.
@@ -93,12 +58,23 @@ export function ChatSettingsDrawer({ open, onClose }: Props) {
               value={form[f.key] ?? ""}
               placeholder={f.placeholder}
               fullWidth
-              onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, [f.key]: e.target.value })
+              }
             />
             <span className="text-[11px] text-grey-medium">{f.hint}</span>
           </div>
         ))}
       </div>
-    </Drawer>
+      <div className="mt-6 flex justify-end">
+        <Button
+          disabled={!dirty || save.isPending}
+          onClick={handleSave}
+          className="!w-auto"
+        >
+          {save.isPending ? "Сохранение..." : "Сохранить"}
+        </Button>
+      </div>
+    </section>
   );
 }

@@ -112,12 +112,12 @@ export function CategoriesDrawer({ open, categories, onClose }: Props) {
               setNewName(e.target.value);
               setCreateError(undefined);
             }}
-            className="h-11 flex-1 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
+            className="h-9 flex-1 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
           />
           <button
             type="submit"
             disabled={create.isPending}
-            className="flex h-11 cursor-pointer items-center gap-2 rounded-[8px] bg-purple-primary px-4 text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-9 cursor-pointer items-center gap-2 rounded-[8px] bg-purple-primary px-4 text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus size={18} strokeWidth={2} />
             {create.isPending ? "Добавление…" : "Добавить"}

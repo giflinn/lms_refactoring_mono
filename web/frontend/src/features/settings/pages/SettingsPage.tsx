@@ -1,38 +1,29 @@
 import { useState } from "react";
-import clsx from "clsx";
+import { SegmentedTabs } from "../../../components/ui/SegmentedTabs";
 import { TelegramBotSection } from "../components/TelegramBotSection";
 import { TelegramGroupsSection } from "../components/TelegramGroupsSection";
+import { ChatsSection } from "../components/ChatsSection";
 import { LmsCoursesSection } from "../../lms/components/LmsCoursesSection";
 
-// Admin-only settings. Tab bar groups by category so adding new sections
-// later (support contacts, payments, etc.) doesn't pile sections on a single
-// scroll. Page is gated by RequireAdmin in App.tsx.
-type Tab = {
-  id: string;
-  label: string;
-};
+type TabId = "telegram" | "lms" | "chats";
 
-const TABS: Tab[] = [
+const TABS: { id: TabId; label: string }[] = [
   { id: "telegram", label: "Telegram" },
   { id: "lms", label: "LMS" },
+  { id: "chats", label: "Чаты" },
 ];
 
 export function SettingsPage() {
-  const [active, setActive] = useState<string>(TABS[0].id);
+  const [active, setActive] = useState<TabId>("telegram");
 
   return (
-    <div className="flex flex-col gap-6 pt-4">
-      <div className="flex border-b border-[#EAECF0]">
-        {TABS.map((t) => (
-          <TabButton
-            key={t.id}
-            active={active === t.id}
-            onClick={() => setActive(t.id)}
-          >
-            {t.label}
-          </TabButton>
-        ))}
-      </div>
+    <div className="flex flex-col gap-6 pt-2">
+      <SegmentedTabs<TabId>
+        tabs={TABS}
+        value={active}
+        onChange={setActive}
+        className="self-start"
+      />
       {active === "telegram" && (
         <div className="flex flex-col gap-6">
           <TelegramBotSection />
@@ -44,31 +35,11 @@ export function SettingsPage() {
           <LmsCoursesSection />
         </div>
       )}
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={clsx(
-        "px-4 py-3 text-[14px] font-medium border-b-2 -mb-px transition-colors cursor-pointer",
-        active
-          ? "border-purple-primary text-purple-primary"
-          : "border-transparent text-grey-medium hover:text-grey-dark",
+      {active === "chats" && (
+        <div className="flex flex-col gap-6">
+          <ChatsSection />
+        </div>
       )}
-    >
-      {children}
-    </button>
+    </div>
   );
 }

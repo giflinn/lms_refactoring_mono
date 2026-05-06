@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Settings as SettingsIcon } from "lucide-react";
+import { SearchInput } from "../../../components/ui/SearchInput";
 import IconChatEmpty from "../../../assets/icons/chat-empty.svg?react";
 import { ChatList } from "../components/ChatList";
 import { ChatConversation } from "../components/ChatConversation";
-import { ChatSettingsDrawer } from "../components/ChatSettingsDrawer";
-import { PageActionButton } from "../../../components/ui/PageActionButton";
 import { Select, type SelectOption } from "../../../components/ui/Select";
 import { Avatar } from "../../../components/Avatar";
 import { useThreads } from "../queries";
@@ -39,7 +37,6 @@ export function ChatsPage() {
   const [managerId, setManagerId] = useState<string | null>(null);
   const [sort, setSort] = useState<"newest" | "oldest" | "name">("newest");
   const [selected, setSelected] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const params = useMemo(
     () => ({ search: search || undefined, filter, managerId, sort }),
@@ -145,20 +142,11 @@ export function ChatsPage() {
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4 pt-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="relative w-[280px]">
-            <Search
-              size={20}
-              strokeWidth={1.5}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-medium"
-            />
-            <input
-              type="text"
-              placeholder="Поиск"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-11 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white pl-10 pr-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            className="w-[280px]"
+          />
           <div className="w-[200px]">
             <Select
               value={filter}
@@ -185,14 +173,6 @@ export function ChatsPage() {
             </div>
           )}
         </div>
-        {isStaffAdmin && (
-          <PageActionButton
-            onClick={() => setSettingsOpen(true)}
-            icon={<SettingsIcon size={20} strokeWidth={2} />}
-          >
-            Настройки
-          </PageActionButton>
-        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden rounded-[12px] border border-grey-medium/20 bg-white">
@@ -211,12 +191,6 @@ export function ChatsPage() {
         </div>
       </div>
 
-      {isStaffAdmin && (
-        <ChatSettingsDrawer
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
     </div>
   );
 }

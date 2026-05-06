@@ -196,7 +196,7 @@ export function TelegramBotSection() {
                 type="button"
                 onClick={onCheckHealth}
                 disabled={checkHealth.isPending}
-                className="flex h-[40px] cursor-pointer items-center gap-2 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-4 text-[14px] font-medium text-grey-dark hover:bg-grey-lighter disabled:opacity-60"
+                className="flex h-9 cursor-pointer items-center gap-2 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-4 text-[14px] font-medium text-grey-dark hover:bg-grey-lighter disabled:opacity-60"
               >
                 <RefreshCw
                   size={16}

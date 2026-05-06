@@ -34,7 +34,7 @@ export function Input({
       </span>
       <div
         className={clsx(
-          "flex h-[44px] items-center gap-2 rounded-[8px] border bg-white px-3 py-[10px] transition-colors",
+          "flex h-9 items-center gap-2 rounded-[8px] border bg-white px-3 transition-colors",
           error
             ? "border-red-500"
             : "border-[rgba(102,112,133,0.3)] focus-within:border-purple-dark",
@@ -57,7 +57,7 @@ export function Input({
             )}
             aria-label="Очистить"
           >
-            <X size={20} strokeWidth={1.5} />
+            <X size={16} strokeWidth={1.5} />
           </button>
         )}
         {isPassword && (
@@ -70,8 +70,8 @@ export function Input({
             <img
               src={reveal ? eyeOpen : eyeClosed}
               alt=""
-              width={20}
-              height={20}
+              width={16}
+              height={16}
             />
           </button>
         )}

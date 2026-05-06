@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { SearchInput } from "../../../components/ui/SearchInput";
 import { useAuth } from "../../../auth/AuthContext";
 import { auth } from "../../../firebase";
 import { Avatar } from "../../../components/Avatar";
@@ -112,23 +112,15 @@ export function CancellationsPage() {
   return (
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-[300px]">
-          <Search
-            size={20}
-            strokeWidth={1.5}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-medium"
-          />
-          <input
-            type="text"
-            placeholder="Поиск по № заказа или клиенту"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-            className="h-11 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white pl-10 pr-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
-          />
-        </div>
+        <SearchInput
+          placeholder="Поиск по № заказа или клиенту"
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            setPage(1);
+          }}
+          className="w-[300px]"
+        />
         <div className="w-[200px]">
           <Select<string>
             value={clientFilter}

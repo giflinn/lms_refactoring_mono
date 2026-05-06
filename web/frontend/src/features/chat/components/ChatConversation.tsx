@@ -225,7 +225,7 @@ export function ChatConversation({ threadId }: Props) {
               await joinMutation.mutateAsync(threadId);
             }}
             disabled={joinMutation.isPending}
-            className="h-10 w-full rounded-[10px] bg-purple-primary text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="h-9 w-full rounded-[10px] bg-purple-primary text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {joinMutation.isPending ? "..." : "Присоединиться к чату"}
           </button>

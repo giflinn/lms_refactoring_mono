@@ -111,7 +111,7 @@ export function Select<V extends string>({
           disabled={disabled}
           onClick={() => setOpen((o) => !o)}
           className={clsx(
-            "flex h-[44px] w-full cursor-pointer items-center gap-2 rounded-[8px] border bg-white pl-3 pr-10 py-[10px] text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-9 w-full cursor-pointer items-center gap-2 rounded-[8px] border bg-white pl-3 pr-9 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
             open
               ? "border-purple-dark"
               : "border-[rgba(102,112,133,0.3)] hover:border-grey-medium",
@@ -138,11 +138,11 @@ export function Select<V extends string>({
               onChange(null);
             }}
           >
-            <X size={18} strokeWidth={1.5} />
+            <X size={16} strokeWidth={1.5} />
           </button>
         ) : (
           <ChevronDown
-            size={20}
+            size={18}
             strokeWidth={1.5}
             className={clsx(
               "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-grey-medium transition-transform",

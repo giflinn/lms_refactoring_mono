@@ -38,7 +38,7 @@ export function PageActionButton({
       type="button"
       {...rest}
       className={clsx(
-        "flex h-11 cursor-pointer items-center gap-2 rounded-[8px] px-4 text-[14px] font-medium transition-opacity disabled:cursor-not-allowed",
+        "flex h-9 cursor-pointer items-center gap-2 rounded-[8px] px-4 text-[14px] font-medium transition-opacity disabled:cursor-not-allowed",
         VARIANTS[variant],
         className,
       )}

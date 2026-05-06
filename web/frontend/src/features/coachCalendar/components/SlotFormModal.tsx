@@ -183,7 +183,7 @@ export function SlotFormModal({ open, mode, slotTypes, onClose }: Props) {
               setSlotTypeId(e.target.value);
               setFieldErrors((prev) => ({ ...prev, slotTypeId: undefined }));
             }}
-            className="h-10 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
+            className="h-9 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
           >
             <option value="" disabled>
               Выберите тип
@@ -204,7 +204,7 @@ export function SlotFormModal({ open, mode, slotTypes, onClose }: Props) {
               setDate(e.target.value);
               setFieldErrors((prev) => ({ ...prev, date: undefined }));
             }}
-            className="h-10 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
+            className="h-9 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
           />
         </Field>
 
@@ -217,7 +217,7 @@ export function SlotFormModal({ open, mode, slotTypes, onClose }: Props) {
                 setStartTime(e.target.value);
                 setFieldErrors((prev) => ({ ...prev, startsAt: undefined }));
               }}
-              className="h-10 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
+              className="h-9 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
             />
           </Field>
           <Field label="Конец" error={fieldErrors.endsAt}>
@@ -228,7 +228,7 @@ export function SlotFormModal({ open, mode, slotTypes, onClose }: Props) {
                 setEndTime(e.target.value);
                 setFieldErrors((prev) => ({ ...prev, endsAt: undefined }));
               }}
-              className="h-10 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
+              className="h-9 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
             />
           </Field>
         </div>
@@ -243,7 +243,7 @@ export function SlotFormModal({ open, mode, slotTypes, onClose }: Props) {
               type="button"
               onClick={handleCancelSlot}
               disabled={pending}
-              className="flex h-10 cursor-pointer items-center gap-1.5 rounded-[8px] border border-red-error/40 bg-white px-3 text-[13px] font-medium text-red-error hover:bg-red-error/5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border border-red-error/40 bg-white px-3 text-[13px] font-medium text-red-error hover:bg-red-error/5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 size={16} strokeWidth={1.7} />
               Отменить слот
@@ -256,14 +256,14 @@ export function SlotFormModal({ open, mode, slotTypes, onClose }: Props) {
               type="button"
               onClick={onClose}
               disabled={pending}
-              className="h-10 cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-4 text-[14px] font-medium text-[#0E131F] disabled:opacity-50"
+              className="h-9 cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-4 text-[14px] font-medium text-[#0E131F] disabled:opacity-50"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={pending}
-              className="h-10 cursor-pointer rounded-[8px] bg-purple-primary px-4 text-[14px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="h-9 cursor-pointer rounded-[8px] bg-purple-primary px-4 text-[14px] font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               {pending
                 ? "Сохранение…"
