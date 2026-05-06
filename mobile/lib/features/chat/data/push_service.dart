@@ -74,13 +74,32 @@ class PushService {
 
   void _handleOpened(RemoteMessage message) {
     final data = message.data;
-    if (data['type'] != 'chat_message') return;
-    final threadId = data['threadId'] as String?;
-    if (threadId == null) return;
+    final type = data['type'] as String?;
+    if (type == null) return;
     final router = _ref.read(routerProvider);
-    // Use a microtask to give the router a moment to settle (it may still be
-    // mid-redirect when this fires from a cold start).
-    scheduleMicrotask(() => router.push('/staff/chat/$threadId'));
+    // Microtask so the router can finish any pending redirect before we push
+    // (cold-start path).
+    scheduleMicrotask(() {
+      switch (type) {
+        case 'chat_message':
+          final threadId = data['threadId'] as String?;
+          if (threadId != null) router.push('/staff/chat/$threadId');
+        case 'order_payment_status':
+        case 'order_fulfillment_status':
+        case 'telegram_access_granted':
+        case 'telegram_access_revoked':
+          final orderId = data['orderId'] as String?;
+          if (orderId != null) {
+            router.push('/client/purchases/$orderId');
+          } else {
+            router.push('/client/purchases');
+          }
+        default:
+          // Unknown push type — leave the user where they are. Future event
+          // types should be added explicitly above.
+          break;
+      }
+    });
   }
 
   /// Registers the current FCM token with the backend. Call after sign-in.

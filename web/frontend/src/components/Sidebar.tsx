@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import { Logo } from "./Logo";
 import { useAuth } from "../auth/AuthContext";
+import type { Role } from "../auth/api";
 import { useUnreadCount } from "../features/chat/unreadHook";
 import IconHome from "../assets/icons/sidebar/home.svg?react";
 import IconReports from "../assets/icons/sidebar/reports.svg?react";
@@ -14,6 +15,7 @@ import IconProducts from "../assets/icons/sidebar/products.svg?react";
 import IconManagers from "../assets/icons/sidebar/managers.svg?react";
 import IconClients from "../assets/icons/sidebar/clients.svg?react";
 import IconCalendar from "../assets/icons/sidebar/calendar.svg?react";
+import IconSettings from "../assets/icons/sidebar/settings.svg?react";
 import IconLogout from "../assets/icons/sidebar/logout.svg?react";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -23,6 +25,10 @@ type NavItem = {
   label: string;
   Icon: IconComponent;
   end?: boolean;
+  // When set, only users whose role is in this list see the entry. Omit
+  // to show to every authenticated staff user (currently senior_manager
+  // and admin — the AuthContext gates client/manager from logging in here).
+  roles?: Role[];
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -36,12 +42,13 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/managers", label: "Менеджеры", Icon: IconManagers },
   { to: "/clients", label: "Клиенты", Icon: IconClients },
   { to: "/coach-calendar", label: "Календарь Коуча", Icon: IconCalendar },
+  { to: "/settings", label: "Настройки", Icon: IconSettings, roles: ["admin"] },
 ];
 
 const ICON_CLASS = "h-5 w-5 shrink-0";
 
 export function Sidebar() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -49,11 +56,15 @@ export function Sidebar() {
     navigate("/login", { replace: true });
   };
 
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => !item.roles || (user && item.roles.includes(user.role)),
+  );
+
   return (
     <aside className="flex h-screen w-[220px] shrink-0 flex-col items-center gap-6 border-r border-[rgba(102,112,133,0.3)] bg-white pr-3 py-4 shadow-[6px_6px_27px_rgba(0,0,0,0.05)]">
       <Logo />
       <nav className="flex w-full flex-1 flex-col gap-1">
-        {NAV_ITEMS.map((item) => (
+        {visibleItems.map((item) => (
           <NavItemRow key={item.to} item={item} />
         ))}
       </nav>

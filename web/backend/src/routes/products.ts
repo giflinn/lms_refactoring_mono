@@ -15,6 +15,7 @@ import {
   productCoverKindEnum,
   productSlotTypes,
   slotTypes,
+  telegramGroups,
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireStaffAdmin } from "../middleware/requireRole";
@@ -44,11 +45,17 @@ const COVER_KINDS: ReadonlySet<CoverKind> = new Set([
 
 type ProductRow = typeof products.$inferSelect;
 type CategorySummary = { id: string; name: string };
+type TelegramGroupSummary = {
+  id: string;
+  title: string;
+  chatType: "channel" | "supergroup";
+};
 
 function serialize(
   p: ProductRow,
   category: CategorySummary | null,
   slotTypeIds: string[],
+  telegramGroup: TelegramGroupSummary | null,
 ) {
   return {
     id: p.id,
@@ -65,6 +72,8 @@ function serialize(
     activeDurationDays: p.activeDurationDays,
     durationMinutes: p.durationMinutes,
     slotTypeIds,
+    telegramGroupId: p.telegramGroupId,
+    telegramGroup,
     isPromo: p.isPromo,
     isActive: p.isActive,
     isTopSearch: p.isTopSearch,
@@ -73,6 +82,30 @@ function serialize(
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
+}
+
+async function loadTelegramGroupsForProducts(
+  productRows: ProductRow[],
+): Promise<Map<string, TelegramGroupSummary>> {
+  const out = new Map<string, TelegramGroupSummary>();
+  const ids = Array.from(
+    new Set(
+      productRows
+        .map((p) => p.telegramGroupId)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  if (ids.length === 0) return out;
+  const rows = await db
+    .select({
+      id: telegramGroups.id,
+      title: telegramGroups.title,
+      chatType: telegramGroups.chatType,
+    })
+    .from(telegramGroups)
+    .where(inArray(telegramGroups.id, ids));
+  for (const r of rows) out.set(r.id, r);
+  return out;
 }
 
 // Loads m2m slot-type bindings for a given set of products in one query.
@@ -163,6 +196,9 @@ productsRouter.get(
       const slotTypeIdsByProduct = await loadSlotTypeIdsForProducts(
         rows.map((r) => r.product.id),
       );
+      const tgGroups = await loadTelegramGroupsForProducts(
+        rows.map((r) => r.product),
+      );
 
       res.json({
         products: rows.map((r) =>
@@ -170,6 +206,9 @@ productsRouter.get(
             r.product,
             r.category?.id ? r.category : null,
             slotTypeIdsByProduct.get(r.product.id) ?? [],
+            r.product.telegramGroupId
+              ? tgGroups.get(r.product.telegramGroupId) ?? null
+              : null,
           ),
         ),
         page,
@@ -193,6 +232,7 @@ type CreateInput = {
   activeDurationDays: number | null;
   durationMinutes: number | null;
   slotTypeIds: string[];
+  telegramGroupId: string | null;
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -362,6 +402,34 @@ function parseBody(
     data.slotTypeIds = [];
   }
 
+  // telegramGroupId: optional. Empty string / explicit "null" maps to null
+  // (no group). When set, the product becomes a Telegram-grant — mutually
+  // exclusive with bookable. The DB CHECK constraint backs this up.
+  if (has("telegramGroupId")) {
+    const raw = body.telegramGroupId;
+    if (raw === null || raw === undefined || raw === "") {
+      data.telegramGroupId = null;
+    } else if (typeof raw !== "string") {
+      return { ok: false, status: 400, error: "invalid_telegram_group_id" };
+    } else {
+      data.telegramGroupId = raw.trim() || null;
+    }
+  } else if (!partial) {
+    data.telegramGroupId = null;
+  }
+
+  // Cross-field invariant: a product is either a coach booking (duration +
+  // slot types) OR a Telegram grant — never both. Mirror the CHECK in the
+  // schema with a friendlier error code so the form can light up the right
+  // section.
+  if (
+    data.telegramGroupId &&
+    (data.durationMinutes != null ||
+      (data.slotTypeIds && data.slotTypeIds.length > 0))
+  ) {
+    return { ok: false, status: 400, error: "booking_or_telegram_exclusive" };
+  }
+
   if (has("isPromo")) data.isPromo = parseBool(body.isPromo);
   if (has("isActive")) data.isActive = parseBool(body.isActive);
   if (has("isTopSearch")) data.isTopSearch = parseBool(body.isTopSearch);
@@ -401,6 +469,35 @@ async function validateSlotTypeIds(
         error: archived ? "slot_type_archived" : "slot_type_not_found",
       };
     }
+  }
+  return { ok: true };
+}
+
+// Validate the chosen Telegram group exists, isn't archived, and the bot is
+// fully admin in it. The form filters server-side already, but a stale
+// client could submit an old id — reject with a friendly code so the UI can
+// tell the user "перепроверьте статус группы в Настройках".
+async function validateTelegramGroupId(
+  id: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const rows = await db
+    .select({
+      id: telegramGroups.id,
+      botStatus: telegramGroups.botStatus,
+      archivedAt: telegramGroups.archivedAt,
+    })
+    .from(telegramGroups)
+    .where(eq(telegramGroups.id, id))
+    .limit(1);
+  if (rows.length === 0) {
+    return { ok: false, status: 404, error: "telegram_group_not_found" };
+  }
+  const g = rows[0];
+  if (g.archivedAt) {
+    return { ok: false, status: 400, error: "telegram_group_archived" };
+  }
+  if (g.botStatus !== "admin") {
+    return { ok: false, status: 400, error: "telegram_group_bot_not_admin" };
   }
   return { ok: true };
 }
@@ -488,6 +585,14 @@ productsRouter.post(
         return;
       }
 
+      if (data.telegramGroupId) {
+        const tgValidation = await validateTelegramGroupId(data.telegramGroupId);
+        if (!tgValidation.ok) {
+          res.status(tgValidation.status).json({ error: tgValidation.error });
+          return;
+        }
+      }
+
       const [created] = await db
         .insert(products)
         .values({
@@ -500,6 +605,7 @@ productsRouter.post(
           daysUntilCancel: data.daysUntilCancel,
           activeDurationDays: data.activeDurationDays ?? null,
           durationMinutes: data.durationMinutes ?? null,
+          telegramGroupId: data.telegramGroupId ?? null,
           isPromo: data.isPromo ?? false,
           isActive: data.isActive ?? true,
           isTopSearch: data.isTopSearch ?? false,
@@ -520,7 +626,17 @@ productsRouter.post(
         finalRow = updated;
       }
 
-      res.json({ product: serialize(finalRow, category, slotTypeIds) });
+      const tgGroups = await loadTelegramGroupsForProducts([finalRow]);
+      res.json({
+        product: serialize(
+          finalRow,
+          category,
+          slotTypeIds,
+          finalRow.telegramGroupId
+            ? tgGroups.get(finalRow.telegramGroupId) ?? null
+            : null,
+        ),
+      });
     } catch (err) {
       next(err);
     }
@@ -578,6 +694,35 @@ productsRouter.patch(
         }
       }
 
+      // The new telegramGroupId, when present in the patch, must point at an
+      // active admin-bot group. Cross-field exclusion with bookable fields
+      // already enforced by parseBody (looks at data, not at existing row).
+      // Do an extra check against the merged "what the row will look like
+      // after this PATCH" so we don't accidentally allow flipping booking on
+      // a Telegram product or vice versa.
+      const nextDuration =
+        data.durationMinutes !== undefined
+          ? data.durationMinutes
+          : existing.product.durationMinutes;
+      const nextTelegramId =
+        data.telegramGroupId !== undefined
+          ? data.telegramGroupId
+          : existing.product.telegramGroupId;
+      if (nextDuration != null && nextTelegramId != null) {
+        res.status(400).json({ error: "booking_or_telegram_exclusive" });
+        return;
+      }
+      if (
+        data.telegramGroupId &&
+        data.telegramGroupId !== existing.product.telegramGroupId
+      ) {
+        const tgValidation = await validateTelegramGroupId(data.telegramGroupId);
+        if (!tgValidation.ok) {
+          res.status(tgValidation.status).json({ error: tgValidation.error });
+          return;
+        }
+      }
+
       const patch: Partial<typeof products.$inferInsert> = {
         updatedAt: new Date(),
       };
@@ -590,6 +735,7 @@ productsRouter.patch(
       if (data.daysUntilCancel !== undefined) patch.daysUntilCancel = data.daysUntilCancel;
       if (data.activeDurationDays !== undefined) patch.activeDurationDays = data.activeDurationDays;
       if (data.durationMinutes !== undefined) patch.durationMinutes = data.durationMinutes;
+      if (data.telegramGroupId !== undefined) patch.telegramGroupId = data.telegramGroupId;
       if (data.isPromo !== undefined) patch.isPromo = data.isPromo;
       if (data.isActive !== undefined) patch.isActive = data.isActive;
       if (data.isTopSearch !== undefined) patch.isTopSearch = data.isTopSearch;
@@ -619,12 +765,16 @@ productsRouter.patch(
       }
 
       const idsByProduct = await loadSlotTypeIdsForProducts([id]);
+      const tgGroups = await loadTelegramGroupsForProducts([refreshed.product]);
 
       res.json({
         product: serialize(
           refreshed.product,
           refreshed.category,
           idsByProduct.get(id) ?? [],
+          refreshed.product.telegramGroupId
+            ? tgGroups.get(refreshed.product.telegramGroupId) ?? null
+            : null,
         ),
       });
     } catch (err) {

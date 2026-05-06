@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
-import { RequireAuth, RequireGuest } from "./auth/guards";
+import { RequireAdmin, RequireAuth, RequireGuest } from "./auth/guards";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { StubPage } from "./pages/StubPage";
@@ -12,6 +12,7 @@ import { ChatsPage } from "./features/chat/pages/ChatsPage";
 import { NotificationsPage } from "./features/notifications/pages/NotificationsPage";
 import { OrdersPage } from "./features/orders/pages/OrdersPage";
 import { CancellationsPage } from "./features/cancellations/pages/CancellationsPage";
+import { SettingsPage } from "./features/settings/pages/SettingsPage";
 
 export default function App() {
   return (
@@ -42,6 +43,14 @@ export default function App() {
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/coach-calendar" element={<CoachCalendarPage />} />
+          <Route
+            path="/settings"
+            element={
+              <RequireAdmin>
+                <SettingsPage />
+              </RequireAdmin>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

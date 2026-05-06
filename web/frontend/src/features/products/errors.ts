@@ -9,6 +9,7 @@ export type Fields = {
   activeDurationDays?: string;
   durationMinutes?: string;
   slotTypeIds?: string;
+  telegramGroupId?: string;
   coverFile?: string;
 };
 
@@ -81,6 +82,23 @@ const FIELD_MESSAGES: Record<string, { field: keyof Fields; message: string }> =
     field: "coverFile",
     message: "Неизвестный тип обложки.",
   },
+  invalid_telegram_group_id: {
+    field: "telegramGroupId",
+    message: "Неверный идентификатор Telegram-группы.",
+  },
+  telegram_group_not_found: {
+    field: "telegramGroupId",
+    message: "Группа удалена. Обновите страницу.",
+  },
+  telegram_group_archived: {
+    field: "telegramGroupId",
+    message: "Группа в архиве — выберите другую.",
+  },
+  telegram_group_bot_not_admin: {
+    field: "telegramGroupId",
+    message:
+      "Бот не админ в этой группе. Восстановите права в Настройках → Telegram.",
+  },
 };
 
 const GENERAL_MESSAGES: Record<string, string> = {
@@ -88,6 +106,8 @@ const GENERAL_MESSAGES: Record<string, string> = {
   product_not_found: "Товар не найден.",
   booking_fields_must_pair:
     "Длительность и типы слотов нужно сохранять вместе.",
+  booking_or_telegram_exclusive:
+    "Товар может быть либо бронированием времени коуча, либо Telegram-группой — не оба сразу.",
   category_has_products:
     "В категории есть товары — перенесите их в другую категорию или удалите.",
   name_required: "Введите название.",

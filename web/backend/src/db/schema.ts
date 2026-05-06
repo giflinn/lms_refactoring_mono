@@ -64,6 +64,15 @@ export const users = pgTable("users", {
   // online via the in-memory presence registry; this column is the durable
   // fallback after disconnect.
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  // Telegram identity link. Populated after the client confirms /start in
+  // our centralised bot. telegram_user_id is the only stable handle (username
+  // is mutable). All four columns clear together on unlink. UNIQUE on
+  // telegram_user_id so two app accounts can't claim the same Telegram —
+  // the bot prompts a re-link instead.
+  telegramUserId: text("telegram_user_id").unique(),
+  telegramUsername: text("telegram_username"),
+  telegramFirstName: text("telegram_first_name"),
+  telegramLinkedAt: timestamp("telegram_linked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -127,6 +136,15 @@ export const products = pgTable(
     coverKind: productCoverKindEnum("cover_kind").notNull().default("preset"),
     // Path under /product-images/<id>.<ext>; null for coverKind='preset'.
     coverImageUrl: text("cover_image_url"),
+    // When non-null, buying this product grants access to the linked Telegram
+    // chat. ON DELETE RESTRICT — admin can archive a group instead, which
+    // does not break attached products. Mutually exclusive with
+    // duration_minutes (a product is either a coach booking OR a Telegram
+    // grant; never both) — enforced by the CHECK below + by the route layer.
+    telegramGroupId: uuid("telegram_group_id").references(
+      (): AnyPgColumn => telegramGroups.id,
+      { onDelete: "restrict" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -134,7 +152,14 @@ export const products = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("products_category_id_idx").on(t.categoryId)],
+  (t) => [
+    index("products_category_id_idx").on(t.categoryId),
+    index("products_telegram_group_id_idx").on(t.telegramGroupId),
+    check(
+      "products_booking_or_telegram_exclusive",
+      sql`${t.durationMinutes} IS NULL OR ${t.telegramGroupId} IS NULL`,
+    ),
+  ],
 );
 
 // Per-user catalog favorites. Composite PK keeps "one row per (user, product)"
@@ -859,6 +884,184 @@ export const passwordResetCodes = pgTable(
       .defaultNow(),
   },
   (t) => [index("password_reset_codes_email_idx").on(t.email)],
+);
+
+// Telegram channels/supergroups onboarded for paid-access products. Bot must
+// be admin in each registered chat. Admins onboard a chat in two ways:
+//   1. Add bot to chat as admin → bot receives a /register command in-chat →
+//      we create a row with chat info pulled from getChat. Admin sees it in
+//      the settings panel and can rename/archive.
+//   2. Manual: admin pastes chat_id in the settings panel → backend calls
+//      getChat + getChatMember(bot.id) to verify, then creates the row.
+//
+// chat_id is stored as text — JS numbers cover Telegram's id range today, but
+// keeping it opaque avoids any risk of precision loss and is what we pass
+// straight back to Bot API calls anyway.
+//
+// bot_status mirrors the most recent verification: 'admin' = full required
+// rights present; 'missing_rights' = admin but missing can_invite_users /
+// can_restrict_members; 'not_admin' = bot in chat but not admin;
+// 'not_member' = bot was removed; 'chat_not_found' = chat deleted or
+// inaccessible. UI surfaces a coloured pill per row + blocks selecting the
+// group on a product unless status='admin'.
+export const telegramChatTypeEnum = pgEnum("telegram_chat_type", [
+  "channel",
+  "supergroup",
+]);
+
+export const telegramGroupBotStatusEnum = pgEnum(
+  "telegram_group_bot_status",
+  [
+    "admin",
+    "missing_rights",
+    "not_admin",
+    "not_member",
+    "chat_not_found",
+    "unknown",
+  ],
+);
+
+export const telegramGroups = pgTable(
+  "telegram_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chatId: text("chat_id").notNull().unique(),
+    title: text("title").notNull(),
+    chatType: telegramChatTypeEnum("chat_type").notNull(),
+    // Public @username if the chat has one — useful for the mobile CTA which
+    // can deep-link straight to the chat instead of an invite URL when the
+    // user is already a member. Null for purely-private chats.
+    inviteUsername: text("invite_username"),
+    // Admin can write a freeform description shown to clients on the order
+    // detail page (e.g. "Основной канал Жанны с разборами"). Optional.
+    description: text("description"),
+    botStatus: telegramGroupBotStatusEnum("bot_status")
+      .notNull()
+      .default("unknown"),
+    botStatusCheckedAt: timestamp("bot_status_checked_at", {
+      withTimezone: true,
+    }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("telegram_groups_archived_at_idx").on(t.archivedAt),
+    index("telegram_groups_bot_status_idx").on(t.botStatus),
+  ],
+);
+
+// Single-use deep-link tokens used to bridge mobile → bot. The mobile app
+// requests a token via POST /me/telegram/link-token, then opens
+// https://t.me/<bot>?start=<token>. The bot looks the token up in /start,
+// links the Telegram identity to the requesting user, then marks consumed.
+//
+// 15-minute TTL. Cleared rows stay for the audit window; a daily cron
+// (Stage 4) can purge old consumed/expired rows. ON DELETE CASCADE so a
+// user delete also wipes their pending tokens.
+export const telegramLinkTokens = pgTable(
+  "telegram_link_tokens",
+  {
+    token: text("token").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("telegram_link_tokens_user_id_idx").on(t.userId),
+    index("telegram_link_tokens_expires_at_idx").on(t.expiresAt),
+  ],
+);
+
+// Per-(user, group, order_item) Telegram access grant. Lifecycle:
+//   pending  → invite link created (or user not linked yet — we'll generate
+//              one on demand). Order is paid + active.
+//   joined   → chat_member update confirmed the user joined via our invite.
+//   left     → user voluntarily left the chat.
+//   kicked   → we removed the user (refund / cancel / expiry / unlink) OR
+//              the chat owner kicked them out of band.
+//   revoked  → the invite link was revoked before the user joined.
+//
+// The actual Telegram membership is per-(user, group); a single user may
+// have multiple memberships in the same group (e.g. two overlapping orders).
+// Granting/revoking is therefore a "is there any other active grant for this
+// pair?" check — we only kick when the LAST grant goes away. Partial unique
+// index keeps at most one active grant per (user, group, order_item) so
+// double-clicks don't double-issue invites.
+//
+// expires_at mirrors order_items.expires_at when the parent product has
+// activeDurationDays set. The Stage 4 cron (`startTelegramExpiryCron`)
+// kicks expired memberships even when the order itself stays active (e.g.
+// mixed bundle: perpetual + 30-day Telegram). Until then this column is
+// informational only — order-level cancel/complete still drives kicks.
+export const telegramMembershipStatusEnum = pgEnum(
+  "telegram_membership_status",
+  ["pending", "joined", "left", "kicked", "revoked"],
+);
+
+export const telegramMemberships = pgTable(
+  "telegram_memberships",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    telegramGroupId: uuid("telegram_group_id")
+      .notNull()
+      .references(() => telegramGroups.id, { onDelete: "restrict" }),
+    // Nullable for future "manual grant" cases (admin gives access outside
+    // an order). SET NULL preserves audit when the order item is deleted.
+    orderItemId: uuid("order_item_id").references(() => orderItems.id, {
+      onDelete: "set null",
+    }),
+    status: telegramMembershipStatusEnum("status")
+      .notNull()
+      .default("pending"),
+    // Full URL of the per-user invite link we issued (member_limit=1).
+    // Cached so successive "Open Telegram" taps before the user joins
+    // return the same URL instead of generating a new one each time.
+    inviteLink: text("invite_link"),
+    // Short opaque label set on createChatInviteLink.name (≤32 chars). Used
+    // to correlate chat_member updates back to a specific membership when
+    // multiple co-exist for the same user/group.
+    inviteLinkName: text("invite_link_name"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    kickedAt: timestamp("kicked_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("telegram_memberships_user_id_idx").on(t.userId),
+    index("telegram_memberships_group_id_idx").on(t.telegramGroupId),
+    index("telegram_memberships_order_item_id_idx").on(t.orderItemId),
+    index("telegram_memberships_status_idx").on(t.status),
+    index("telegram_memberships_expires_at_idx").on(t.expiresAt),
+    // At most one active membership per (user, group, order_item). NULL
+    // order_item_id values are treated as distinct by Postgres so multiple
+    // manual grants without an order can coexist (rare but allowed).
+    uniqueIndex("telegram_memberships_active_uniq")
+      .on(t.userId, t.telegramGroupId, t.orderItemId)
+      .where(sql`${t.status} IN ('pending', 'joined')`),
+  ],
 );
 
 // Custom OTP table for sign-up email verification. Replaces Firebase's default

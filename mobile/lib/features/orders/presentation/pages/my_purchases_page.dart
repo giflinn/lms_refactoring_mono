@@ -464,15 +464,7 @@ class _ActiveOrderActions extends ConsumerWidget {
       children: [
         _OutlineButton(
           label: 'Просмотреть',
-          onTap: () {
-            // Stub — detail page is not built yet.
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('В разработке'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          },
+          onTap: () => context.push('/client/purchases/${order.id}'),
         ),
         // Three states in priority order:
         //   1) a 'requested' cancellation exists → disabled hint button (no

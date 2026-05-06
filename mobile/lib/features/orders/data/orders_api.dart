@@ -54,6 +54,24 @@ class CancellationRequestException implements Exception {
       'CancellationRequestException($code, http=$statusCode)';
 }
 
+/// Thrown by [OrdersApi.requestTelegramInvite]. Codes that warrant distinct
+/// UI treatment:
+///   telegram_not_linked  — kick user into the bot DM to /start with a token
+///   membership_inactive  — show "Доступ закрыт" instead of a CTA
+///   invite_unavailable   — bot lost admin rights; advise contacting support
+class TelegramInviteException implements Exception {
+  final String code;
+  final int statusCode;
+
+  const TelegramInviteException({
+    required this.code,
+    required this.statusCode,
+  });
+
+  @override
+  String toString() => 'TelegramInviteException($code, http=$statusCode)';
+}
+
 /// Error returned by PATCH /orders/:id. Notable codes the staff UI must
 /// handle distinctly:
 /// - `booking_conflict` (409) — only emitted when reverting fulfillment from
@@ -118,6 +136,45 @@ class OrdersApi {
         .cast<Map<String, dynamic>>()
         .map(ClientOrder.fromJson)
         .toList();
+  }
+
+  /// Detailed order payload backing the mobile order-detail page. Returns
+  /// per-item info — booked range for coach products, telegramGroup +
+  /// membership state for Telegram-grant products, plain snapshot otherwise.
+  Future<ClientOrderDetail> getMyOrder({
+    required String orderId,
+    required String idToken,
+  }) async {
+    final res = await _client.get('/me/orders/$orderId', idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException('GET /me/orders/$orderId: ${res.statusCode}');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return ClientOrderDetail.fromJson(json['order'] as Map<String, dynamic>);
+  }
+
+  /// Mints / refreshes the per-user invite link for a Telegram-grant item.
+  /// Throws [TelegramInviteException] with one of:
+  ///   telegram_not_linked, not_a_telegram_item, membership_inactive,
+  ///   invite_unavailable, item_not_found
+  Future<String> requestTelegramInvite({
+    required String orderId,
+    required String itemId,
+    required String idToken,
+  }) async {
+    final res = await _client.postJson(
+      '/me/orders/$orderId/items/$itemId/telegram-invite',
+      idToken: idToken,
+      body: const {},
+    );
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return json['inviteLink'] as String;
+    }
+    throw TelegramInviteException(
+      code: ApiClient.parseErrorCode(res.body),
+      statusCode: res.statusCode,
+    );
   }
 
   /// Submit a cancellation request for an active order. [reason] is optional;

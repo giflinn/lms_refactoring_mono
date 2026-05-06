@@ -18,6 +18,7 @@ import {
   productCategories,
   products,
   productSlotTypes,
+  telegramGroups,
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 
@@ -28,6 +29,12 @@ const TOP_SEARCH_LIMIT = 10;
 
 type ProductRow = typeof products.$inferSelect;
 type CategorySummary = { id: string; name: string };
+type TelegramGroupSummary = {
+  id: string;
+  title: string;
+  chatType: "channel" | "supergroup";
+  description: string | null;
+};
 
 // Catalog payload shape mirrors the admin /products serializer minus the
 // price-tag we don't yet show on mobile, but kept identical so a future
@@ -36,6 +43,7 @@ function serialize(
   p: ProductRow,
   category: CategorySummary | null,
   slotTypeIds: string[],
+  telegramGroup: TelegramGroupSummary | null,
 ) {
   return {
     id: p.id,
@@ -49,11 +57,38 @@ function serialize(
     daysUntilCancel: p.daysUntilCancel,
     durationMinutes: p.durationMinutes,
     slotTypeIds,
+    telegramGroupId: p.telegramGroupId,
+    telegramGroup,
     isPromo: p.isPromo,
     isTopSearch: p.isTopSearch,
     coverKind: p.coverKind,
     coverImageUrl: p.coverImageUrl,
   };
+}
+
+async function loadTelegramGroupsForProducts(
+  productRows: ProductRow[],
+): Promise<Map<string, TelegramGroupSummary>> {
+  const out = new Map<string, TelegramGroupSummary>();
+  const ids = Array.from(
+    new Set(
+      productRows
+        .map((p) => p.telegramGroupId)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  if (ids.length === 0) return out;
+  const rows = await db
+    .select({
+      id: telegramGroups.id,
+      title: telegramGroups.title,
+      chatType: telegramGroups.chatType,
+      description: telegramGroups.description,
+    })
+    .from(telegramGroups)
+    .where(inArray(telegramGroups.id, ids));
+  for (const r of rows) out.set(r.id, r);
+  return out;
 }
 
 // Batch lookup for the m2m bindings — same pattern as admin /products. Empty
@@ -106,6 +141,9 @@ clientCatalogRouter.get("/catalog", requireAuth, async (_req, res, next) => {
     const idsByProduct = await loadSlotTypeIdsByProduct(
       productRows.map((r) => r.product.id),
     );
+    const tgGroups = await loadTelegramGroupsForProducts(
+      productRows.map((r) => r.product),
+    );
 
     res.json({
       categories: categoryRows,
@@ -114,6 +152,9 @@ clientCatalogRouter.get("/catalog", requireAuth, async (_req, res, next) => {
           r.product,
           r.category?.id ? r.category : null,
           idsByProduct.get(r.product.id) ?? [],
+          r.product.telegramGroupId
+            ? tgGroups.get(r.product.telegramGroupId) ?? null
+            : null,
         ),
       ),
     });
@@ -160,6 +201,9 @@ clientCatalogRouter.get(
       const idsByProduct = await loadSlotTypeIdsByProduct(
         rows.map((r) => r.product.id),
       );
+      const tgGroups = await loadTelegramGroupsForProducts(
+        rows.map((r) => r.product),
+      );
 
       res.json({
         products: rows.map((r) =>
@@ -167,6 +211,9 @@ clientCatalogRouter.get(
             r.product,
             r.category?.id ? r.category : null,
             idsByProduct.get(r.product.id) ?? [],
+            r.product.telegramGroupId
+              ? tgGroups.get(r.product.telegramGroupId) ?? null
+              : null,
           ),
         ),
       });
@@ -200,6 +247,9 @@ clientCatalogRouter.get(
       const idsByProduct = await loadSlotTypeIdsByProduct(
         rows.map((r) => r.product.id),
       );
+      const tgGroups = await loadTelegramGroupsForProducts(
+        rows.map((r) => r.product),
+      );
 
       res.json({
         products: rows.map((r) =>
@@ -207,6 +257,9 @@ clientCatalogRouter.get(
             r.product,
             r.category?.id ? r.category : null,
             idsByProduct.get(r.product.id) ?? [],
+            r.product.telegramGroupId
+              ? tgGroups.get(r.product.telegramGroupId) ?? null
+              : null,
           ),
         ),
       });

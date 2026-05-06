@@ -24,6 +24,7 @@ import '../../features/home/presentation/pages/client_shell_page.dart';
 import '../../features/home/presentation/pages/staff_shell_page.dart';
 import '../../features/notifications/presentation/pages/client_notifications_page.dart';
 import '../../features/cancellations/presentation/pages/staff_cancellation_detail_page.dart';
+import '../../features/orders/presentation/pages/client_order_detail_page.dart';
 import '../../features/orders/presentation/pages/my_purchases_page.dart';
 import '../../features/orders/presentation/pages/staff_order_detail_page.dart';
 import '../../features/reviews/domain/leave_review_args.dart';
@@ -198,6 +199,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/purchases',
         builder: (_, _) => const MyPurchasesPage(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, state) => ClientOrderDetailPage(
+              orderId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/client/reviews',

@@ -32,6 +32,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/managers": "Менеджеры",
   "/clients": "Клиенты",
   "/coach-calendar": "Календарь Коуча",
+  "/settings": "Настройки",
 };
 
 function titleFor(pathname: string): string {

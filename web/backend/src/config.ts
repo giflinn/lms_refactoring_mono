@@ -35,4 +35,12 @@ export const config = {
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_FROM,
   },
+
+  // Public HTTPS URL the backend is reachable at, used to register the
+  // Telegram webhook (`${backendPublicUrl}/telegram/webhook`). Telegram
+  // requires HTTPS and one of ports 443/80/88/8443 — production points at
+  // https://dev.zhannaslyamova.net/api. Empty in local dev → bot init logs
+  // a warning and skips setWebhook (admin can still save the token; webhook
+  // wiring activates once this is set).
+  backendPublicUrl: (process.env.BACKEND_PUBLIC_URL ?? "").trim(),
 };

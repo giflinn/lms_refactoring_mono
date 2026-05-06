@@ -14,6 +14,12 @@ export type ProductCategorySummary = {
   name: string;
 };
 
+export type ProductTelegramGroup = {
+  id: string;
+  title: string;
+  chatType: "channel" | "supergroup";
+};
+
 export type Product = {
   id: string;
   categoryId: string;
@@ -33,6 +39,12 @@ export type Product = {
   durationMinutes: number | null;
   // m2m with slot_types. Empty when durationMinutes is null.
   slotTypeIds: string[];
+  // Telegram-grant fields. Mutually exclusive with durationMinutes/slotTypeIds.
+  // Both null = ordinary product. Both non-null = grants Telegram access on
+  // purchase. Group summary is denormalised for the list/card so the UI
+  // doesn't need a second round-trip.
+  telegramGroupId: string | null;
+  telegramGroup: ProductTelegramGroup | null;
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -65,6 +77,10 @@ export type ProductInput = {
   // together and a non-null duration requires at least one type.
   durationMinutes: number | null;
   slotTypeIds: string[];
+  // Telegram group id (or null). Backend rejects when set together with
+  // durationMinutes/slotTypeIds — the form keeps the toggles mutually
+  // exclusive client-side too.
+  telegramGroupId: string | null;
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
@@ -181,6 +197,7 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
     input.durationMinutes != null ? String(input.durationMinutes) : "",
   );
   fd.append("slotTypeIds", JSON.stringify(input.slotTypeIds));
+  fd.append("telegramGroupId", input.telegramGroupId ?? "");
   fd.append("isPromo", input.isPromo ? "true" : "false");
   fd.append("isActive", input.isActive ? "true" : "false");
   fd.append("isTopSearch", input.isTopSearch ? "true" : "false");

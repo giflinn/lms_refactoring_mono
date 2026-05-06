@@ -22,6 +22,7 @@ import {
 } from "../api";
 import { useCreateProduct, useUpdateProduct } from "../queries";
 import { useSlotTypes } from "../../coachCalendar/queries";
+import { useTelegramPickerGroups } from "../../settings/queries";
 import { mapError } from "../errors";
 
 type Props = {
@@ -49,6 +50,8 @@ const EMPTY: ProductFormValues = {
   bookingEnabled: false,
   durationMinutes: "",
   slotTypeIds: [],
+  telegramEnabled: false,
+  telegramGroupId: "",
 };
 
 const apiBase = import.meta.env.VITE_API_URL as string;
@@ -83,6 +86,9 @@ export function ProductFormDrawer({
     () => (slotTypesQ.data ?? []).filter((t) => t.archivedAt === null),
     [slotTypesQ.data],
   );
+  // Lazy-load picker groups: only fetch once the form is open. Keeps the
+  // products page itself free of unrelated requests when the drawer is shut.
+  const telegramPickerQ = useTelegramPickerGroups(open);
 
   const [generalError, setGeneralError] = useState<string | undefined>();
   const [coverKind, setCoverKind] = useState<ProductCoverKind>("preset");
@@ -138,6 +144,8 @@ export function ProductFormDrawer({
         durationMinutes:
           product.durationMinutes != null ? String(product.durationMinutes) : "",
         slotTypeIds: product.slotTypeIds,
+        telegramEnabled: product.telegramGroupId != null,
+        telegramGroupId: product.telegramGroupId ?? "",
       });
     } else {
       setCoverKind("preset");
@@ -235,6 +243,10 @@ export function ProductFormDrawer({
         setError("slotTypeIds", { message: fields.slotTypeIds });
         handled = true;
       }
+      if (fields.telegramGroupId) {
+        setError("telegramGroupId", { message: fields.telegramGroupId });
+        handled = true;
+      }
       if (fields.coverFile) {
         setCoverError(fields.coverFile);
         handled = true;
@@ -274,6 +286,10 @@ export function ProductFormDrawer({
         ? Number(values.durationMinutes)
         : null,
       slotTypeIds: values.bookingEnabled ? values.slotTypeIds : [],
+      telegramGroupId:
+        values.telegramEnabled && values.telegramGroupId
+          ? values.telegramGroupId
+          : null,
       isPromo: values.isPromo,
       isActive: values.isActive,
       isTopSearch: values.isTopSearch,
@@ -473,12 +489,27 @@ export function ProductFormDrawer({
           </div>
 
           <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
-            <label className="flex cursor-pointer items-center justify-between gap-2">
-              <span className="text-[14px] font-medium text-grey-dark">
-                Бронирование времени коача
-              </span>
+            <label
+              className={clsx(
+                "flex items-center justify-between gap-2",
+                watched.telegramEnabled
+                  ? "cursor-not-allowed opacity-60"
+                  : "cursor-pointer",
+              )}
+            >
+              <div className="flex flex-col">
+                <span className="text-[14px] font-medium text-grey-dark">
+                  Бронирование времени коача
+                </span>
+                {watched.telegramEnabled && (
+                  <span className="text-[12px] text-grey-medium">
+                    Выключено: товар уже привязан к Telegram-группе
+                  </span>
+                )}
+              </div>
               <Toggle
                 checked={watched.bookingEnabled}
+                disabled={watched.telegramEnabled}
                 onChange={(v) => {
                   setValue("bookingEnabled", v, { shouldValidate: true });
                   // Clear paired errors when the toggle flips off so the form
@@ -559,6 +590,50 @@ export function ProductFormDrawer({
                   )}
                 </div>
               </>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
+            <label
+              className={clsx(
+                "flex items-center justify-between gap-2",
+                watched.bookingEnabled
+                  ? "cursor-not-allowed opacity-60"
+                  : "cursor-pointer",
+              )}
+            >
+              <div className="flex flex-col">
+                <span className="text-[14px] font-medium text-grey-dark">
+                  Доступ к Telegram-группе
+                </span>
+                {watched.bookingEnabled && (
+                  <span className="text-[12px] text-grey-medium">
+                    Выключено: товар уже бронирует время коача
+                  </span>
+                )}
+              </div>
+              <Toggle
+                checked={watched.telegramEnabled}
+                disabled={watched.bookingEnabled}
+                onChange={(v) => {
+                  setValue("telegramEnabled", v, { shouldValidate: true });
+                  if (!v) setValue("telegramGroupId", "");
+                }}
+              />
+            </label>
+            {watched.telegramEnabled && (
+              <TelegramGroupPicker
+                value={watched.telegramGroupId}
+                onChange={(v) =>
+                  setValue("telegramGroupId", v ?? "", {
+                    shouldValidate: true,
+                  })
+                }
+                error={errors.telegramGroupId?.message}
+                groups={telegramPickerQ.data ?? []}
+                loading={telegramPickerQ.isLoading}
+                loadFailed={telegramPickerQ.isError}
+              />
             )}
           </section>
 
@@ -650,5 +725,65 @@ function SecondaryButton({
     >
       {children}
     </button>
+  );
+}
+
+function TelegramGroupPicker({
+  value,
+  onChange,
+  error,
+  groups,
+  loading,
+  loadFailed,
+}: {
+  value: string;
+  onChange: (v: string | null) => void;
+  error?: string;
+  groups: { id: string; title: string; chatType: "channel" | "supergroup" }[];
+  loading: boolean;
+  loadFailed: boolean;
+}) {
+  if (loading) {
+    return (
+      <p className="text-[12px] text-grey-medium">Загружаем список групп…</p>
+    );
+  }
+  if (loadFailed) {
+    return (
+      <p className="text-[12px] text-red-error">
+        Не удалось загрузить группы. Обновите страницу.
+      </p>
+    );
+  }
+  if (groups.length === 0) {
+    return (
+      <p className="text-[12px] text-grey-medium leading-snug">
+        Нет настроенных групп. Откройте{" "}
+        <a
+          href="/settings"
+          className="text-purple-primary hover:underline"
+        >
+          Настройки → Telegram
+        </a>{" "}
+        и добавьте группу с правами администратора у бота.
+      </p>
+    );
+  }
+  const options: SelectOption<string>[] = groups.map((g) => ({
+    value: g.id,
+    label: `${g.title} · ${g.chatType === "channel" ? "канал" : "группа"}`,
+  }));
+  return (
+    <>
+      <Select<string>
+        label="Группа*"
+        value={value || null}
+        onChange={onChange}
+        options={options}
+        placeholder="Выберите группу"
+        searchable={options.length > 8}
+      />
+      {error && <p className="text-[12px] text-red-error">{error}</p>}
+    </>
   );
 }

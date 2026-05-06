@@ -28,6 +28,10 @@ import {
   products,
 } from "../db/schema";
 import { sendPushToUser, type PushPayload } from "./push";
+import {
+  grantTelegramAccessForOrder,
+  revokeTelegramAccessForOrder,
+} from "./telegram/grants";
 
 export type PaymentStatus = "pending" | "paid" | "unpaid" | "refunded";
 export type FulfillmentStatus =
@@ -340,7 +344,7 @@ export async function changeOrderFulfillmentStatus(
       };
     }
 
-    return { status: toStatus, push };
+    return { status: toStatus, push, fromStatus, toStatus };
   });
 
   if (txResult.push) {
@@ -348,6 +352,28 @@ export async function changeOrderFulfillmentStatus(
       (err) => console.error("[orders] fulfillment push failed:", err),
     );
   }
+
+  // Telegram grants/revokes piggyback on the fulfillment lifecycle:
+  //   * → active     → grant (idempotent; stays no-op if already granted)
+  //   * → cancelled  → revoke (kicks if no other active grant survives)
+  //   * → completed  → revoke (item lifecycle ended naturally)
+  // Errors are swallowed inside the grant/revoke services — they have their
+  // own DB state to retry from on the next status flip.
+  if (txResult.fromStatus !== txResult.toStatus) {
+    if (txResult.toStatus === "active") {
+      grantTelegramAccessForOrder(orderId).catch((err) =>
+        console.error("[telegram] grantForOrder failed:", err),
+      );
+    } else if (
+      txResult.toStatus === "cancelled" ||
+      txResult.toStatus === "completed"
+    ) {
+      revokeTelegramAccessForOrder(orderId).catch((err) =>
+        console.error("[telegram] revokeForOrder failed:", err),
+      );
+    }
+  }
+
   return {
     status: txResult.status,
     pushScheduled: txResult.push !== null,

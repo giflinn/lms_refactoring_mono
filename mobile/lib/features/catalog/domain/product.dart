@@ -34,6 +34,40 @@ class ProductCategorySummary {
   }
 }
 
+/// Mirror of the backend Telegram group summary attached to a Product when
+/// the product grants access to a chat. `chatType` lets the UI swap copy
+/// ("канал" vs "группа") without an extra fetch.
+enum TelegramChatType { channel, supergroup }
+
+TelegramChatType _chatTypeFromString(String s) =>
+    s == 'channel' ? TelegramChatType.channel : TelegramChatType.supergroup;
+
+class ProductTelegramGroup {
+  final String id;
+  final String title;
+  final TelegramChatType chatType;
+  final String? description;
+
+  const ProductTelegramGroup({
+    required this.id,
+    required this.title,
+    required this.chatType,
+    required this.description,
+  });
+
+  String get kindLabel =>
+      chatType == TelegramChatType.channel ? 'Telegram-канал' : 'Telegram-группа';
+
+  factory ProductTelegramGroup.fromJson(Map<String, dynamic> json) {
+    return ProductTelegramGroup(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      chatType: _chatTypeFromString(json['chatType'] as String),
+      description: json['description'] as String?,
+    );
+  }
+}
+
 /// Catalog item exposed to clients. Mirror of the admin Product type minus the
 /// admin-only fields (isActive — server already filters; createdAt/updatedAt
 /// — not used in the UI).
@@ -52,6 +86,11 @@ class Product {
   final int? durationMinutes;
   // Slot types this product can be booked against. Empty when not bookable.
   final List<String> slotTypeIds;
+  // Telegram-grant fields. Mutually exclusive with bookable
+  // (durationMinutes/slotTypeIds). Both null = ordinary product. Both
+  // non-null = buying this product grants access to the linked chat.
+  final String? telegramGroupId;
+  final ProductTelegramGroup? telegramGroup;
   final bool isPromo;
   final bool isTopSearch;
   final ProductCoverKind coverKind;
@@ -71,6 +110,8 @@ class Product {
     required this.daysUntilCancel,
     required this.durationMinutes,
     required this.slotTypeIds,
+    required this.telegramGroupId,
+    required this.telegramGroup,
     required this.isPromo,
     required this.isTopSearch,
     required this.coverKind,
@@ -78,10 +119,12 @@ class Product {
   });
 
   bool get isBookable => durationMinutes != null && slotTypeIds.isNotEmpty;
+  bool get isTelegramAccess => telegramGroupId != null;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final cat = json['category'] as Map<String, dynamic>?;
     final dur = json['durationMinutes'];
+    final tg = json['telegramGroup'] as Map<String, dynamic>?;
     return Product(
       id: json['id'] as String,
       categoryId: json['categoryId'] as String,
@@ -95,6 +138,8 @@ class Product {
       durationMinutes: dur == null ? null : (dur as num).toInt(),
       slotTypeIds:
           (json['slotTypeIds'] as List?)?.cast<String>() ?? const <String>[],
+      telegramGroupId: json['telegramGroupId'] as String?,
+      telegramGroup: tg == null ? null : ProductTelegramGroup.fromJson(tg),
       isPromo: json['isPromo'] as bool? ?? false,
       isTopSearch: json['isTopSearch'] as bool? ?? false,
       coverKind: _coverKindFromString(json['coverKind'] as String),

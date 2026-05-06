@@ -37,6 +37,9 @@ export const productFormSchema = z
     bookingEnabled: z.boolean(),
     durationMinutes: z.string(),
     slotTypeIds: z.array(z.string()),
+    // Telegram-grant section. Mutually exclusive with bookingEnabled.
+    telegramEnabled: z.boolean(),
+    telegramGroupId: z.string(),
   })
   .superRefine((vals, ctx) => {
     if (!vals.priceOnRequest) {
@@ -105,6 +108,23 @@ export const productFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["slotTypeIds"],
           message: "Выберите хотя бы один тип слота",
+        });
+      }
+    }
+    if (vals.telegramEnabled) {
+      if (vals.bookingEnabled) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["telegramEnabled"],
+          message:
+            "Нельзя одновременно бронирование и Telegram-группу. Выключите одно.",
+        });
+      }
+      if (!vals.telegramGroupId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["telegramGroupId"],
+          message: "Выберите группу из списка",
         });
       }
     }
