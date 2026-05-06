@@ -34,7 +34,7 @@
 
 import type { Bot, Context } from "grammy";
 import { InlineKeyboard } from "grammy";
-import { and, eq, isNull, like } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   telegramGroups,
@@ -145,7 +145,7 @@ async function runLinkingFlow(
   // Case 2 — clean slate, link directly.
   if (!willKickPreviousTelegram && !willStealFromOther) {
     await applyLinking(targetUser.id, telegramId, telegramFirstName, telegramUsername);
-    await ctx.reply("✅ Telegram привязан. Сейчас отправлю доступы.");
+    await ctx.reply("✅ Telegram привязан.");
     await replyWithUserInvites(ctx, targetUser.id, targetUser.firstName);
     return;
   }
@@ -275,13 +275,12 @@ async function replyWithUserInvites(
       and(
         eq(telegramMemberships.userId, appUserId),
         // Surface both pending (need to join) and joined (already in chat)
-        // so the user has a single place to look.
-        like(telegramMemberships.status, "%"), // any string status
+        // so the user has a single place to look. Postgres LIKE doesn't
+        // work on enum types — must use IN.
+        inArray(telegramMemberships.status, ["pending", "joined"]),
       ),
     );
-  const active = memberships.filter(
-    (m) => m.status === "pending" || m.status === "joined",
-  );
+  const active = memberships;
   if (active.length === 0) {
     await ctx.reply(
       `Сейчас активных Telegram-доступов нет, ${fallbackName || "друг"}. ` +
@@ -650,6 +649,7 @@ async function findMembershipByInviteName(
   const prefix = inviteName.slice(2);
   if (prefix.length === 0) return null;
   // membership.id starts with the 8-char prefix from createPerUserInviteLink.
+  // Cast uuid → text since LIKE doesn't work on the uuid type natively.
   const rows = await db
     .select()
     .from(telegramMemberships)
@@ -657,7 +657,7 @@ async function findMembershipByInviteName(
       and(
         eq(telegramMemberships.userId, userId),
         eq(telegramMemberships.telegramGroupId, groupId),
-        like(telegramMemberships.id, `${prefix}%`),
+        sql`${telegramMemberships.id}::text LIKE ${`${prefix}%`}`,
       ),
     )
     .limit(1);
