@@ -169,6 +169,13 @@
       "when": 1778095800105,
       "tag": "0023_sloppy_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778111028306,
+      "tag": "0024_blushing_justin_hammer",
+      "breakpoints": true
     }
   ]
 }

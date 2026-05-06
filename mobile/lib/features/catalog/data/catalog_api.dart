@@ -20,6 +20,15 @@ class CatalogApi {
     return '${_client.baseUrl}$path';
   }
 
+  /// Same as [resolveCoverUrl] but for the optional cover-video. The path is
+  /// either a relative `/product-videos/<file>` (uploaded) or a YouTube URL
+  /// (returned untouched — the player widget handles parsing).
+  String? resolveVideoUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    return '${_client.baseUrl}$path';
+  }
+
   Future<CatalogSnapshot> fetchCatalog(String idToken) async {
     final res = await _client.get('/catalog', idToken: idToken);
     if (res.statusCode != 200) {

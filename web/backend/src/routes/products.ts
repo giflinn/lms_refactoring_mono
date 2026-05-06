@@ -15,6 +15,7 @@ import {
   products,
   productCoverKindEnum,
   productSlotTypes,
+  productVideoDisplayEnum,
   slotTypes,
   telegramGroups,
 } from "../db/schema";
@@ -23,8 +24,14 @@ import { requireStaffAdmin } from "../middleware/requireRole";
 import {
   deleteProductImage,
   persistProductImage,
-  productImageUpload,
 } from "../services/productImageUpload";
+import {
+  deleteProductVideoFile,
+  isUploadedVideoUrl,
+  parseYoutubeId,
+  persistProductVideo,
+  productMediaUpload,
+} from "../services/productVideoUpload";
 
 export const productsRouter = Router();
 
@@ -42,6 +49,12 @@ const COVER_KINDS: ReadonlySet<CoverKind> = new Set([
   "preset",
   "custom_bg",
   "custom_full",
+]);
+
+type VideoDisplay = (typeof productVideoDisplayEnum.enumValues)[number];
+const VIDEO_DISPLAYS: ReadonlySet<VideoDisplay> = new Set([
+  "replace",
+  "below",
 ]);
 
 type ProductRow = typeof products.$inferSelect;
@@ -84,6 +97,9 @@ function serialize(
     isTopSearch: p.isTopSearch,
     coverKind: p.coverKind,
     coverImageUrl: p.coverImageUrl,
+    videoUrl: p.videoUrl,
+    videoDisplay: p.videoDisplay,
+    videoAutoplay: p.videoAutoplay,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
@@ -269,6 +285,13 @@ type CreateInput = {
   isActive: boolean;
   isTopSearch: boolean;
   coverKind: CoverKind;
+  // Video state from the body (the file itself comes via multer separately).
+  // videoUrl carries either a YouTube link or — when the form is re-saving an
+  // unchanged uploaded video — the existing /product-videos/<file>.<ext> path.
+  // null means "no video" (or "clear the existing video").
+  videoUrl: string | null;
+  videoDisplay: VideoDisplay;
+  videoAutoplay: boolean;
 };
 
 // Shared body parsing for create + update. Returns either the parsed input
@@ -494,6 +517,32 @@ function parseBody(
     data.coverKind = v as CoverKind;
   }
 
+  // Video fields. All optional. videoUrl="" → explicit clear; non-empty must
+  // be a YouTube URL OR an existing /product-videos/ path (the form re-sends
+  // the unchanged URL on partial updates instead of re-uploading the file).
+  if (has("videoUrl")) {
+    const raw = String(body.videoUrl ?? "").trim();
+    if (raw === "") {
+      data.videoUrl = null;
+    } else if (parseYoutubeId(raw) || raw.startsWith("/product-videos/")) {
+      data.videoUrl = raw;
+    } else {
+      return { ok: false, status: 400, error: "invalid_video_url" };
+    }
+  } else if (!partial) {
+    data.videoUrl = null;
+  }
+
+  if (has("videoDisplay")) {
+    const v = String(body.videoDisplay);
+    if (!VIDEO_DISPLAYS.has(v as VideoDisplay)) {
+      return { ok: false, status: 400, error: "invalid_video_display" };
+    }
+    data.videoDisplay = v as VideoDisplay;
+  }
+
+  if (has("videoAutoplay")) data.videoAutoplay = parseBool(body.videoAutoplay);
+
   return { ok: true, data };
 }
 
@@ -615,15 +664,27 @@ async function loadWithCategory(productId: string) {
   };
 }
 
-// POST /products — multipart/form-data; field "cover" is optional. coverKind
-// 'preset' → no file, 'custom_bg'/'custom_full' → file required.
+// POST /products — multipart/form-data. Optional file fields:
+//   - "cover" (image, required when coverKind='custom_bg'/'custom_full')
+//   - "videoFile" (video, optional cover-video upload)
+// videoUrl in the body is used when the cover-video is a YouTube link instead
+// of an uploaded file.
 productsRouter.post(
   "/products",
   requireAuth,
   requireStaffAdmin,
-  productImageUpload.single("cover"),
+  productMediaUpload.fields([
+    { name: "cover", maxCount: 1 },
+    { name: "videoFile", maxCount: 1 },
+  ]),
   async (req, res, next) => {
     try {
+      const files = req.files as
+        | Record<string, Express.Multer.File[]>
+        | undefined;
+      const coverFile = files?.cover?.[0];
+      const videoFile = files?.videoFile?.[0];
+
       const body = req.body as Record<string, unknown>;
       const parsed = parseBody(body, false);
       if (!parsed.ok) {
@@ -640,8 +701,15 @@ productsRouter.post(
 
       const isCustom =
         data.coverKind === "custom_bg" || data.coverKind === "custom_full";
-      if (isCustom && !req.file) {
+      if (isCustom && !coverFile) {
         res.status(400).json({ error: "cover_file_required" });
+        return;
+      }
+
+      // Video sanity: forbid sending both an uploaded file AND a YouTube URL
+      // in the same request — the form picks one source at a time.
+      if (videoFile && data.videoUrl && parseYoutubeId(data.videoUrl)) {
+        res.status(400).json({ error: "video_source_conflict" });
         return;
       }
 
@@ -667,6 +735,12 @@ productsRouter.post(
         }
       }
 
+      // Decide initial videoUrl value: uploaded file wins over body URL.
+      let initialVideoUrl: string | null = data.videoUrl ?? null;
+      if (videoFile) {
+        initialVideoUrl = await persistProductVideo(videoFile);
+      }
+
       const [created] = await db
         .insert(products)
         .values({
@@ -685,14 +759,17 @@ productsRouter.post(
           isActive: data.isActive ?? true,
           isTopSearch: data.isTopSearch ?? false,
           coverKind: data.coverKind,
+          videoUrl: initialVideoUrl,
+          videoDisplay: data.videoDisplay ?? "replace",
+          videoAutoplay: data.videoAutoplay ?? false,
         })
         .returning();
 
       await syncProductSlotTypes(created.id, slotTypeIds);
 
       let finalRow = created;
-      if (isCustom && req.file) {
-        const url = await persistProductImage(created.id, req.file);
+      if (isCustom && coverFile) {
+        const url = await persistProductImage(created.id, coverFile);
         const [updated] = await db
           .update(products)
           .set({ coverImageUrl: url, updatedAt: new Date() })
@@ -728,7 +805,10 @@ productsRouter.patch(
   "/products/:id",
   requireAuth,
   requireStaffAdmin,
-  productImageUpload.single("cover"),
+  productMediaUpload.fields([
+    { name: "cover", maxCount: 1 },
+    { name: "videoFile", maxCount: 1 },
+  ]),
   async (req, res, next) => {
     try {
       const id = req.params.id;
@@ -737,6 +817,12 @@ productsRouter.patch(
         res.status(404).json({ error: "product_not_found" });
         return;
       }
+
+      const files = req.files as
+        | Record<string, Express.Multer.File[]>
+        | undefined;
+      const coverFile = files?.cover?.[0];
+      const videoFile = files?.videoFile?.[0];
 
       const parsed = parseBody(req.body as Record<string, unknown>, true);
       if (!parsed.ok) {
@@ -760,8 +846,15 @@ productsRouter.patch(
       // If switching into a custom kind without a new file, we keep the old
       // image (only the kind flag flipped). If there's no old image either,
       // it's a bad request.
-      if (kindChanged && isCustom && !req.file && !existing.product.coverImageUrl) {
+      if (kindChanged && isCustom && !coverFile && !existing.product.coverImageUrl) {
         res.status(400).json({ error: "cover_file_required" });
+        return;
+      }
+
+      // Forbid sending both an uploaded video AND a YouTube URL in the same
+      // request — pick one source.
+      if (videoFile && data.videoUrl && parseYoutubeId(data.videoUrl)) {
+        res.status(400).json({ error: "video_source_conflict" });
         return;
       }
 
@@ -836,16 +929,48 @@ productsRouter.patch(
       if (data.isActive !== undefined) patch.isActive = data.isActive;
       if (data.isTopSearch !== undefined) patch.isTopSearch = data.isTopSearch;
       if (data.coverKind !== undefined) patch.coverKind = data.coverKind;
+      if (data.videoDisplay !== undefined) patch.videoDisplay = data.videoDisplay;
+      if (data.videoAutoplay !== undefined) patch.videoAutoplay = data.videoAutoplay;
 
       // Cover file changes: only persist if a file was uploaded AND we're in
       // a custom kind. Switching to preset clears the image (and deletes the
       // file from disk).
-      if (req.file && isCustom) {
-        const url = await persistProductImage(id, req.file);
+      if (coverFile && isCustom) {
+        const url = await persistProductImage(id, coverFile);
         patch.coverImageUrl = url;
       } else if (nextKind === "preset" && existing.product.coverImageUrl) {
         await deleteProductImage(id);
         patch.coverImageUrl = null;
+      }
+
+      // Video changes. Three paths:
+      //   1. videoFile uploaded → persist new file, swap URL, delete previous
+      //      uploaded file (if any).
+      //   2. videoUrl in body → either YouTube link or the unchanged existing
+      //      uploaded path. If it's NOT the existing path and previous was
+      //      uploaded, delete the previous file.
+      //   3. videoUrl="" (parsed to null) → clear, delete previous file if
+      //      uploaded.
+      // Path 2 catches the "user just toggled display/autoplay without
+      // touching the source" case — frontend re-sends the existing URL.
+      if (videoFile) {
+        const url = await persistProductVideo(videoFile);
+        patch.videoUrl = url;
+        if (
+          existing.product.videoUrl &&
+          isUploadedVideoUrl(existing.product.videoUrl)
+        ) {
+          await deleteProductVideoFile(existing.product.videoUrl);
+        }
+      } else if (data.videoUrl !== undefined) {
+        patch.videoUrl = data.videoUrl;
+        if (
+          existing.product.videoUrl &&
+          isUploadedVideoUrl(existing.product.videoUrl) &&
+          data.videoUrl !== existing.product.videoUrl
+        ) {
+          await deleteProductVideoFile(existing.product.videoUrl);
+        }
       }
 
       await db.update(products).set(patch).where(eq(products.id, id));
@@ -893,7 +1018,7 @@ productsRouter.delete(
     try {
       const id = req.params.id;
       const rows = await db
-        .select({ id: products.id })
+        .select({ id: products.id, videoUrl: products.videoUrl })
         .from(products)
         .where(eq(products.id, id))
         .limit(1);
@@ -901,8 +1026,10 @@ productsRouter.delete(
         res.status(404).json({ error: "product_not_found" });
         return;
       }
+      const previousVideoUrl = rows[0].videoUrl;
       await db.delete(products).where(eq(products.id, id));
       await deleteProductImage(id);
+      if (previousVideoUrl) await deleteProductVideoFile(previousVideoUrl);
       res.json({ ok: true });
     } catch (err) {
       next(err);

@@ -44,6 +44,14 @@ export const productFormSchema = z
     // telegramEnabled.
     lmsCourseEnabled: z.boolean(),
     lmsCourseId: z.string(),
+    // Optional cover-video. videoEnabled gates the whole section. Source is
+    // either a YouTube URL or an uploaded file (the form widget toggles
+    // between them but persists into the same fields below).
+    videoEnabled: z.boolean(),
+    videoSource: z.enum(["upload", "youtube"]),
+    videoUrl: z.string(),
+    videoDisplay: z.enum(["replace", "below"]),
+    videoAutoplay: z.boolean(),
   })
   .superRefine((vals, ctx) => {
     if (!vals.priceOnRequest) {
@@ -146,6 +154,27 @@ export const productFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["lmsCourseId"],
           message: "Выберите курс из списка",
+        });
+      }
+    }
+    if (vals.videoEnabled && vals.videoSource === "youtube") {
+      const v = vals.videoUrl.trim();
+      if (!v) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["videoUrl"],
+          message: "Вставьте ссылку на YouTube",
+        });
+      } else if (
+        !/^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)[\w-]{11}/i.test(
+          v,
+        )
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["videoUrl"],
+          message:
+            "Поддерживаются ссылки youtube.com/watch?v=… или youtu.be/…",
         });
       }
     }

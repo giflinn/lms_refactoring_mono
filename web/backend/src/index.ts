@@ -42,6 +42,7 @@ import {
 } from "./services/telegram/cron";
 import { AVATAR_DIR } from "./services/avatarUpload";
 import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
+import { PRODUCT_VIDEO_DIR } from "./services/productVideoUpload";
 import { CHAT_DIR } from "./services/chatAttachments";
 import { LMS_COVER_DIR, LMS_MEDIA_DIR } from "./services/lmsUpload";
 
@@ -52,6 +53,7 @@ app.use(express.json());
 
 app.use("/avatars", express.static(AVATAR_DIR));
 app.use("/product-images", express.static(PRODUCT_IMAGE_DIR));
+app.use("/product-videos", express.static(PRODUCT_VIDEO_DIR));
 app.use("/chat-files", express.static(CHAT_DIR));
 app.use("/lms-covers", express.static(LMS_COVER_DIR));
 app.use("/lms-media", express.static(LMS_MEDIA_DIR));

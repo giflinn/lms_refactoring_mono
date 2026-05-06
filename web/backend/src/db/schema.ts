@@ -88,6 +88,15 @@ export const productCoverKindEnum = pgEnum("product_cover_kind", [
   "custom_full",
 ]);
 
+// Where the optional cover video is rendered on the mobile product detail
+// page. 'replace' (default) — the video frame stands in for the cover image;
+// 'below' — the cover image stays and the video appears beneath it as a
+// secondary block. Mobile picks the layout per this column.
+export const productVideoDisplayEnum = pgEnum("product_video_display", [
+  "replace",
+  "below",
+]);
+
 // Categories are folders for products. Mobile clients will group products by
 // category in a future iteration; admin manages the list from a side drawer.
 export const productCategories = pgTable("product_categories", {
@@ -136,6 +145,15 @@ export const products = pgTable(
     coverKind: productCoverKindEnum("cover_kind").notNull().default("preset"),
     // Path under /product-images/<id>.<ext>; null for coverKind='preset'.
     coverImageUrl: text("cover_image_url"),
+    // Optional video that augments / replaces the cover on the mobile detail
+    // page. Stored as one column — when it starts with /product-videos/ it's
+    // an uploaded file, otherwise it's a YouTube URL (parsed client-side via
+    // a youtube-id regex). Vimeo intentionally not supported yet.
+    videoUrl: text("video_url"),
+    videoDisplay: productVideoDisplayEnum("video_display")
+      .notNull()
+      .default("replace"),
+    videoAutoplay: boolean("video_autoplay").notNull().default(false),
     // When non-null, buying this product grants access to the linked Telegram
     // chat. ON DELETE RESTRICT — admin can archive a group instead, which
     // does not break attached products. Mutually exclusive with

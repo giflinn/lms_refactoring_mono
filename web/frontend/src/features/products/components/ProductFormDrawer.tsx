@@ -25,6 +25,7 @@ import { useSlotTypes } from "../../coachCalendar/queries";
 import { useTelegramPickerGroups } from "../../settings/queries";
 import { useLmsCoursesPicker } from "../../lms/queries";
 import { mapError } from "../errors";
+import { ProductVideoSection } from "./ProductVideoSection";
 
 type Props = {
   open: boolean;
@@ -55,6 +56,11 @@ const EMPTY: ProductFormValues = {
   telegramGroupId: "",
   lmsCourseEnabled: false,
   lmsCourseId: "",
+  videoEnabled: false,
+  videoSource: "upload",
+  videoUrl: "",
+  videoDisplay: "replace",
+  videoAutoplay: false,
 };
 
 const apiBase = import.meta.env.VITE_API_URL as string;
@@ -99,6 +105,7 @@ export function ProductFormDrawer({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [coverError, setCoverError] = useState<string | undefined>();
+  const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const fullInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,6 +116,7 @@ export function ProductFormDrawer({
     setError,
     watch,
     reset,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -123,11 +131,18 @@ export function ProductFormDrawer({
     setCoverError(undefined);
     setPendingFile(null);
     setPreviewUrl(null);
+    setPendingVideoFile(null);
     if (bgInputRef.current) bgInputRef.current.value = "";
     if (fullInputRef.current) fullInputRef.current.value = "";
 
     if (product) {
       setCoverKind(product.coverKind);
+      // Decide videoSource from the existing url shape — uploaded file URLs
+      // start with /product-videos/, anything else is a YouTube link.
+      const existingVideoSource: "upload" | "youtube" =
+        product.videoUrl && !product.videoUrl.startsWith("/product-videos/")
+          ? "youtube"
+          : "upload";
       reset({
         categoryId: product.categoryId,
         title: product.title,
@@ -152,6 +167,11 @@ export function ProductFormDrawer({
         telegramGroupId: product.telegramGroupId ?? "",
         lmsCourseEnabled: product.lmsCourseId != null,
         lmsCourseId: product.lmsCourseId ?? "",
+        videoEnabled: product.videoUrl != null,
+        videoSource: existingVideoSource,
+        videoUrl: product.videoUrl ?? "",
+        videoDisplay: product.videoDisplay,
+        videoAutoplay: product.videoAutoplay,
       });
     } else {
       setCoverKind("preset");
@@ -309,6 +329,17 @@ export function ProductFormDrawer({
       isTopSearch: values.isTopSearch,
       coverKind,
       coverFile: pendingFile,
+      // Video — three shapes:
+      //   off → null URL + null file (server clears)
+      //   upload + new file → file goes to videoFile, URL stays "" (server
+      //     persists file and replaces URL)
+      //   upload + no new file → URL is the existing /product-videos/ path
+      //     so server keeps the file as-is
+      //   youtube → URL is the YouTube link, no file
+      videoUrl: values.videoEnabled ? values.videoUrl.trim() || null : null,
+      videoFile: values.videoEnabled ? pendingVideoFile : null,
+      videoDisplay: values.videoDisplay,
+      videoAutoplay: values.videoAutoplay,
     };
 
     try {
@@ -734,6 +765,15 @@ export function ProductFormDrawer({
                 />
               )}
           </section>
+
+        <ProductVideoSection
+          control={control}
+          watch={watch}
+          setValue={setValue}
+          errors={errors}
+          videoFile={pendingVideoFile}
+          onPickVideo={setPendingVideoFile}
+        />
 
         {generalError && (
           <p className="text-[13px] text-red-error">{generalError}</p>

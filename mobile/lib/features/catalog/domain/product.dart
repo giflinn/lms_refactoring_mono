@@ -21,6 +21,36 @@ ProductCoverKind _coverKindFromString(String s) {
   }
 }
 
+/// Where the optional cover-video lives on the detail page. `replace` swaps
+/// it in for the cover image; `below` shows it under the cover as a separate
+/// frame. Mirrored from the backend product_video_display enum.
+enum ProductVideoDisplay { replace, below }
+
+ProductVideoDisplay _videoDisplayFromString(String? s) {
+  switch (s) {
+    case 'below':
+      return ProductVideoDisplay.below;
+    case 'replace':
+    default:
+      return ProductVideoDisplay.replace;
+  }
+}
+
+/// Detected source for [Product.videoUrl]. Uploaded files come back with the
+/// path prefix `/product-videos/`; anything else is treated as YouTube and
+/// must match the YouTube ID regex below for the player to load it.
+enum ProductVideoSource { file, youtube }
+
+final RegExp _youtubeIdRe = RegExp(
+  r'^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]{11})',
+  caseSensitive: false,
+);
+
+String? extractYoutubeId(String url) {
+  final m = _youtubeIdRe.firstMatch(url.trim());
+  return m?.group(1);
+}
+
 class ProductCategorySummary {
   final String id;
   final String name;
@@ -97,6 +127,13 @@ class Product {
   // Path under `/product-images/<uuid>.<ext>` — relative to API base. Widgets
   // resolve to a full URL via [ApiClient.baseUrl].
   final String? coverImageUrl;
+  // Optional cover-video. When non-null and the path starts with
+  // `/product-videos/` it's a self-hosted file (Chewie); otherwise it's a
+  // YouTube URL parsed via [extractYoutubeId]. URLs that match neither shape
+  // are ignored on the client.
+  final String? videoUrl;
+  final ProductVideoDisplay videoDisplay;
+  final bool videoAutoplay;
 
   const Product({
     required this.id,
@@ -116,10 +153,21 @@ class Product {
     required this.isTopSearch,
     required this.coverKind,
     required this.coverImageUrl,
+    required this.videoUrl,
+    required this.videoDisplay,
+    required this.videoAutoplay,
   });
 
   bool get isBookable => durationMinutes != null && slotTypeIds.isNotEmpty;
   bool get isTelegramAccess => telegramGroupId != null;
+  bool get hasVideo => videoUrl != null && videoUrl!.isNotEmpty;
+  ProductVideoSource? get videoSource {
+    final url = videoUrl;
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('/product-videos/')) return ProductVideoSource.file;
+    if (extractYoutubeId(url) != null) return ProductVideoSource.youtube;
+    return null;
+  }
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final cat = json['category'] as Map<String, dynamic>?;
@@ -144,6 +192,9 @@ class Product {
       isTopSearch: json['isTopSearch'] as bool? ?? false,
       coverKind: _coverKindFromString(json['coverKind'] as String),
       coverImageUrl: json['coverImageUrl'] as String?,
+      videoUrl: json['videoUrl'] as String?,
+      videoDisplay: _videoDisplayFromString(json['videoDisplay'] as String?),
+      videoAutoplay: json['videoAutoplay'] as bool? ?? false,
     );
   }
 }

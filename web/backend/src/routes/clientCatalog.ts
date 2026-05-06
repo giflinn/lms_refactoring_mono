@@ -63,6 +63,9 @@ function serialize(
     isTopSearch: p.isTopSearch,
     coverKind: p.coverKind,
     coverImageUrl: p.coverImageUrl,
+    videoUrl: p.videoUrl,
+    videoDisplay: p.videoDisplay,
+    videoAutoplay: p.videoAutoplay,
   };
 }
 

@@ -12,6 +12,7 @@ import '../controller/favorite_ids_controller.dart';
 import '../widgets/product_action_bar.dart';
 import '../widgets/product_booking_section.dart';
 import '../widgets/product_cover.dart';
+import '../widgets/product_video.dart';
 
 /// Product detail screen. Composes:
 ///   Top bar : back arrow (left), heart toggle (right) — both white.
@@ -199,13 +200,16 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasDescription = product.description.trim().isNotEmpty;
+    // Hero block at the top: video replaces cover when display=replace, sits
+    // below it when display=below, falls through to plain cover otherwise.
+    final hero = _buildHero();
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProductCover(product: product),
+          hero,
           const SizedBox(height: 16),
           Text(
             product.title,
@@ -217,18 +221,9 @@ class _Body extends StatelessWidget {
               letterSpacing: -0.4,
             ),
           ),
-          if (product.isBookable) ...[
-            const SizedBox(height: 16),
-            ProductBookingSection(
-              product: product,
-              selectedMonth: selectedMonth,
-              selectedDay: selectedDay,
-              selectedStart: selectedStart,
-              onMonthPicked: onMonthPicked,
-              onDayPicked: onDayPicked,
-              onStartPicked: onStartPicked,
-            ),
-          ],
+          // Description above slots — slots are a long interactive widget;
+          // putting the descriptive text first lets readers know what they're
+          // booking before they pick a time.
           if (hasDescription) ...[
             const SizedBox(height: 16),
             const Text(
@@ -253,10 +248,39 @@ class _Body extends StatelessWidget {
               ),
             ),
           ],
+          if (product.isBookable) ...[
+            const SizedBox(height: 16),
+            ProductBookingSection(
+              product: product,
+              selectedMonth: selectedMonth,
+              selectedDay: selectedDay,
+              selectedStart: selectedStart,
+              onMonthPicked: onMonthPicked,
+              onDayPicked: onDayPicked,
+              onStartPicked: onStartPicked,
+            ),
+          ],
           const SizedBox(height: 24),
           _ReviewsSnippet(productId: product.id),
         ],
       ),
+    );
+  }
+
+  Widget _buildHero() {
+    if (!product.hasVideo || product.videoSource == null) {
+      return ProductCover(product: product);
+    }
+    if (product.videoDisplay == ProductVideoDisplay.replace) {
+      return ProductVideo(product: product);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ProductCover(product: product),
+        const SizedBox(height: 12),
+        ProductVideo(product: product),
+      ],
     );
   }
 }

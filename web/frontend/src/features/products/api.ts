@@ -2,6 +2,8 @@ import { ApiClient, apiClient } from "../../api/client";
 
 export type ProductCoverKind = "preset" | "custom_bg" | "custom_full";
 
+export type ProductVideoDisplay = "replace" | "below";
+
 export type ProductCategory = {
   id: string;
   name: string;
@@ -59,6 +61,12 @@ export type Product = {
   isTopSearch: boolean;
   coverKind: ProductCoverKind;
   coverImageUrl: string | null;
+  // Optional cover-video. videoUrl is either a YouTube link or a relative
+  // /product-videos/<file> path when the admin uploaded a file. videoDisplay
+  // tells mobile whether the video stands in for the cover or sits below it.
+  videoUrl: string | null;
+  videoDisplay: ProductVideoDisplay;
+  videoAutoplay: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -99,6 +107,18 @@ export type ProductInput = {
   // Only set when the user picked a new file in this submit. Existing image
   // on the server is kept if this is null AND coverKind is unchanged.
   coverFile: File | null;
+  // Cover-video state. videoUrl is either:
+  //   - a YouTube URL when the admin pasted a link
+  //   - the existing /product-videos/<file> path when the form re-saves
+  //     without a fresh upload (server keeps the file in place)
+  //   - null/"" when the admin disabled the video section (server clears the
+  //     column and deletes any uploaded file)
+  // videoFile is non-null only when the admin picked a fresh file in this
+  // submit; the server then ignores videoUrl and uses the persisted path.
+  videoUrl: string | null;
+  videoFile: File | null;
+  videoDisplay: ProductVideoDisplay;
+  videoAutoplay: boolean;
 };
 
 export class ApiError extends Error {
@@ -215,6 +235,14 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
   fd.append("isTopSearch", input.isTopSearch ? "true" : "false");
   fd.append("coverKind", input.coverKind);
   if (input.coverFile) fd.append("cover", input.coverFile);
+  // Video — videoFile wins; otherwise we send videoUrl (empty string clears).
+  if (input.videoFile) {
+    fd.append("videoFile", input.videoFile);
+  } else {
+    fd.append("videoUrl", input.videoUrl ?? "");
+  }
+  fd.append("videoDisplay", input.videoDisplay);
+  fd.append("videoAutoplay", input.videoAutoplay ? "true" : "false");
   // Touch `partial` so TS doesn't complain about the unused param — it stays
   // in the signature in case we later need different shapes per mode.
   void partial;
