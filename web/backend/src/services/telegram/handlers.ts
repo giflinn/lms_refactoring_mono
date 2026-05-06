@@ -315,10 +315,37 @@ async function replyWithUserInvites(
 async function handleRegisterCommand(ctx: Context): Promise<void> {
   const chat = ctx.chat;
   if (!chat) return;
-  if (chat.type !== "supergroup" && chat.type !== "channel") {
+  if (chat.type === "private") {
     await ctx.reply(
       "Эту команду нужно отправлять внутри группы или канала, куда добавлен этот бот.",
     );
+    return;
+  }
+  // Basic groups (chat.type === "group") are Telegram's legacy chat type:
+  // 200-member cap, no per-permission admin rights, and — most painfully —
+  // their chat_id changes when Telegram auto-migrates them to a supergroup
+  // later, breaking every invite link / membership row pinned to the old id.
+  // Reject upfront with a step-by-step conversion guide rather than register
+  // a row that will silently die on first migration.
+  if (chat.type === "group") {
+    const botUsername = getBotInfo()?.username;
+    const cmd = botUsername ? `/register@${botUsername}` : "/register";
+    await ctx.reply(
+      "Это обычная группа Telegram — в ней бот не сможет надёжно управлять " +
+        "доступом (нужна супергруппа или канал).\n\n" +
+        "Преобразуйте её в супергруппу (это бесплатно и занимает 10 секунд):\n" +
+        "1. Тапните на название группы вверху\n" +
+        "2. «Управление группой» → «История чата»\n" +
+        "3. Включите «Видна новым подписчикам»\n\n" +
+        "Telegram автоматически переведёт группу в супергруппу. После этого " +
+        `повторите ${cmd} здесь же.\n\n` +
+        "Альтернатива: создайте сразу канал (для одностороннего вещания) или " +
+        "новую супергруппу.",
+    );
+    return;
+  }
+  if (chat.type !== "supergroup" && chat.type !== "channel") {
+    await ctx.reply("Этот тип чата не поддерживается.");
     return;
   }
   try {

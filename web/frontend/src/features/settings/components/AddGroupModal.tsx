@@ -132,31 +132,40 @@ function TabButton({
 
 function BotOnboardingSteps({ botUsername }: { botUsername: string }) {
   return (
-    <ol className="flex flex-col gap-4 text-[14px] text-grey-dark">
-      <Step n={1}>
-        Скопируйте имя бота и добавьте его в нужную группу или канал:
-        <UsernameRow username={botUsername} />
-      </Step>
-      <Step n={2}>
-        Назначьте бота администратором с правами:
-        <ul className="mt-1.5 ml-1 list-disc list-inside text-grey-medium text-[13px] leading-snug">
-          <li>«Пригласительные ссылки» (Invite Users)</li>
-          <li>«Блокировка пользователей» (Ban Users)</li>
-        </ul>
-        <p className="mt-1.5 text-grey-medium text-[13px] leading-snug">
-          Без этих прав бот не сможет выдавать инвайты и удалять пользователей
-          по истечении заказа.
-        </p>
-      </Step>
-      <Step n={3}>
-        В этой же группе или канале отправьте сообщение:
-        <CommandPill command={`/register${botUsername ? `@${botUsername}` : ""}`} />
-        <p className="mt-1.5 text-grey-medium text-[13px] leading-snug">
-          Бот ответит подтверждением и группа сразу появится в списке выше.
-          Вы сможете переименовать её и добавить описание для клиентов.
-        </p>
-      </Step>
-    </ol>
+    <div className="flex flex-col gap-4">
+      <div className="rounded-[8px] border border-yellow-300 bg-yellow-50 p-3 text-[12px] leading-snug text-yellow-900">
+        <strong className="font-semibold">Важно:</strong> нужна{" "}
+        <strong>супергруппа</strong> или <strong>канал</strong>. Если у вас
+        обычная группа Telegram — сначала преобразуйте её: настройки группы →
+        «Управление группой» → «История чата» → «Видна новым подписчикам».
+        Telegram автоматически конвертирует группу в супергруппу.
+      </div>
+      <ol className="flex flex-col gap-4 text-[14px] text-grey-dark">
+        <Step n={1}>
+          Скопируйте имя бота и добавьте его в нужную супергруппу или канал:
+          <UsernameRow username={botUsername} />
+        </Step>
+        <Step n={2}>
+          Назначьте бота администратором с правами:
+          <ul className="mt-1.5 ml-1 list-disc list-inside text-grey-medium text-[13px] leading-snug">
+            <li>«Пригласительные ссылки» (Invite Users)</li>
+            <li>«Блокировка пользователей» (Ban Users)</li>
+          </ul>
+          <p className="mt-1.5 text-grey-medium text-[13px] leading-snug">
+            Без этих прав бот не сможет выдавать инвайты и удалять пользователей
+            по истечении заказа.
+          </p>
+        </Step>
+        <Step n={3}>
+          В этой же группе или канале отправьте сообщение:
+          <CommandPill command={`/register${botUsername ? `@${botUsername}` : ""}`} />
+          <p className="mt-1.5 text-grey-medium text-[13px] leading-snug">
+            Бот ответит подтверждением и группа сразу появится в списке выше.
+            Вы сможете переименовать её и добавить описание для клиентов.
+          </p>
+        </Step>
+      </ol>
+    </div>
   );
 }
 
