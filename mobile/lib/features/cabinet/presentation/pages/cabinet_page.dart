@@ -71,7 +71,7 @@ class CabinetPage extends ConsumerWidget {
               _SettingsRow(
                 iconAsset: 'assets/icons/cabinet/reviews.svg',
                 label: 'Мои отзывы',
-                onTap: () => _stub(context),
+                onTap: () => context.push('/client/reviews'),
               ),
               const SizedBox(height: 16),
               _SettingsRow(
@@ -93,14 +93,6 @@ class CabinetPage extends ConsumerWidget {
     );
   }
 
-  static void _stub(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('В разработке'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-  }
 
   static Future<void> _confirmAndSignOut(
     BuildContext context,

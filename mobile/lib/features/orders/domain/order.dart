@@ -42,6 +42,22 @@ class PendingCancellationSummary {
   const PendingCancellationSummary({required this.id, required this.createdAt});
 }
 
+/// Single line item inside a client order. Used by the order card (titles)
+/// and by the review submission picker (productId).
+class OrderItemSummary {
+  final String productId;
+  final String productTitle;
+
+  const OrderItemSummary({required this.productId, required this.productTitle});
+
+  factory OrderItemSummary.fromJson(Map<String, dynamic> json) {
+    return OrderItemSummary(
+      productId: json['productId'] as String,
+      productTitle: json['productTitle'] as String,
+    );
+  }
+}
+
 /// One row in the client's "Мои покупки" list.
 class ClientOrder {
   final String id;
@@ -56,7 +72,7 @@ class ClientOrder {
   /// Non-null while a 'requested' cancellation is awaiting staff decision —
   /// the cancel button is replaced by a "Запрос отправлен" hint.
   final PendingCancellationSummary? pendingCancellation;
-  final List<String> productTitles;
+  final List<OrderItemSummary> items;
   final OrderManagerSummary? manager;
 
   const ClientOrder({
@@ -67,9 +83,11 @@ class ClientOrder {
     required this.createdAt,
     required this.cancellationDeadline,
     required this.pendingCancellation,
-    required this.productTitles,
+    required this.items,
     required this.manager,
   });
+
+  List<String> get productTitles => items.map((i) => i.productTitle).toList();
 
   bool get canCancel {
     if (pendingCancellation != null) return false;
@@ -96,8 +114,9 @@ class ClientOrder {
               id: pendingJson['id'] as String,
               createdAt: DateTime.parse(pendingJson['createdAt'] as String),
             ),
-      productTitles: (json['productTitles'] as List<dynamic>?)
-              ?.map((e) => e as String)
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) =>
+                  OrderItemSummary.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
       manager: managerJson == null

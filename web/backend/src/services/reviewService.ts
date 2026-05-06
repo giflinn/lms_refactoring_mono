@@ -70,13 +70,14 @@ function validateReplyText(input: string): string {
 // Client-side mutations
 // =========================================================================
 
-// Submit a review against a completed order_item. The route layer enforces
-// the caller is a client; here we re-verify ownership and that the order is
-// completed, regardless of what the caller claimed.
+// Submit a review for a product the caller has actually purchased. We resolve
+// the most-recent completed order_item server-side as the proof-of-purchase
+// anchor — mobile only sends productId, no need to track order_item ids in
+// client state. Refused if the client has no completed order_item for this
+// product.
 export async function submitReview(input: {
   clientId: string;
   productId: string;
-  orderItemId: string;
   rating: number;
   text: string;
 }): Promise<{ id: string }> {
@@ -85,31 +86,26 @@ export async function submitReview(input: {
 
   const result = await db.transaction(async (tx) => {
     const [proof] = await tx
-      .select({
-        orderItemId: orderItems.id,
-        productId: orderItems.productId,
-        clientId: orders.clientId,
-        fulfillmentStatus: orders.fulfillmentStatus,
-      })
+      .select({ orderItemId: orderItems.id })
       .from(orderItems)
       .innerJoin(orders, eq(orders.id, orderItems.orderId))
-      .where(eq(orderItems.id, input.orderItemId))
+      .where(
+        and(
+          eq(orders.clientId, input.clientId),
+          eq(orderItems.productId, input.productId),
+          eq(orders.fulfillmentStatus, "completed"),
+        ),
+      )
+      .orderBy(desc(orderItems.createdAt))
       .limit(1);
 
-    if (!proof) throw new ReviewError("order_item_not_found");
-    if (proof.clientId !== input.clientId) throw new ReviewError("forbidden");
-    if (proof.productId !== input.productId) {
-      throw new ReviewError("product_mismatch");
-    }
-    if (proof.fulfillmentStatus !== "completed") {
-      throw new ReviewError("order_not_completed");
-    }
+    if (!proof) throw new ReviewError("no_completed_order");
 
     const [inserted] = await tx
       .insert(productReviews)
       .values({
         productId: input.productId,
-        orderItemId: input.orderItemId,
+        orderItemId: proof.orderItemId,
         clientId: input.clientId,
         rating,
         text,

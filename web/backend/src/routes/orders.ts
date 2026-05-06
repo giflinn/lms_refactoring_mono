@@ -105,6 +105,7 @@ ordersRouter.get(
           : await db
               .select({
                 orderId: orderItems.orderId,
+                productId: orderItems.productId,
                 productTitle: orderItems.productTitle,
                 daysUntilCancel: products.daysUntilCancel,
                 createdAt: orderItems.createdAt,
@@ -114,12 +115,15 @@ ordersRouter.get(
               .where(inArray(orderItems.orderId, orderIds))
               .orderBy(asc(orderItems.createdAt));
 
-      const titlesByOrder = new Map<string, string[]>();
+      const itemsByOrder = new Map<
+        string,
+        Array<{ productId: string; productTitle: string }>
+      >();
       const minDaysByOrder = new Map<string, number>();
       for (const it of itemRows) {
-        const list = titlesByOrder.get(it.orderId) ?? [];
-        list.push(it.productTitle);
-        titlesByOrder.set(it.orderId, list);
+        const list = itemsByOrder.get(it.orderId) ?? [];
+        list.push({ productId: it.productId, productTitle: it.productTitle });
+        itemsByOrder.set(it.orderId, list);
         const prev = minDaysByOrder.get(it.orderId);
         if (prev === undefined || it.daysUntilCancel < prev) {
           minDaysByOrder.set(it.orderId, it.daysUntilCancel);
@@ -157,7 +161,7 @@ ordersRouter.get(
             pendingCancellation: pending
               ? { id: pending.id, createdAt: pending.createdAt }
               : null,
-            productTitles: titlesByOrder.get(r.order.id) ?? [],
+            items: itemsByOrder.get(r.order.id) ?? [],
             manager:
               r.manager?.id !== null && r.manager?.id !== undefined
                 ? {
@@ -234,6 +238,7 @@ ordersRouter.get(
           : await db
               .select({
                 orderId: orderItems.orderId,
+                productId: orderItems.productId,
                 productTitle: orderItems.productTitle,
                 daysUntilCancel: products.daysUntilCancel,
                 createdAt: orderItems.createdAt,
@@ -243,12 +248,15 @@ ordersRouter.get(
               .where(inArray(orderItems.orderId, orderIds))
               .orderBy(asc(orderItems.createdAt));
 
-      const titlesByOrder = new Map<string, string[]>();
+      const itemsByOrder = new Map<
+        string,
+        Array<{ productId: string; productTitle: string }>
+      >();
       const minDaysByOrder = new Map<string, number>();
       for (const it of itemRows) {
-        const list = titlesByOrder.get(it.orderId) ?? [];
-        list.push(it.productTitle);
-        titlesByOrder.set(it.orderId, list);
+        const list = itemsByOrder.get(it.orderId) ?? [];
+        list.push({ productId: it.productId, productTitle: it.productTitle });
+        itemsByOrder.set(it.orderId, list);
         const prev = minDaysByOrder.get(it.orderId);
         if (prev === undefined || it.daysUntilCancel < prev) {
           minDaysByOrder.set(it.orderId, it.daysUntilCancel);
@@ -278,7 +286,7 @@ ordersRouter.get(
             pendingCancellation: pending
               ? { id: pending.id, createdAt: pending.createdAt }
               : null,
-            productTitles: titlesByOrder.get(r.order.id) ?? [],
+            items: itemsByOrder.get(r.order.id) ?? [],
             manager:
               r.manager?.id !== null && r.manager?.id !== undefined
                 ? {

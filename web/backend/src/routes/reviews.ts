@@ -32,7 +32,7 @@ function reviewErrorToHttp(err: ReviewError): {
   switch (err.code) {
     case "review_not_found":
     case "reply_not_found":
-    case "order_item_not_found":
+    case "no_completed_order":
       return { status: 404, body: { error: err.code } };
     case "forbidden":
       return { status: 403, body: { error: err.code } };
@@ -53,7 +53,7 @@ function asNumber(value: unknown, fallback: number): number {
 // Client (mobile) endpoints
 // =========================================================================
 
-// POST /me/reviews — body: { productId, orderItemId, rating, text }
+// POST /me/reviews — body: { productId, rating, text }
 reviewsRouter.post(
   "/me/reviews",
   requireAuth,
@@ -68,12 +68,10 @@ reviewsRouter.post(
       const body = (req.body ?? {}) as Record<string, unknown>;
       const productId =
         typeof body.productId === "string" ? body.productId : null;
-      const orderItemId =
-        typeof body.orderItemId === "string" ? body.orderItemId : null;
       const rating = typeof body.rating === "number" ? body.rating : NaN;
       const text = typeof body.text === "string" ? body.text : "";
 
-      if (!productId || !orderItemId) {
+      if (!productId) {
         res.status(400).json({ error: "missing_fields" });
         return;
       }
@@ -81,7 +79,6 @@ reviewsRouter.post(
       const result = await submitReview({
         clientId: actorId,
         productId,
-        orderItemId,
         rating,
         text,
       });

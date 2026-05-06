@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../home/presentation/controller/client_shell_tab_controller.dart';
+import '../../../reviews/domain/leave_review_args.dart';
 import '../../data/orders_api.dart';
 import '../../domain/order.dart';
 import '../controller/client_orders_controller.dart';
 import '../widgets/cancel_order_dialog.dart';
+import '../widgets/leave_review_picker.dart';
 import '../widgets/order_card.dart';
 
 /// Кабинет → "Мои покупки". Four tabs over the same list, filtered by
@@ -555,15 +557,23 @@ class _CompletedOrderActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return _OutlineButton(
       label: 'Оставить отзыв',
-      onTap: () {
-        // Stub — review flow not built yet.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('В разработке'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      },
+      onTap: () => _onTap(context),
+    );
+  }
+
+  Future<void> _onTap(BuildContext context) async {
+    if (order.items.isEmpty) return;
+    final picked = order.items.length == 1
+        ? order.items.first
+        : await showLeaveReviewPicker(context, items: order.items);
+    if (picked == null) return;
+    if (!context.mounted) return;
+    context.push(
+      '/client/reviews/leave',
+      extra: LeaveReviewArgs(
+        productId: picked.productId,
+        productTitle: picked.productTitle,
+      ),
     );
   }
 }

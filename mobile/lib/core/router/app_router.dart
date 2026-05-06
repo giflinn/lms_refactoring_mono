@@ -26,6 +26,9 @@ import '../../features/notifications/presentation/pages/client_notifications_pag
 import '../../features/cancellations/presentation/pages/staff_cancellation_detail_page.dart';
 import '../../features/orders/presentation/pages/my_purchases_page.dart';
 import '../../features/orders/presentation/pages/staff_order_detail_page.dart';
+import '../../features/reviews/domain/leave_review_args.dart';
+import '../../features/reviews/presentation/pages/leave_review_page.dart';
+import '../../features/reviews/presentation/pages/my_reviews_page.dart';
 import '../domain/app_user.dart';
 import '../domain/role.dart';
 
@@ -186,6 +189,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/purchases',
         builder: (_, _) => const MyPurchasesPage(),
+      ),
+      GoRoute(
+        path: '/client/reviews',
+        builder: (_, _) => const MyReviewsPage(),
+      ),
+      GoRoute(
+        path: '/client/reviews/leave',
+        builder: (_, state) =>
+            LeaveReviewPage(args: state.extra as LeaveReviewArgs),
       ),
       GoRoute(
         path: '/staff/chat/:id',
