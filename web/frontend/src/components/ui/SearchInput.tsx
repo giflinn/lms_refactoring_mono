@@ -15,19 +15,18 @@ export function SearchInput({
   className,
 }: Props) {
   return (
-    <div
-      className={clsx(
-        "flex h-9 items-center gap-2 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white px-3 transition-colors focus-within:border-purple-dark hover:border-grey-medium",
-        className,
-      )}
-    >
-      <Search size={16} strokeWidth={1.75} className="text-grey-medium" />
+    <div className={clsx("relative", className)}>
+      <Search
+        size={20}
+        strokeWidth={1.5}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-medium"
+      />
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-grey-medium/60"
+        className="h-11 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white pl-10 pr-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
       />
     </div>
   );
