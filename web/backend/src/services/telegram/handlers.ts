@@ -65,6 +65,16 @@ export function registerHandlers(bot: Bot): void {
   bot.command("register", handleRegisterCommand);
   bot.command("orders", handleOrdersCommand);
   bot.command("help", handleHelpCommand);
+  // grammY's `bot.command(...)` only matches `message` updates. Channels
+  // deliver `/register` as `channel_post`, so we add an explicit listener that
+  // dispatches the same handler. handleRegisterCommand reads ctx.chat /
+  // ctx.reply which work uniformly for both update types.
+  bot.on("channel_post:entities:bot_command", async (ctx) => {
+    const text = ctx.channelPost.text ?? "";
+    if (/^\/register(?:@\w+)?(?:\s|$)/i.test(text)) {
+      await handleRegisterCommand(ctx);
+    }
+  });
   bot.on("callback_query:data", handleCallbackQuery);
   bot.on("my_chat_member", handleMyChatMember);
   bot.on("chat_member", handleChatMember);

@@ -40,6 +40,7 @@ let state: BotState = { status: "uninitialised" };
 
 const ALLOWED_UPDATES = [
   "message",
+  "channel_post",
   "callback_query",
   "my_chat_member",
   "chat_member",
