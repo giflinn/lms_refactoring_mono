@@ -3,11 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/domain/app_user.dart';
 import '../../../../core/log.dart';
+import '../../../cancellations/presentation/controller/staff_cancellations_controller.dart';
 import '../../../catalog/presentation/controller/favorite_ids_controller.dart';
 import '../../../catalog/presentation/controller/favorite_products_controller.dart';
 import '../../../catalog/presentation/controller/home_controller.dart';
 import '../../../chat/data/chat_socket.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
+import '../../../clients/presentation/controller/clients_list_controller.dart';
+import '../../../notifications/presentation/controller/notifications_controllers.dart';
+import '../../../orders/presentation/controller/client_orders_controller.dart';
+import '../../../orders/presentation/controller/staff_orders_controller.dart';
+import '../../../reviews/presentation/controller/my_reviews_controller.dart';
+import '../../../reviews/presentation/controller/product_reviews_controller.dart';
+import '../../../reviews/presentation/controller/staff_reviews_controller.dart';
 import '../../data/auth_api.dart';
 import '../../data/auth_api_provider.dart';
 import '../../domain/registration_data.dart';
@@ -290,11 +298,29 @@ class AuthController extends AsyncNotifier<AppUser?> {
       logd('signOut: google signOut failed (likely not a google user)', e);
     }
     await fb.FirebaseAuth.instance.signOut();
-    // Clear cross-session caches so the next user doesn't inherit hearts /
-    // catalog snapshot / chat threads / socket from this session.
+    // Clear cross-session caches so the next user doesn't inherit data from
+    // this session. Anything fetched with the previous user's ID token must
+    // be invalidated; derived `Provider<bool>` flags (hasNewOrders, etc.)
+    // refresh automatically when their source resets.
     ref.invalidate(favoriteIdsProvider);
     ref.invalidate(favoriteProductsProvider);
     ref.invalidate(homeCatalogProvider);
+    // Orders / cancellations / clients (staff + client scopes).
+    ref.invalidate(clientOrdersProvider);
+    ref.invalidate(staffOrdersListProvider);
+    ref.invalidate(staffNewOrdersCountProvider);
+    ref.invalidate(staffCancellationsListProvider);
+    ref.invalidate(staffPendingCancellationsCountProvider);
+    ref.invalidate(clientsListProvider);
+    // Reviews (client own list + per-product cache + staff feeds).
+    ref.invalidate(myReviewsProvider);
+    ref.invalidate(productReviewsProvider);
+    ref.invalidate(staffReviewsListProvider);
+    ref.invalidate(staffPendingReviewsCountProvider);
+    ref.invalidate(staffClientReviewsProvider);
+    // Notifications.
+    ref.invalidate(notificationsInboxProvider);
+    ref.invalidate(notificationsUnreadCountProvider);
     // Chat: invalidate stateful providers BEFORE the socket — their
     // onDispose cancels stream subscriptions on the live socket; tearing
     // the socket down first would leave them subscribing to a closed
