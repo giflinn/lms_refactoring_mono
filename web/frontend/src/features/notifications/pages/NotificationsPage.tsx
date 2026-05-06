@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import clsx from "clsx";
 import { Plus } from "lucide-react";
 import { PageActionButton } from "../../../components/ui/PageActionButton";
+import { SegmentedTabs } from "../../../components/ui/SegmentedTabs";
 import { Select } from "../../../components/ui/Select";
 import { NotificationCard } from "../components/NotificationCard";
 import { NotificationDrawer } from "../components/NotificationDrawer";
@@ -11,6 +11,11 @@ import type { ClientCategory, Notification } from "../api";
 
 type StatusTab = "active" | "completed";
 type CategoryFilter = "any" | "all" | ClientCategory;
+
+const STATUS_TABS: { id: StatusTab; label: string }[] = [
+  { id: "active", label: "Активные" },
+  { id: "completed", label: "Завершенные" },
+];
 
 const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
   { value: "any", label: "Все категории" },
@@ -74,7 +79,11 @@ export function NotificationsPage() {
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <SegmentedTabs tab={tab} onChange={setTab} />
+          <SegmentedTabs<StatusTab>
+            tabs={STATUS_TABS}
+            value={tab}
+            onChange={setTab}
+          />
           <Select<CategoryFilter>
             value={category}
             onChange={(v) => setCategory(v ?? "any")}
@@ -148,45 +157,5 @@ export function NotificationsPage() {
         onCancel={() => setDeleteTarget(null)}
       />
     </div>
-  );
-}
-
-function SegmentedTabs({
-  tab,
-  onChange,
-}: {
-  tab: StatusTab;
-  onChange: (t: StatusTab) => void;
-}) {
-  return (
-    <div className="flex items-center gap-0.5 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white p-0.5">
-      <SegmentBtn label="Активные" active={tab === "active"} onClick={() => onChange("active")} />
-      <SegmentBtn label="Завершенные" active={tab === "completed"} onClick={() => onChange("completed")} />
-    </div>
-  );
-}
-
-function SegmentBtn({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={clsx(
-        "h-10 cursor-pointer rounded-[6px] px-4 text-[14px] font-medium transition-colors",
-        active
-          ? "border border-[rgba(102,112,133,0.3)] bg-purple-lighter text-purple-primary"
-          : "text-[#0E131F] hover:bg-grey-lighter",
-      )}
-    >
-      {label}
-    </button>
   );
 }

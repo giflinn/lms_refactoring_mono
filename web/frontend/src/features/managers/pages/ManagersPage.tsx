@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { ManagersTable } from "../components/ManagersTable";
 import { DeactivateDialog } from "../components/DeactivateDialog";
 import { Pagination } from "../../../components/ui/Pagination";
 import { PageActionButton } from "../../../components/ui/PageActionButton";
+import { SearchInput } from "../../../components/ui/SearchInput";
 import { Toggle } from "../../../components/ui/Toggle";
 import {
   useDeactivateManager,
@@ -67,23 +68,14 @@ export function ManagersPage() {
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="relative w-[300px]">
-            <Search
-              size={20}
-              strokeWidth={1.5}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-medium"
-            />
-            <input
-              type="text"
-              placeholder="Поиск"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              className="h-11 w-full rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white pl-10 pr-3 text-[14px] text-grey-dark outline-none focus:border-purple-primary"
-            />
-          </div>
+          <SearchInput
+            value={q}
+            onChange={(v) => {
+              setQ(v);
+              setPage(1);
+            }}
+            className="w-[300px]"
+          />
           <label className="flex cursor-pointer items-center gap-2 text-[14px] font-medium text-grey-dark">
             <Toggle
               checked={showDeactivated}

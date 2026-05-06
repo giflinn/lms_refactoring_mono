@@ -1,5 +1,5 @@
 import { useState } from "react";
-import clsx from "clsx";
+import { SegmentedTabs } from "../../../components/ui/SegmentedTabs";
 import { ManagersTab } from "../components/ManagersTab";
 import { SalesTab } from "../components/SalesTab";
 import { NewClientsTab } from "../components/NewClientsTab";
@@ -17,23 +17,12 @@ export function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-5 pt-2">
-      <div className="flex border-b border-[#EAECF0]">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setActive(t.id)}
-            className={clsx(
-              "-mb-px cursor-pointer border-b-2 px-4 py-3 text-[14px] font-medium transition-colors",
-              active === t.id
-                ? "border-purple-primary text-purple-primary"
-                : "border-transparent text-grey-medium hover:text-grey-dark",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs<TabId>
+        tabs={TABS}
+        value={active}
+        onChange={setActive}
+        className="self-start"
+      />
       {active === "managers" && <ManagersTab />}
       {active === "sales" && <SalesTab />}
       {active === "new-clients" && <NewClientsTab />}
