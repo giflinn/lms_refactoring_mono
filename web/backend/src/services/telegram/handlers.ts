@@ -58,6 +58,7 @@ import {
   ensureInviteLinksForUser,
   revokeAllTelegramAccessForUser,
 } from "./grants";
+import { editBotMessage } from "./links";
 
 export function registerHandlers(bot: Bot): void {
   bot.command("start", handleStartCommand);
@@ -305,7 +306,26 @@ async function replyWithUserInvites(
       );
     }
     const kb = url ? new InlineKeyboard().url("Открыть", url) : undefined;
-    await ctx.reply(lines.join("\n"), { reply_markup: kb });
+    const sent = await ctx.reply(lines.join("\n"), { reply_markup: kb });
+    // Pin the (chat, message) pair to the membership so we can edit/delete
+    // later when the user joins or the order ends. Best-effort — if the
+    // user blocked the bot mid-flight or the row vanished, we don't care.
+    if (sent?.message_id != null && ctx.chat?.id != null) {
+      await db
+        .update(telegramMemberships)
+        .set({
+          inviteChatId: String(ctx.chat.id),
+          inviteMessageId: sent.message_id,
+          updatedAt: new Date(),
+        })
+        .where(eq(telegramMemberships.id, m.id))
+        .catch((err) =>
+          console.warn(
+            `[telegram] failed to record invite message for ${m.id}:`,
+            err,
+          ),
+        );
+    }
   }
 }
 
@@ -513,6 +533,19 @@ async function handleChatMember(ctx: Context): Promise<void> {
         .update(telegramMemberships)
         .set({ status: "joined", joinedAt: now, updatedAt: now })
         .where(eq(telegramMemberships.id, target.id));
+      // Refresh the original invite card so the user no longer sees stale
+      // "Нажмите ниже, чтобы войти" copy after joining.
+      if (target.inviteChatId && target.inviteMessageId != null) {
+        const url =
+          target.inviteLink ??
+          (group.inviteUsername ? `https://t.me/${group.inviteUsername}` : null);
+        await editBotMessage({
+          chatId: target.inviteChatId,
+          messageId: target.inviteMessageId,
+          text: `«${group.title}»\nВы в группе.`,
+          inlineUrlKeyboard: url ? [[{ text: "Открыть", url }]] : null,
+        });
+      }
     }
     return;
   }

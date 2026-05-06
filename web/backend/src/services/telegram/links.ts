@@ -54,6 +54,76 @@ export async function revokeInviteLink(
   }
 }
 
+// Best-effort edit of an existing bot DM message. Returns true on success.
+// In private chats bots can edit their own messages without a time limit
+// (the 48h cap is only for groups / channels). Permanent failures (message
+// gone, bot blocked, chat unreachable) return false; transient ones log and
+// also return false so callers can decide whether to fall back.
+//
+// `inlineUrlKeyboard`:
+//   undefined  → keep the existing reply_markup as-is
+//   null       → strip the inline keyboard entirely
+//   [[...]]    → replace with the given URL-button rows
+export async function editBotMessage(params: {
+  chatId: string | number;
+  messageId: number;
+  text: string;
+  inlineUrlKeyboard?: { text: string; url: string }[][] | null;
+}): Promise<boolean> {
+  const bot = getBot();
+  if (!bot) return false;
+  const reply_markup =
+    params.inlineUrlKeyboard === null
+      ? { inline_keyboard: [] }
+      : params.inlineUrlKeyboard !== undefined
+        ? { inline_keyboard: params.inlineUrlKeyboard }
+        : undefined;
+  try {
+    await bot.api.editMessageText(params.chatId, params.messageId, params.text, {
+      reply_markup,
+    });
+    return true;
+  } catch (err) {
+    const msg = describeApiError(err);
+    if (/message is not modified/i.test(msg)) return true;
+    if (
+      /message to edit not found/i.test(msg) ||
+      /message can't be edited/i.test(msg) ||
+      /MESSAGE_ID_INVALID/i.test(msg) ||
+      /chat not found/i.test(msg) ||
+      /bot was blocked by the user/i.test(msg)
+    ) {
+      return false;
+    }
+    console.warn(`[telegram] editMessageText failed: ${msg}`);
+    return false;
+  }
+}
+
+export async function deleteBotMessage(params: {
+  chatId: string | number;
+  messageId: number;
+}): Promise<void> {
+  const bot = getBot();
+  if (!bot) return;
+  try {
+    await bot.api.deleteMessage(params.chatId, params.messageId);
+  } catch (err) {
+    const msg = describeApiError(err);
+    // All "message is gone or unreachable" cases — fine.
+    if (
+      /message to delete not found/i.test(msg) ||
+      /message can't be deleted/i.test(msg) ||
+      /MESSAGE_ID_INVALID/i.test(msg) ||
+      /chat not found/i.test(msg) ||
+      /bot was blocked by the user/i.test(msg)
+    ) {
+      return;
+    }
+    console.warn(`[telegram] deleteMessage failed: ${msg}`);
+  }
+}
+
 // "Soft kick" via ban + immediate unban. Removes the user from the chat
 // without leaving them banned (so a future re-purchase can re-invite them
 // via a fresh link without a manual unban step).

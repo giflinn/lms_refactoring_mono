@@ -1037,6 +1037,13 @@ export const telegramMemberships = pgTable(
     // to correlate chat_member updates back to a specific membership when
     // multiple co-exist for the same user/group.
     inviteLinkName: text("invite_link_name"),
+    // The DM message we sent to the user containing the invite card. We
+    // edit it (or delete-as-fallback) when the user joins (refresh wording)
+    // and again when the membership tears down (mark "Доступ закрыт"). Both
+    // are nullable since: (1) an invite may be issued before the user has
+    // linked Telegram (no DM yet); (2) older rows pre-date this tracking.
+    inviteChatId: text("invite_chat_id"),
+    inviteMessageId: integer("invite_message_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),
     kickedAt: timestamp("kicked_at", { withTimezone: true }),

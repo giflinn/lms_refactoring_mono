@@ -39,6 +39,8 @@ import { sendPushToUser } from "../push";
 import { describeApiError } from "./bot";
 import {
   createPerUserInviteLink,
+  deleteBotMessage,
+  editBotMessage,
   kickUser,
   revokeInviteLink,
 } from "./links";
@@ -280,9 +282,30 @@ async function revokeOneMembership(
       revokedAt: !wasJoined ? now : null,
       inviteLink: null,
       inviteLinkName: null,
+      inviteChatId: null,
+      inviteMessageId: null,
       updatedAt: now,
     })
     .where(eq(telegramMemberships.id, m.id));
+
+  // Update the original invite card in the user's DM so it stops looking
+  // like an active access — edit to "Доступ закрыт" and strip the keyboard.
+  // Falls back to delete if the message can't be edited (rare). Both paths
+  // swallow "bot blocked / chat gone" silently.
+  if (m.inviteChatId && m.inviteMessageId != null) {
+    const edited = await editBotMessage({
+      chatId: m.inviteChatId,
+      messageId: m.inviteMessageId,
+      text: "Доступ к этой группе закрыт.",
+      inlineUrlKeyboard: null,
+    });
+    if (!edited) {
+      await deleteBotMessage({
+        chatId: m.inviteChatId,
+        messageId: m.inviteMessageId,
+      });
+    }
+  }
 
   // Always revoke the invite link on the Telegram side, even when the user
   // had already joined. `member_limit=1` only caps *concurrent* members from
