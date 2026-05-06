@@ -503,8 +503,12 @@ async function handleChatMember(ctx: Context): Promise<void> {
   const now = new Date();
 
   if (wasOut && isInChat) {
-    // Joined.
-    if (target) {
+    // Joined. Only flip to 'joined' when the matched row is in a state that
+    // logically allows it (pending = invite issued, awaiting first join).
+    // Resurrecting a kicked/revoked row would silently re-grant access after
+    // the order is gone (e.g. user follows a dead invite link that Telegram
+    // hadn't yet propagated as revoked).
+    if (target && target.status === "pending") {
       await db
         .update(telegramMemberships)
         .set({ status: "joined", joinedAt: now, updatedAt: now })
