@@ -278,6 +278,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
           fullWidth
           label="Адрес электронной почты*"
           type="email"
+          disabled={isEdit}
           {...register("email")}
           error={errors.email?.message}
         />
@@ -294,7 +295,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
             <label className="py-1 text-[14px] font-medium text-grey-dark">
               Код менеджера
             </label>
-            <div className="flex h-[44px] items-center gap-2 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-grey-lighter px-3 py-2.5">
+            <div className="flex h-9 items-center gap-2 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-grey-lighter px-3">
               <span className="flex-1 min-w-0 text-[14px] font-medium tracking-[2px] text-grey-dark">
                 {manager.managerCode}
               </span>

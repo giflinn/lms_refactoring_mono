@@ -20,6 +20,7 @@ export function Input({
   value,
   className,
   fullWidth,
+  disabled,
   ...rest
 }: Props) {
   const [reveal, setReveal] = useState(false);
@@ -34,18 +35,22 @@ export function Input({
       </span>
       <div
         className={clsx(
-          "flex h-9 items-center gap-2 rounded-[8px] border bg-white px-3 transition-colors",
-          error
+          "flex h-9 items-center gap-2 rounded-[8px] border px-3 transition-colors",
+          disabled
+            ? "border-[rgba(102,112,133,0.2)] bg-grey-lighter"
+            : "bg-white",
+          !disabled && error
             ? "border-red-500"
-            : "border-[rgba(102,112,133,0.3)] focus-within:border-purple-dark",
+            : !disabled && "border-[rgba(102,112,133,0.3)] focus-within:border-purple-dark",
           className,
         )}
       >
         <input
           {...rest}
+          disabled={disabled}
           type={effectiveType}
           value={value}
-          className="flex-1 min-w-0 bg-transparent outline-none text-[14px] text-grey-dark placeholder:text-grey-medium/60"
+          className="flex-1 min-w-0 bg-transparent outline-none text-[14px] text-grey-dark placeholder:text-grey-medium/60 disabled:cursor-not-allowed disabled:text-grey-medium"
         />
         {hasValue && onClear && (
           <button
