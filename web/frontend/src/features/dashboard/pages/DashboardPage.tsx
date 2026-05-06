@@ -1,10 +1,14 @@
 import { useMemo, useState } from "react";
 import { useSalesChart, useSummary, useTopProducts } from "../queries";
-import { IndicatorCard } from "../components/IndicatorCard";
-import { SalesChart } from "../components/SalesChart";
+import { IndicatorCard } from "../../../components/ui/IndicatorCard";
+import { LineChart } from "../../../components/charts/LineChart";
 import { TopProductsTable } from "../components/TopProductsTable";
-import { DateRangePicker } from "../components/DateRangePicker";
-import { formatTengeCompact, toIsoDate } from "../format";
+import { DateRangePicker } from "../../../components/ui/DateRangePicker";
+import {
+  formatTengeCompact,
+  formatTengeFull,
+  toIsoDate,
+} from "../../../lib/format";
 import IconClients from "../../../assets/icons/dashboard/clients.svg";
 import IconGraphUp from "../../../assets/icons/dashboard/graph-up.svg";
 import IconMoney from "../../../assets/icons/dashboard/money.svg";
@@ -77,7 +81,16 @@ export function DashboardPage() {
         {chart.isLoading && !chart.data ? (
           <div className="h-[280px] animate-pulse rounded bg-grey-lighter" />
         ) : chart.data ? (
-          <SalesChart points={chart.data.points} />
+          <LineChart
+            points={chart.data.points.map((p) => ({
+              label: p.label,
+              value: p.incomeTenge,
+            }))}
+            lineColor="#34C759"
+            tooltipPrefix="Доход"
+            formatValue={formatTengeFull}
+            emptyMessage="Нет продаж за выбранный период"
+          />
         ) : null}
       </section>
 

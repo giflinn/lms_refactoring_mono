@@ -1,5 +1,5 @@
 import type { TopProduct } from "../api";
-import { formatTengeFull } from "../format";
+import { formatTengeFull } from "../../../lib/format";
 
 type Props = {
   items: TopProduct[];

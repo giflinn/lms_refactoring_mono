@@ -40,3 +40,17 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   if (user.role !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;
 }
+
+/**
+ * Like RequireAdmin but also lets `senior_manager` through. Used for pages
+ * that aggregate cross-manager data (Reports) — plain managers don't see
+ * other managers' clients or revenue, so they're bounced to the home page.
+ */
+export function RequireStaffAdmin({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin" && user.role !== "senior_manager")
+    return <Navigate to="/" replace />;
+  return <>{children}</>;
+}

@@ -3,7 +3,7 @@ import { DayPicker, type DateRange } from "react-day-picker";
 import { ru } from "date-fns/locale";
 import { Calendar } from "lucide-react";
 import clsx from "clsx";
-import { formatDateRu } from "../format";
+import { formatDateRu } from "../../lib/format";
 import "react-day-picker/style.css";
 
 type Props = {
@@ -79,8 +79,8 @@ const PRESETS: Preset[] = [
 export function DateRangePicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   // Two-step selection: first click sets `from`, second click sets `to`.
-  // We don't commit until both endpoints are picked, so the chart/table
-  // don't refetch on the intermediate state.
+  // Don't commit until both endpoints are picked, so consumer queries don't
+  // refetch on the intermediate state.
   const [draft, setDraft] = useState<DateRange | undefined>({
     from: value.from,
     to: value.to,
@@ -159,7 +159,7 @@ export function DateRangePicker({ value, onChange }: Props) {
               </button>
             ))}
           </div>
-          <div className="dashboard-rdp p-3">
+          <div className="app-rdp p-3">
             <DayPicker
               mode="range"
               numberOfMonths={2}

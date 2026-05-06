@@ -33,7 +33,12 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Главная", Icon: IconHome, end: true },
-  { to: "/reports", label: "Отчеты", Icon: IconReports },
+  {
+    to: "/reports",
+    label: "Отчеты",
+    Icon: IconReports,
+    roles: ["senior_manager", "admin"],
+  },
   { to: "/orders", label: "Заказы", Icon: IconOrders },
   { to: "/cancellations", label: "Отмены", Icon: IconCancellations },
   { to: "/notifications", label: "Нотификации", Icon: IconNotifications },

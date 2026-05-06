@@ -1,5 +1,5 @@
-// 512000 → "₸512K", 1230000 → "₸1.2M". Compact display for the income card
-// where horizontal space is tight; full tables use formatTengeFull.
+// 512000 → "₸512K", 1230000 → "₸1.2M". Compact display for KPI cards
+// where horizontal space is tight; tables use formatTengeFull.
 export function formatTengeCompact(value: number): string {
   const sign = value < 0 ? "-" : "";
   const abs = Math.abs(value);
