@@ -58,6 +58,7 @@ dependencies:
   chewie: ^1.14.0
   video_player: ^2.11.1
   cached_network_image: ^3.4.1
+  screen_protector: ^1.5.1
 
 # Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
 # 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's

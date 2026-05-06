@@ -9,6 +9,7 @@ import '../../../../core/network/api_exceptions.dart' show NetworkException;
 import '../../../../core/widgets/gradient_background.dart';
 import '../../domain/course.dart';
 import '../controller/course_detail_controller.dart';
+import '../widgets/screen_protected.dart';
 
 /// Доступ к курсу через активный заказ → жёлтая кнопка "Открыть курс" в
 /// деталях заказа открывает эту страницу. Здесь — обложка + описание +
@@ -21,8 +22,9 @@ class CourseDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(courseDetailProvider(courseId));
-    return GradientBackground(
-      child: Scaffold(
+    return ScreenProtected(
+      child: GradientBackground(
+        child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Column(
@@ -51,6 +53,7 @@ class CourseDetailPage extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../../../../core/network/api_exceptions.dart' show NetworkException;
 import '../../../../core/widgets/gradient_background.dart';
 import '../controller/lesson_controller.dart';
 import '../widgets/lesson_html.dart';
+import '../widgets/screen_protected.dart';
 
 /// Lesson reading page. Gradient nav bar on top (consistent with the rest of
 /// the cabinet) but the content area drops to a white card so long HTML is
@@ -23,8 +24,9 @@ class LessonPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(lessonProvider(lessonId));
-    return GradientBackground(
-      child: Scaffold(
+    return ScreenProtected(
+      child: GradientBackground(
+        child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Column(
@@ -96,6 +98,7 @@ class LessonPage extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
