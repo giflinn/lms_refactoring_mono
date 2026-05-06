@@ -27,8 +27,10 @@ import '../../features/cancellations/presentation/pages/staff_cancellation_detai
 import '../../features/orders/presentation/pages/my_purchases_page.dart';
 import '../../features/orders/presentation/pages/staff_order_detail_page.dart';
 import '../../features/reviews/domain/leave_review_args.dart';
+import '../../features/reviews/presentation/pages/all_reviews_page.dart';
 import '../../features/reviews/presentation/pages/leave_review_page.dart';
 import '../../features/reviews/presentation/pages/my_reviews_page.dart';
+import '../../features/reviews/presentation/pages/staff_client_reviews_page.dart';
 import '../domain/app_user.dart';
 import '../domain/role.dart';
 
@@ -162,6 +164,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/client/products/:id',
         builder: (_, state) =>
             ProductDetailPage(product: state.extra as Product),
+        routes: [
+          GoRoute(
+            path: 'reviews',
+            builder: (_, state) =>
+                AllReviewsPage(productId: state.pathParameters['id']!),
+          ),
+        ],
       ),
       GoRoute(
         path: '/client/chat',
@@ -213,6 +222,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'purchases',
             builder: (_, state) =>
                 ClientPurchasesPage(clientId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'reviews',
+            builder: (_, state) => StaffClientReviewsPage(
+              clientId: state.pathParameters['id']!,
+            ),
           ),
         ],
       ),

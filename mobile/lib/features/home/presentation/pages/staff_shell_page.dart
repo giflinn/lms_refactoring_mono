@@ -14,8 +14,9 @@ import '../../../chat/presentation/pages/staff_chat_list_page.dart';
 import '../../../clients/presentation/pages/clients_list_page.dart';
 import '../../../orders/presentation/controller/staff_orders_controller.dart';
 import '../../../orders/presentation/pages/staff_orders_list_page.dart';
+import '../../../reviews/presentation/controller/staff_reviews_controller.dart';
+import '../../../reviews/presentation/pages/staff_reviews_list_page.dart';
 import '../widgets/role_bottom_nav.dart';
-import 'under_construction_page.dart';
 
 const _chatSortLabels = {
   'name': 'Сортировать А-Я',
@@ -70,12 +71,13 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
     final hasNewOrders = ref.watch(hasNewStaffOrdersProvider);
     final hasPendingCancellations =
         ref.watch(hasPendingCancellationsProvider);
+    final hasPendingReviews = ref.watch(hasPendingReviewsProvider);
     final user = ref.watch(authProvider).value;
     final items = [
       _baseItems[0].copyWith(hasBadge: unread > 0),
       _baseItems[1].copyWith(hasBadge: hasNewOrders),
       _baseItems[2].copyWith(hasBadge: hasPendingCancellations),
-      _baseItems[3],
+      _baseItems[3].copyWith(hasBadge: hasPendingReviews),
       _baseItems[4],
     ];
     return GradientBackground(
@@ -106,13 +108,12 @@ class _StaffShellPageState extends ConsumerState<StaffShellPage> {
         ),
         body: IndexedStack(
           index: _index,
-          children: [
-            const StaffChatListPage(),
-            const StaffOrdersListPage(),
-            const StaffCancellationsListPage(),
-            for (var i = 3; i < items.length - 1; i++)
-              UnderConstructionPage(title: items[i].label),
-            const ClientsListPage(),
+          children: const [
+            StaffChatListPage(),
+            StaffOrdersListPage(),
+            StaffCancellationsListPage(),
+            StaffReviewsListPage(),
+            ClientsListPage(),
           ],
         ),
         bottomNavigationBar: RoleBottomNav(

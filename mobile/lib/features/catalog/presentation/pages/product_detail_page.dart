@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../cart/presentation/controller/cart_controller.dart';
+import '../../../reviews/presentation/controller/product_reviews_controller.dart';
+import '../../../reviews/presentation/widgets/public_review_card.dart';
 import '../../domain/product.dart';
 import '../controller/favorite_ids_controller.dart';
 import '../widgets/product_action_bar.dart';
@@ -251,7 +253,93 @@ class _Body extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 24),
+          _ReviewsSnippet(productId: product.id),
         ],
+      ),
+    );
+  }
+}
+
+/// First 3 published reviews + a link to the full list. Skipped while
+/// loading and when the product has no reviews — keeping the page short for
+/// brand-new products. The full list lives at `/client/products/:id/reviews`.
+class _ReviewsSnippet extends ConsumerWidget {
+  final String productId;
+  const _ReviewsSnippet({required this.productId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(productReviewsProvider(productId));
+    if (state.loadingFirst || state.error != null) {
+      return const SizedBox.shrink();
+    }
+    if (state.reviews.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final preview = state.reviews.take(3).toList();
+    final hasMore = state.reviews.length > preview.length || !state.reachedEnd;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Отзывы',
+          style: TextStyle(
+            color: AppColors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+            letterSpacing: -0.4,
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < preview.length; i++) ...[
+          PublicReviewCard(review: preview[i]),
+          if (i < preview.length - 1) const SizedBox(height: 12),
+        ],
+        if (hasMore) ...[
+          const SizedBox(height: 12),
+          _AllReviewsLink(productId: productId),
+        ],
+      ],
+    );
+  }
+}
+
+class _AllReviewsLink extends StatelessWidget {
+  final String productId;
+  const _AllReviewsLink({required this.productId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.push('/client/products/$productId/reviews'),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Все отзывы',
+                style: TextStyle(
+                  color: AppColors.white.withValues(alpha: 0.85),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.white.withValues(alpha: 0.85),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
