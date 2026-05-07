@@ -149,6 +149,7 @@ export async function createOrderForClient(
       title: string;
       categoryName: string;
       subtitle: string | null;
+      description: string;
       unitPriceTenge: string;
       bookedStart: Date | null;
       bookedEnd: Date | null;
@@ -218,6 +219,7 @@ export async function createOrderForClient(
         title: row.product.title,
         categoryName: row.categoryName,
         subtitle: row.product.subtitle,
+        description: row.product.description,
         unitPriceTenge: unitPrice,
         bookedStart,
         bookedEnd,
@@ -243,6 +245,7 @@ export async function createOrderForClient(
           productTitle: plan.title,
           productCategoryName: plan.categoryName,
           productSubtitle: plan.subtitle,
+          productDescription: plan.description,
           unitPriceTenge: plan.unitPriceTenge,
           bookedStart: plan.bookedStart,
           bookedEnd: plan.bookedEnd,

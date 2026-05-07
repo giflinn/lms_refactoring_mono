@@ -525,6 +525,7 @@ ordersRouter.get(
             productTitle: it.productTitle,
             productCategoryName: it.productCategoryName,
             productSubtitle: it.productSubtitle,
+            productDescription: it.productDescription,
             unitPriceTenge: it.unitPriceTenge,
             quantity: it.quantity,
             bookedStart: it.bookedStart,

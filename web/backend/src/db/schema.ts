@@ -623,6 +623,7 @@ export const orderItems = pgTable(
     productTitle: text("product_title").notNull(),
     productCategoryName: text("product_category_name").notNull(),
     productSubtitle: text("product_subtitle"),
+    productDescription: text("product_description"),
     unitPriceTenge: numeric("unit_price_tenge", {
       precision: 12,
       scale: 2,

@@ -254,6 +254,7 @@ class ClientOrderDetailItem {
   final String productTitle;
   final String productCategoryName;
   final String? productSubtitle;
+  final String? productDescription;
   final String unitPriceTenge;
   final int quantity;
   final DateTime? bookedStart;
@@ -270,6 +271,7 @@ class ClientOrderDetailItem {
     required this.productTitle,
     required this.productCategoryName,
     required this.productSubtitle,
+    required this.productDescription,
     required this.unitPriceTenge,
     required this.quantity,
     required this.bookedStart,
@@ -292,6 +294,7 @@ class ClientOrderDetailItem {
       productTitle: json['productTitle'] as String,
       productCategoryName: json['productCategoryName'] as String,
       productSubtitle: json['productSubtitle'] as String?,
+      productDescription: json['productDescription'] as String?,
       unitPriceTenge: json['unitPriceTenge'].toString(),
       quantity: (json['quantity'] as num).toInt(),
       bookedStart: (json['bookedStart'] as String?) != null

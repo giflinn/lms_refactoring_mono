@@ -176,6 +176,13 @@
       "when": 1778111028306,
       "tag": "0024_blushing_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1778141520715,
+      "tag": "0025_cute_roland_deschain",
+      "breakpoints": true
     }
   ]
 }

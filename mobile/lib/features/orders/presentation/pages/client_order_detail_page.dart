@@ -13,15 +13,13 @@ import '../../domain/order.dart';
 import '../controller/client_order_detail_controller.dart';
 import 'my_purchases_page.dart' show ChatPrefill;
 
-/// Per-order detail screen. Renders one card per item with the right CTA:
+/// Per-order detail screen. One section per item, rendered directly on the
+/// purple gradient (no white cards) — large title, optional subtitle,
+/// description block, type-specific facts and the right CTA:
 ///   - Booking item   → date / duration + "Связаться с менеджером"
 ///   - Telegram item  → group info + state-driven CTA
-///   - LMS item       → course summary + "Открыть курс" → /client/courses/:id
-///   - Plain item     → snapshot + expiry hint
-///
-/// Visual chrome matches /client/purchases — gradient background, white nav
-/// bar, white cards floating on top — so navigating into a single order
-/// doesn't feel like a different app section.
+///   - LMS item       → "Открыть курс" → /client/courses/:id
+///   - Plain item     → expiry only, no CTA
 class ClientOrderDetailPage extends ConsumerWidget {
   final String orderId;
 
@@ -65,18 +63,18 @@ class ClientOrderDetailPage extends ConsumerWidget {
                         .refresh(),
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
                       children: [
-                        _OrderHeader(order: order),
-                        const SizedBox(height: 16),
+                        _CompactOrderHeader(order: order),
+                        const _SectionDivider(),
                         for (var i = 0; i < order.items.length; i++) ...[
-                          _ItemCard(
+                          _ItemSection(
                             orderId: orderId,
                             item: order.items[i],
                             order: order,
                           ),
                           if (i != order.items.length - 1)
-                            const SizedBox(height: 12),
+                            const _SectionDivider(),
                         ],
                       ],
                     ),
@@ -131,50 +129,52 @@ class _NavBar extends StatelessWidget {
   }
 }
 
-class _OrderHeader extends StatelessWidget {
+class _CompactOrderHeader extends StatelessWidget {
   final ClientOrderDetail order;
 
-  const _OrderHeader({required this.order});
+  const _CompactOrderHeader({required this.order});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Создан ${formatOrderDate(order.createdAt)}',
-            style: const TextStyle(color: AppColors.greyMedium, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _StatusPill(status: order.status),
-              Text(
-                '${formatOrderTenge(order.totalTenge)} ₸',
-                style: const TextStyle(
-                  color: AppColors.greyDark,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          if (order.manager != null) ...[
-            const SizedBox(height: 12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _StatusPill(status: order.status),
             Text(
-              'Менеджер: ${order.manager!.fullName}',
-              style: const TextStyle(color: AppColors.greyDark, fontSize: 13),
+              '${formatOrderTenge(order.totalTenge)} ₸',
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+              ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Создан ${formatOrderDate(order.createdAt)}',
+          style: const TextStyle(
+            color: AppColors.purpleTertiary,
+            fontSize: 13,
+            letterSpacing: -0.2,
+          ),
+        ),
+        if (order.manager != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Менеджер: ${order.manager!.fullName}',
+            style: const TextStyle(
+              color: AppColors.purpleTertiary,
+              fontSize: 13,
+              letterSpacing: -0.2,
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -187,7 +187,8 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, fg, bg) = switch (status) {
-      OrderStatus.newOrder => ('Новый', AppColors.purplePrimary, AppColors.purpleTertiary),
+      OrderStatus.newOrder =>
+        ('Новый', AppColors.purplePrimary, AppColors.purpleTertiary),
       OrderStatus.active => ('Активный', Colors.green.shade700, Colors.green.shade50),
       OrderStatus.completed => ('Завершён', AppColors.greyDark, AppColors.greyLighter),
       OrderStatus.cancelled => ('Отменён', Colors.red.shade700, Colors.red.shade50),
@@ -206,12 +207,25 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _ItemCard extends ConsumerWidget {
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      height: 1,
+      color: AppColors.white.withValues(alpha: 0.18),
+    );
+  }
+}
+
+class _ItemSection extends ConsumerWidget {
   final String orderId;
   final ClientOrderDetailItem item;
   final ClientOrderDetail order;
 
-  const _ItemCard({
+  const _ItemSection({
     required this.orderId,
     required this.item,
     required this.order,
@@ -219,52 +233,74 @@ class _ItemCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.productCategoryName,
+          style: const TextStyle(
+            color: AppColors.purpleTertiary,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          item.productTitle,
+          style: const TextStyle(
+            color: AppColors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.5,
+            height: 1.15,
+          ),
+        ),
+        if (item.productSubtitle != null && item.productSubtitle!.isNotEmpty) ...[
+          const SizedBox(height: 6),
           Text(
-            item.productCategoryName,
+            item.productSubtitle!,
             style: const TextStyle(
-              color: AppColors.greyMedium,
-              fontSize: 12,
+              color: AppColors.purpleTertiary,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
+              letterSpacing: -0.2,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            item.productTitle,
-            style: const TextStyle(
-              color: AppColors.greyDark,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (item.productSubtitle != null &&
-              item.productSubtitle!.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              item.productSubtitle!,
-              style:
-                  const TextStyle(color: AppColors.greyMedium, fontSize: 13),
-            ),
-          ],
-          const SizedBox(height: 12),
-          if (item.isBooking)
-            _BookingBlock(item: item, order: order)
-          else if (item.isTelegram)
-            _TelegramBlock(orderId: orderId, item: item, order: order)
-          else if (item.isLmsCourse)
-            _LmsBlock(item: item, order: order)
-          else
-            _PlainBlock(item: item),
         ],
-      ),
+        if (item.productDescription != null &&
+            item.productDescription!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text(
+            'Описание',
+            style: TextStyle(
+              color: AppColors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            item.productDescription!,
+            style: const TextStyle(
+              color: AppColors.purpleTertiary,
+              fontSize: 14,
+              height: 1.45,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        if (item.isBooking)
+          _BookingBlock(item: item, order: order)
+        else if (item.isTelegram)
+          _TelegramBlock(orderId: orderId, item: item, order: order)
+        else if (item.isLmsCourse)
+          _LmsBlock(item: item, order: order)
+        else
+          _PlainBlock(item: item),
+      ],
     );
   }
 }
@@ -292,9 +328,8 @@ class _BookingBlockState extends ConsumerState<_BookingBlock> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _InfoRow(label: 'Дата', value: formatOrderDate(start)),
-        if (dur != null)
-          _InfoRow(label: 'Длительность', value: '$dur мин'),
-        const SizedBox(height: 12),
+        if (dur != null) _InfoRow(label: 'Длительность', value: '$dur мин'),
+        const SizedBox(height: 16),
         PrimaryButton(
           label: _opening ? 'Открываем чат…' : 'Связаться с менеджером',
           onPressed: _opening ? null : _openChat,
@@ -331,13 +366,12 @@ class _LmsBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _InfoRow(label: 'Курс', value: c.title),
         if (item.expiresAt != null)
           _InfoRow(
-            label: 'Доступ до',
+            label: 'Срок доступа',
             value: formatOrderDate(item.expiresAt!),
           ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (!orderActive)
           const _Hint(text: 'Доступ к курсу закрыт.')
         else
@@ -377,23 +411,6 @@ class _TelegramBlockState extends ConsumerState<_TelegramBlock> {
     final orderActive = widget.order.status == OrderStatus.active;
     final linkState = ref.watch(telegramLinkProvider);
 
-    final body = <Widget>[
-      _InfoRow(label: 'Тип', value: group.kindLabel),
-      _InfoRow(label: 'Группа', value: group.title),
-      if (group.description != null && group.description!.isNotEmpty) ...[
-        const SizedBox(height: 4),
-        Text(
-          group.description!,
-          style: const TextStyle(color: AppColors.greyDark, fontSize: 13),
-        ),
-      ],
-      if (widget.item.expiresAt != null)
-        _InfoRow(
-          label: 'Доступ до',
-          value: formatOrderDate(widget.item.expiresAt!),
-        ),
-    ];
-
     final ctaLabel = _ctaLabel(orderActive, m);
     final disabled = !orderActive ||
         (m != null && !m.isActive) ||
@@ -402,17 +419,18 @@ class _TelegramBlockState extends ConsumerState<_TelegramBlock> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...body,
-        const SizedBox(height: 12),
+        _InfoRow(label: 'Тип', value: group.kindLabel),
+        _InfoRow(label: 'Группа', value: group.title),
+        if (widget.item.expiresAt != null)
+          _InfoRow(
+            label: 'Срок доступа',
+            value: formatOrderDate(widget.item.expiresAt!),
+          ),
+        const SizedBox(height: 16),
         if (!orderActive)
           const _Hint(text: 'Доступ к группе закрыт.')
         else if (m?.status == OrderTelegramMembershipStatus.kicked)
           const _Hint(text: 'Вас удалили из группы. Свяжитесь с менеджером.')
-        else if (m?.status == OrderTelegramMembershipStatus.left)
-          PrimaryButton(
-            label: _busy ? 'Готовим ссылку…' : ctaLabel,
-            onPressed: disabled ? null : () => _onCta(linkState),
-          )
         else
           PrimaryButton(
             label: _busy ? 'Готовим ссылку…' : ctaLabel,
@@ -498,8 +516,7 @@ class _TelegramBlockState extends ConsumerState<_TelegramBlock> {
 
   Future<void> _open(String url) async {
     final uri = Uri.parse(url);
-    final ok =
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok) {
       throw Exception('launch_failed');
     }
@@ -528,19 +545,10 @@ class _PlainBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _InfoRow(
-          label: 'Цена',
-          value: '${formatOrderTenge(num.parse(item.unitPriceTenge))} ₸',
-        ),
-        if (item.expiresAt != null)
-          _InfoRow(
-            label: 'Доступ до',
-            value: formatOrderDate(item.expiresAt!),
-          ),
-      ],
+    if (item.expiresAt == null) return const SizedBox.shrink();
+    return _InfoRow(
+      label: 'Срок доступа',
+      value: formatOrderDate(item.expiresAt!),
     );
   }
 }
@@ -556,17 +564,18 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
+            width: 120,
             child: Text(
               label,
               style: const TextStyle(
-                color: AppColors.greyMedium,
-                fontSize: 13,
+                color: AppColors.purpleTertiary,
+                fontSize: 14,
+                letterSpacing: -0.2,
               ),
             ),
           ),
@@ -574,9 +583,10 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                color: AppColors.greyDark,
-                fontSize: 13,
+                color: AppColors.white,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
+                letterSpacing: -0.2,
               ),
             ),
           ),
@@ -594,14 +604,18 @@ class _Hint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.greyLighter,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         text,
-        style: const TextStyle(color: AppColors.greyDark, fontSize: 13),
+        style: TextStyle(
+          color: AppColors.white.withValues(alpha: 0.9),
+          fontSize: 14,
+          letterSpacing: -0.2,
+        ),
       ),
     );
   }
