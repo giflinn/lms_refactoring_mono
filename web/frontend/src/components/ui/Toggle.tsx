@@ -17,7 +17,7 @@ export function Toggle({ checked, onChange, disabled, id }: Props) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={clsx(
-        "relative h-6 w-[43px] rounded-full p-0.5 transition-colors cursor-pointer",
+        "relative h-6 w-[43px] shrink-0 rounded-full p-0.5 transition-colors cursor-pointer",
         checked ? "bg-purple-primary" : "bg-[#EAECF0]",
         disabled && "opacity-50 cursor-not-allowed",
       )}
