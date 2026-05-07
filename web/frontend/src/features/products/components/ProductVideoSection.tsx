@@ -93,20 +93,22 @@ export function ProductVideoSection({
       : null;
 
   return (
-    <section className="flex flex-col gap-3 rounded-[8px] border border-[rgba(102,112,133,0.2)] p-4">
-      <label className="flex cursor-pointer items-center justify-between gap-2">
-        <span className="text-[14px] font-medium text-[#0E131F]">
-          Видеообложка
-        </span>
+    <section className="flex flex-col gap-3 rounded-[8px] border border-[#EAECF0] p-4">
+      <label className="flex cursor-pointer items-center justify-between gap-3">
+        <div className="flex flex-col">
+          <span className="text-[14px] font-medium text-grey-dark">
+            Видеообложка
+          </span>
+          <span className="text-[12px] text-grey-medium">
+            Опциональное видео на детальной странице товара. До 50 MB для
+            загруженного файла; YouTube — без ограничений.
+          </span>
+        </div>
         <Toggle
           checked={enabled}
           onChange={(v) => setValue("videoEnabled", v, { shouldDirty: true })}
         />
       </label>
-      <p className="text-[12px] text-grey-medium">
-        Опциональное видео на детальной странице товара. До&nbsp;50&nbsp;MB
-        для загруженного файла; YouTube — без ограничений.
-      </p>
 
       {enabled && (
         <div className="mt-1 flex flex-col gap-3">
@@ -116,7 +118,7 @@ export function ProductVideoSection({
             onChange={(v) =>
               setValue("videoSource", v, { shouldDirty: true })
             }
-            className="self-start"
+            fullWidth
           />
 
           {source === "upload" && (
@@ -199,7 +201,7 @@ export function ProductVideoSection({
               onChange={(v) =>
                 setValue("videoDisplay", v, { shouldDirty: true })
               }
-              className="self-start"
+              fullWidth
             />
           </div>
 

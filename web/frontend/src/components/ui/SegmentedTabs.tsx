@@ -9,6 +9,9 @@ type Props<T extends string> = {
   tabs: Tab<T>[];
   value: T;
   onChange: (next: T) => void;
+  // When true, container stretches to its parent's width and the tabs split
+  // it equally. Defaults to false — tabs hug their labels.
+  fullWidth?: boolean;
   className?: string;
 };
 
@@ -16,12 +19,14 @@ export function SegmentedTabs<T extends string>({
   tabs,
   value,
   onChange,
+  fullWidth = false,
   className,
 }: Props<T>) {
   return (
     <div
       className={clsx(
         "flex items-center gap-0.5 rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-white p-0.5",
+        fullWidth && "w-full",
         className,
       )}
     >
@@ -34,6 +39,7 @@ export function SegmentedTabs<T extends string>({
             onClick={() => onChange(t.id)}
             className={clsx(
               "h-9 cursor-pointer rounded-[6px] px-4 text-[14px] font-medium transition-colors",
+              fullWidth && "flex-1",
               active
                 ? "border border-[rgba(102,112,133,0.3)] bg-purple-lighter text-purple-primary"
                 : "text-[#0E131F] hover:bg-grey-lighter",
