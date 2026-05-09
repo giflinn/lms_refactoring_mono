@@ -46,3 +46,12 @@ body {
   color: var(--color-purple-primary);
   font-weight: 600;
 }
+
+/* TipTap renders an inner contenteditable as `.ProseMirror`. The outer
+   wrapper already shows a purple focus border via `focus-within:`, so the
+   browser default outline on the inner element reads as a duplicate blue
+   ring. Drop it. */
+.lms-editor .ProseMirror,
+.lms-editor .ProseMirror-focused {
+  outline: none;
+}
