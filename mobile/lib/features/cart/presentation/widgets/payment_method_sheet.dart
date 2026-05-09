@@ -7,6 +7,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/network/api_exceptions.dart';
 import '../../../orders/data/orders_api.dart';
 import '../../../orders/data/orders_api_provider.dart';
+import '../../data/kaspi_api_provider.dart';
 import '../controller/cart_controller.dart';
 import 'cart_item_card.dart';
 
@@ -458,10 +459,18 @@ class _KaspiInstructionsDialogState
       }
 
       ref.read(cartProvider.notifier).clear();
+
+      // Resolve the routing-aware link before closing the dialog. On any
+      // failure (network, 503 from backend) fall back to the legacy
+      // https://kaspi.kz so checkout never dead-ends after the order is
+      // already created.
+      final resolved = await ref.read(kaspiApiProvider).resolve(idToken);
+      final url = resolved?.url ?? 'https://kaspi.kz';
+
       if (!mounted) return;
       Navigator.of(context).pop();
 
-      final uri = Uri.parse('https://kaspi.kz');
+      final uri = Uri.parse(url);
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {
         messenger?.showSnackBar(

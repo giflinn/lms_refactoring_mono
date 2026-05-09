@@ -73,6 +73,16 @@ export const users = pgTable("users", {
   telegramUsername: text("telegram_username"),
   telegramFirstName: text("telegram_first_name"),
   telegramLinkedAt: timestamp("telegram_linked_at", { withTimezone: true }),
+  // Optional pointer to a kaspi_links group for staff users. The column is
+  // on users (not a join table) which naturally enforces the one-manager →
+  // one-link constraint. Multiple managers can share a link by pointing at
+  // the same id. Forward-reference via thunk because kaspi_links is
+  // defined later in this file. SET NULL on link delete so removing a
+  // group falls those managers back to the default link.
+  kaspiLinkId: uuid("kaspi_link_id").references(
+    (): AnyPgColumn => kaspiLinks.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -1268,6 +1278,39 @@ export const feedback = pgTable(
     index("feedback_manager_id_idx").on(t.managerId),
     index("feedback_status_idx").on(t.status),
     index("feedback_created_at_idx").on(t.createdAt),
+  ],
+);
+
+// Kaspi.kz payment links the mobile app opens after order creation.
+// Layout:
+//   - Exactly one row has is_default=true (enforced by the partial unique
+//     index below). It's the fallback for clients whose manager isn't in
+//     any group, or when kaspi_strategy='single'.
+//   - Other rows are "group" links with a label; managers join via
+//     users.kaspi_link_id pointing at this row's id.
+//
+// The mobile resolver (GET /me/kaspi-link) reads kaspi_strategy and
+// returns either the default link or the manager's group link.
+export const kaspiLinks = pgTable(
+  "kaspi_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    url: text("url").notNull(),
+    label: text("label").notNull().default(""),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // At most one default link. Without the WHERE clause the unique would
+    // fire on every is_default=false row too.
+    uniqueIndex("kaspi_links_one_default")
+      .on(t.isDefault)
+      .where(sql`${t.isDefault}`),
   ],
 );
 

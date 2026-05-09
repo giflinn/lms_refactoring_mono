@@ -4,16 +4,24 @@ import { TelegramBotSection } from "../components/TelegramBotSection";
 import { TelegramGroupsSection } from "../components/TelegramGroupsSection";
 import { ChatsSection } from "../components/ChatsSection";
 import { ManagerAssignmentSection } from "../components/ManagerAssignmentSection";
+import { KaspiSection } from "../components/KaspiSection";
 import { LmsCoursesSection } from "../../lms/components/LmsCoursesSection";
 import { LegalDocumentsSection } from "../../legal/components/LegalDocumentsSection";
 
-type TabId = "telegram" | "lms" | "chats" | "assignment" | "legal";
+type TabId =
+  | "telegram"
+  | "lms"
+  | "chats"
+  | "assignment"
+  | "kaspi"
+  | "legal";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "telegram", label: "Telegram" },
   { id: "lms", label: "LMS" },
   { id: "chats", label: "Чаты" },
   { id: "assignment", label: "Назначение" },
+  { id: "kaspi", label: "Kaspi" },
   { id: "legal", label: "Документы" },
 ];
 
@@ -47,6 +55,11 @@ export function SettingsPage() {
       {active === "assignment" && (
         <div className="flex flex-col gap-6">
           <ManagerAssignmentSection />
+        </div>
+      )}
+      {active === "kaspi" && (
+        <div className="flex flex-col gap-6">
+          <KaspiSection />
         </div>
       )}
       {active === "legal" && (

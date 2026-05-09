@@ -43,6 +43,13 @@ export const SETTING_KEYS = {
     "manager_assignment_on_delete_strategy",
   managerAssignmentOnDeleteTargetId:
     "manager_assignment_on_delete_target_id",
+  // Routing strategy for the Kaspi payment link surfaced to mobile after
+  // order creation. 'single' → every client gets the default link.
+  // 'per_group' → if the client's manager belongs to a kaspi_links group,
+  // that group's link wins; otherwise the default applies. The kill-switch
+  // shape lets the admin temporarily disable group routing without
+  // tearing down the configured groups.
+  kaspiStrategy: "kaspi_strategy",
 } as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
@@ -60,6 +67,9 @@ const DEFAULTS: Record<SettingKey, string> = {
   [SETTING_KEYS.managerAssignmentOnRegisterTargetId]: "",
   [SETTING_KEYS.managerAssignmentOnDeleteStrategy]: "any_admin",
   [SETTING_KEYS.managerAssignmentOnDeleteTargetId]: "",
+  // Default to the safer "everyone gets the default link" behavior; admin
+  // can flip to per_group once they've configured groups.
+  [SETTING_KEYS.kaspiStrategy]: "single",
 } as const;
 
 const ALL_KEYS = Object.values(SETTING_KEYS) as SettingKey[];
