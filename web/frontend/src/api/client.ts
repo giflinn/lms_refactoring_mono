@@ -29,6 +29,10 @@ class ApiClient {
     return this.send("PATCH", path, { idToken, body });
   }
 
+  put(path: string, body: unknown, idToken?: string): Promise<Response> {
+    return this.send("PUT", path, { idToken, body });
+  }
+
   delete(path: string, idToken?: string): Promise<Response> {
     return this.send("DELETE", path, { idToken });
   }

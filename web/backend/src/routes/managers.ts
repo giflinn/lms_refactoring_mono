@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/auth";
 import { requireStaffAdmin } from "../middleware/requireRole";
 import { firebaseAuth } from "../firebase";
 import { generateUniqueManagerCode } from "../services/managerCode";
+import { pickManagerForRedistribution } from "../services/managerAssignment";
 import { generateStrongPassword } from "../services/passwordGen";
 import {
   managerAvatarUpload,
@@ -485,8 +486,13 @@ managersRouter.delete(
       }
 
       await db.transaction(async (tx) => {
-        const others = await tx
-          .select({ id: users.id })
+        // Sanity check: at least one other active staff exists. The
+        // assignment service will fall back to the seeded admin, but if
+        // the only remaining admin is the one being deleted there's
+        // literally nobody to inherit clients — refuse instead of leaving
+        // them orphaned.
+        const remainingCount = await tx
+          .select({ c: count() })
           .from(users)
           .where(
             and(
@@ -494,10 +500,8 @@ managersRouter.delete(
               isNull(users.deactivatedAt),
               sql`${users.id} <> ${targetId}`,
             ),
-          )
-          .orderBy(asc(users.createdAt));
-
-        if (others.length === 0) {
+          );
+        if (Number(remainingCount[0]?.c ?? 0) === 0) {
           throw new TaggedError("last_active_staff");
         }
 
@@ -506,12 +510,23 @@ managersRouter.delete(
           .from(users)
           .where(eq(users.managerId, targetId));
 
-        for (let i = 0; i < clientsToReassign.length; i++) {
-          const newManager = others[i % others.length];
+        // Defer to the configured "on_delete" strategy. Each iteration
+        // picks the loaded-least manager in the chosen role group, so
+        // calling N times distributes clients evenly without an external
+        // round-robin counter. The picker excludes the manager being
+        // deleted from every candidate pool.
+        for (const client of clientsToReassign) {
+          const newManagerId = await pickManagerForRedistribution(
+            tx,
+            targetId,
+          );
+          if (!newManagerId) {
+            throw new TaggedError("last_active_staff");
+          }
           await tx
             .update(users)
-            .set({ managerId: newManager.id })
-            .where(eq(users.id, clientsToReassign[i].id));
+            .set({ managerId: newManagerId })
+            .where(eq(users.id, client.id));
         }
 
         await tx

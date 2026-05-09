@@ -29,6 +29,20 @@ export const SETTING_KEYS = {
   // X-Telegram-Bot-Api-Secret-Token header on every POST. Auto-generated
   // (32 hex chars) on first token save; rotated on demand. Secret.
   telegramWebhookSecret: "telegram_webhook_secret",
+  // How clients are assigned to a manager when they register without a
+  // manager code. Strategy ∈ {any_admin, any_senior_manager, any_manager,
+  // specific}. When 'specific', target_id holds the staff user id.
+  // Resolution lives in services/managerAssignment.ts.
+  managerAssignmentOnRegisterStrategy:
+    "manager_assignment_on_register_strategy",
+  managerAssignmentOnRegisterTargetId:
+    "manager_assignment_on_register_target_id",
+  // How a deactivated manager's clients are redistributed. Same shape as
+  // the on-register pair above. Used by the DELETE /managers/:id handler.
+  managerAssignmentOnDeleteStrategy:
+    "manager_assignment_on_delete_strategy",
+  managerAssignmentOnDeleteTargetId:
+    "manager_assignment_on_delete_target_id",
 } as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
@@ -39,6 +53,13 @@ const DEFAULTS: Record<SettingKey, string> = {
   [SETTING_KEYS.telegramBotToken]: "",
   [SETTING_KEYS.telegramBotUsername]: "",
   [SETTING_KEYS.telegramWebhookSecret]: "",
+  // Default to "any_admin": matches the legacy "oldest staff" fallback well
+  // enough on a fresh install (only the seeded admin exists), and is the
+  // safest pick if the admin never edits the setting.
+  [SETTING_KEYS.managerAssignmentOnRegisterStrategy]: "any_admin",
+  [SETTING_KEYS.managerAssignmentOnRegisterTargetId]: "",
+  [SETTING_KEYS.managerAssignmentOnDeleteStrategy]: "any_admin",
+  [SETTING_KEYS.managerAssignmentOnDeleteTargetId]: "",
 } as const;
 
 const ALL_KEYS = Object.values(SETTING_KEYS) as SettingKey[];

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -9,6 +9,7 @@ import {
   managerAvatarUpload,
   persistManagerAvatar,
 } from "../services/avatarUpload";
+import { pickManagerForRegistration } from "../services/managerAssignment";
 import {
   isValidEmail,
   isValidManagerCode,
@@ -20,8 +21,9 @@ export const authRouter = Router();
 const STAFF_ROLES = ["manager", "senior_manager", "admin"] as const;
 
 // Look up the manager that should be linked to a new client. If a code was
-// provided, find the staff user with that code; otherwise fall back to the
-// oldest staff user (typically the seeded admin).
+// provided, find the staff user with that code; otherwise delegate to the
+// admin-configurable manager-assignment strategy
+// (see services/managerAssignment.ts).
 async function resolveManagerId(
   managerCode: string | null,
 ): Promise<{ managerId: string | null; error: string | null }> {
@@ -46,18 +48,8 @@ async function resolveManagerId(
     return { managerId: found[0].id, error: null };
   }
 
-  const fallback = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        inArray(users.role, [...STAFF_ROLES]),
-        isNull(users.deactivatedAt),
-      ),
-    )
-    .orderBy(asc(users.createdAt))
-    .limit(1);
-  return { managerId: fallback[0]?.id ?? null, error: null };
+  const managerId = await pickManagerForRegistration();
+  return { managerId, error: null };
 }
 
 function serializeUser(u: typeof users.$inferSelect) {
