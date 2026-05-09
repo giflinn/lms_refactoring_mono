@@ -30,6 +30,9 @@ web/backend/firebase-service-account*.json
 # Uploaded user content (avatars, etc.)
 web/backend/uploads/
 
+# Local DB backups
+backups/
+
 # pm2
 .pm2/
 logs/

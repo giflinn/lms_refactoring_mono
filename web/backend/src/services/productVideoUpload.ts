@@ -9,7 +9,7 @@ import multer from "multer";
 //
 // 50 MB ceiling matches the LMS media upload — short loops / promo clips, not
 // long-form. Anything bigger should be hosted externally and pasted as a
-// YouTube link instead (cheaper for the t2.micro disk and gets us a free
+// YouTube link instead (cheaper for the prod VPS disk and gets us a free
 // CDN).
 
 export const PRODUCT_VIDEO_DIR = path.resolve(
