@@ -12,7 +12,20 @@
           "package_name": "kz.zhannaslyamova.lms"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "878249547590-t5bmuuleuisptmmces7jf8kgs5i947cj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "kz.zhannaslyamova.lms",
+            "certificate_hash": "86972ef2da90c5351dd69edbdb8af2ed8151608f"
+          }
+        },
+        {
+          "client_id": "878249547590-t3d536fmsuevhmgbvm9svno8nc4kgouf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDijjosA17dkyr8V-gUCigNH8qsH1IpE9M"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "878249547590-t3d536fmsuevhmgbvm9svno8nc4kgouf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "878249547590-5nt4vf1hge4ftl8v6s28j5r4t6gvs1jv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "kz.zhannaslyamova.lms"
+              }
+            }
+          ]
         }
       }
     }
