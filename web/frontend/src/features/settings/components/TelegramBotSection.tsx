@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { Check, Copy, RefreshCw } from "lucide-react";
+import { Check, Copy, HelpCircle, RefreshCw } from "lucide-react";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import {
@@ -140,23 +140,10 @@ export function TelegramBotSection() {
         )}
 
         {editing && (
-          <div className="flex flex-col gap-3">
-            <Input
-              label="Bot token (от @BotFather)"
-              fullWidth
-              value={draftToken}
-              type="password"
-              autoFocus
-              placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-              onChange={(e) => setDraftToken(e.target.value)}
-            />
-            <p className="text-grey-medium text-[12px] leading-tight">
-              Создайте бота через @BotFather (команда{" "}
-              <code className="font-mono">/newbot</code>) и вставьте сюда
-              полученный HTTP API token. Он будет отправлен только на наш
-              сервер и сохранится в зашифрованном виде в DB.
-            </p>
-          </div>
+          <TokenField
+            value={draftToken}
+            onChange={setDraftToken}
+          />
         )}
 
         <div className="flex items-center gap-2">
@@ -249,27 +236,74 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+function TokenField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const [helpOpen, setHelpOpen] = useState(false);
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5 py-1">
+        <span className="text-[14px] font-medium text-grey-dark">
+          Bot token
+        </span>
+        <button
+          type="button"
+          onClick={() => setHelpOpen((v) => !v)}
+          aria-label="Как получить токен"
+          aria-expanded={helpOpen}
+          className={clsx(
+            "flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full transition-colors",
+            helpOpen
+              ? "text-purple-primary"
+              : "text-grey-medium hover:text-grey-dark",
+          )}
+        >
+          <HelpCircle size={15} strokeWidth={1.6} />
+        </button>
+      </div>
+      {helpOpen && (
+        <div className="rounded-[8px] border border-[rgba(102,112,133,0.2)] bg-grey-lighter px-3 py-2 text-[12px] leading-snug text-grey-dark">
+          Создайте бота в{" "}
+          <a
+            href="https://t.me/BotFather"
+            target="_blank"
+            rel="noreferrer"
+            className="text-purple-primary underline"
+          >
+            @BotFather
+          </a>{" "}
+          (команда <code className="font-mono">/newbot</code>) и вставьте
+          полученный HTTP API token. Он сохраняется в зашифрованном виде
+          и не передаётся третьим лицам.
+        </div>
+      )}
+      <Input
+        label=""
+        fullWidth
+        value={value}
+        type="password"
+        autoFocus
+        placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
 function StatusBanner(props: {
   status: BotStatus;
   statusMessage: string | null;
   backendPublicUrlConfigured: boolean;
 }) {
   const { status, statusMessage, backendPublicUrlConfigured } = props;
+  // Don't show a banner for the "no token yet" state — the input field
+  // below is the call to action, the banner only added visual noise.
   if (status === "no_token" || status === "uninitialised") {
-    return (
-      <Banner tone="neutral">
-        Бот не настроен. Создайте бота в{" "}
-        <a
-          href="https://t.me/BotFather"
-          target="_blank"
-          rel="noreferrer"
-          className="underline"
-        >
-          @BotFather
-        </a>{" "}
-        и вставьте токен ниже.
-      </Banner>
-    );
+    return null;
   }
   if (status === "no_public_url") {
     return (

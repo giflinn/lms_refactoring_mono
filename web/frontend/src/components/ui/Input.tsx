@@ -5,6 +5,7 @@ import eyeOpen from "../../assets/eye_open.png";
 import eyeClosed from "../../assets/eye_closed.png";
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  // Empty string ⇒ no label is rendered (caller draws its own header row).
   label: string;
   error?: string;
   type?: "text" | "email" | "password" | "date";
@@ -30,9 +31,11 @@ export function Input({
 
   return (
     <label className={clsx("flex flex-col gap-1", fullWidth ? "w-full" : "w-[300px]")}>
-      <span className="py-1 text-[14px] font-medium text-grey-dark">
-        {label}
-      </span>
+      {label && (
+        <span className="py-1 text-[14px] font-medium text-grey-dark">
+          {label}
+        </span>
+      )}
       <div
         className={clsx(
           "flex h-9 items-center gap-2 rounded-[8px] border px-3 transition-colors",
