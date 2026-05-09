@@ -50,19 +50,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDijjosA17dkyr8V-gUCigNH8qsH1IpE9M',
-    appId: '1:878249547590:android:e23205a0e87da77649f747',
-    messagingSenderId: '878249547590',
-    projectId: 'lms-zhs-prod',
-    storageBucket: 'lms-zhs-prod.firebasestorage.app',
+    apiKey: 'AIzaSyB_pydXJsgTM_aUc1SjKyK-i30y3x2RIR8',
+    appId: '1:649416314422:android:36b006405b34abcdfd9297',
+    messagingSenderId: '649416314422',
+    projectId: 'zhanna-slyamova-mobile',
+    storageBucket: 'zhanna-slyamova-mobile.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBPGE1Yls3dK2BkiEHlfpYBBw7AjPxrDUw',
-    appId: '1:878249547590:ios:0ed57395e3c60bcc49f747',
-    messagingSenderId: '878249547590',
-    projectId: 'lms-zhs-prod',
-    storageBucket: 'lms-zhs-prod.firebasestorage.app',
+    apiKey: 'AIzaSyDUqsLsqkyes85Vj915MoMGdYOhF1gQErY',
+    appId: '1:649416314422:ios:b23a6795c2849b89fd9297',
+    messagingSenderId: '649416314422',
+    projectId: 'zhanna-slyamova-mobile',
+    storageBucket: 'zhanna-slyamova-mobile.firebasestorage.app',
+    iosClientId: '649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7.apps.googleusercontent.com',
     iosBundleId: 'kz.zhannaslyamova.lms',
   );
 }

@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>878249547590-5nt4vf1hge4ftl8v6s28j5r4t6gvs1jv.apps.googleusercontent.com</string>
+	<string>649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.878249547590-5nt4vf1hge4ftl8v6s28j5r4t6gvs1jv</string>
+	<string>com.googleusercontent.apps.649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7</string>
 	<key>API_KEY</key>
-	<string>AIzaSyBPGE1Yls3dK2BkiEHlfpYBBw7AjPxrDUw</string>
+	<string>AIzaSyDUqsLsqkyes85Vj915MoMGdYOhF1gQErY</string>
 	<key>GCM_SENDER_ID</key>
-	<string>878249547590</string>
+	<string>649416314422</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>kz.zhannaslyamova.lms</string>
 	<key>PROJECT_ID</key>
-	<string>lms-zhs-prod</string>
+	<string>zhanna-slyamova-mobile</string>
 	<key>STORAGE_BUCKET</key>
-	<string>lms-zhs-prod.firebasestorage.app</string>
+	<string>zhanna-slyamova-mobile.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:878249547590:ios:0ed57395e3c60bcc49f747</string>
+	<string>1:649416314422:ios:b23a6795c2849b89fd9297</string>
 </dict>
 </plist>

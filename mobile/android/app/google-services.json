@@ -1,45 +1,37 @@
 {
   "project_info": {
-    "project_number": "878249547590",
-    "project_id": "lms-zhs-prod",
-    "storage_bucket": "lms-zhs-prod.firebasestorage.app"
+    "project_number": "649416314422",
+    "project_id": "zhanna-slyamova-mobile",
+    "storage_bucket": "zhanna-slyamova-mobile.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:878249547590:android:e23205a0e87da77649f747",
+        "mobilesdk_app_id": "1:649416314422:android:36b006405b34abcdfd9297",
         "android_client_info": {
           "package_name": "kz.zhannaslyamova.lms"
         }
       },
       "oauth_client": [
         {
-          "client_id": "878249547590-t5bmuuleuisptmmces7jf8kgs5i947cj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "kz.zhannaslyamova.lms",
-            "certificate_hash": "86972ef2da90c5351dd69edbdb8af2ed8151608f"
-          }
-        },
-        {
-          "client_id": "878249547590-t3d536fmsuevhmgbvm9svno8nc4kgouf.apps.googleusercontent.com",
+          "client_id": "649416314422-t2pvuachj9q1p38fpsrh78v9gmu53n7p.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDijjosA17dkyr8V-gUCigNH8qsH1IpE9M"
+          "current_key": "AIzaSyB_pydXJsgTM_aUc1SjKyK-i30y3x2RIR8"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "878249547590-t3d536fmsuevhmgbvm9svno8nc4kgouf.apps.googleusercontent.com",
+              "client_id": "649416314422-t2pvuachj9q1p38fpsrh78v9gmu53n7p.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "878249547590-5nt4vf1hge4ftl8v6s28j5r4t6gvs1jv.apps.googleusercontent.com",
+              "client_id": "649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "kz.zhannaslyamova.lms"
