@@ -4,13 +4,15 @@ import { TelegramBotSection } from "../components/TelegramBotSection";
 import { TelegramGroupsSection } from "../components/TelegramGroupsSection";
 import { ChatsSection } from "../components/ChatsSection";
 import { LmsCoursesSection } from "../../lms/components/LmsCoursesSection";
+import { LegalDocumentsSection } from "../../legal/components/LegalDocumentsSection";
 
-type TabId = "telegram" | "lms" | "chats";
+type TabId = "telegram" | "lms" | "chats" | "legal";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "telegram", label: "Telegram" },
   { id: "lms", label: "LMS" },
   { id: "chats", label: "Чаты" },
+  { id: "legal", label: "Документы" },
 ];
 
 export function SettingsPage() {
@@ -38,6 +40,11 @@ export function SettingsPage() {
       {active === "chats" && (
         <div className="flex flex-col gap-6">
           <ChatsSection />
+        </div>
+      )}
+      {active === "legal" && (
+        <div className="flex flex-col gap-6">
+          <LegalDocumentsSection />
         </div>
       )}
     </div>

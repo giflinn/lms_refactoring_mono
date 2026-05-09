@@ -16,6 +16,7 @@ import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/cabinet/presentation/pages/personal_data_page.dart';
 import '../../features/cabinet/presentation/pages/settings_page.dart';
 import '../../features/feedback/presentation/pages/feedback_page.dart';
+import '../../features/legal/presentation/pages/legal_document_page.dart';
 import '../../features/courses/presentation/pages/course_detail_page.dart';
 import '../../features/courses/presentation/pages/lesson_page.dart';
 import '../../features/clients/presentation/pages/client_detail_page.dart';
@@ -96,7 +97,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           if (user == null) {
             // Signed out: only auth routes are allowed.
-            if (_authRoutes.contains(loc)) return null;
+            // Exception: /legal/* must work pre-signin so the registration
+            // form's terms checkbox links can open the policies in-app.
+            if (_authRoutes.contains(loc) || loc.startsWith('/legal/')) {
+              return null;
+            }
             return '/login';
           }
           // Signed in: never linger on splash or auth screens.
@@ -198,6 +203,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/feedback',
         builder: (_, _) => const FeedbackPage(),
+      ),
+      GoRoute(
+        path: '/legal/:slug',
+        builder: (_, state) => LegalDocumentPage(
+          slug: state.pathParameters['slug']!,
+        ),
       ),
       GoRoute(
         path: '/client/notifications',

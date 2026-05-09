@@ -47,7 +47,7 @@ class SettingsPage extends ConsumerWidget {
                     _DrillItem(
                       iconAsset: 'assets/icons/settings/info.svg',
                       label: 'Про нас',
-                      onTap: () => _stub(context),
+                      onTap: () => context.push('/legal/about'),
                     ),
                     const SizedBox(height: 16),
                     _DrillItem(
@@ -71,7 +71,7 @@ class SettingsPage extends ConsumerWidget {
                     _DrillItem(
                       iconAsset: 'assets/icons/settings/shield.svg',
                       label: 'Конфиденциальность',
-                      onTap: () => _stub(context),
+                      onTap: () => context.push('/legal/privacy'),
                     ),
                   ],
                 ),

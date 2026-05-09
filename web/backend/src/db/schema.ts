@@ -1270,3 +1270,23 @@ export const feedback = pgTable(
     index("feedback_created_at_idx").on(t.createdAt),
   ],
 );
+
+// Static set of legal pages: about / privacy policy / terms of use / public
+// offer. Slugs are fixed (the admin can edit content but never adds new
+// records — the mobile app links by hard-coded slug). Content is the HTML
+// produced by the LMS TipTap editor; mobile renders it via flutter_html.
+export const legalDocuments = pgTable("legal_documents", {
+  // 'about' | 'privacy' | 'terms' | 'offer' — text PK so the four slugs are
+  // self-documenting and clients can request /legal/:slug verbatim.
+  slug: text("slug").primaryKey(),
+  title: text("title").notNull(),
+  contentHtml: text("content_html").notNull().default(""),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  // Last admin who saved a change. Nullable so the seed insert (no actor)
+  // doesn't need a fake user, and so a deleted admin doesn't break the row.
+  updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});

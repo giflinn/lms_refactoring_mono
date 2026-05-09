@@ -1,18 +1,17 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import '../design/tokens.dart';
 
-/// "Соглашаюсь с условиями оферты и политикой конфиденциальности" row with
-/// the orange-checked box from the design. The two phrases are tappable
-/// links to the legal docs.
+/// "Соглашаюсь с условиями использования, офертой и политикой
+/// конфиденциальности" row with the orange-checked box from the design.
+/// All three phrases are tappable links that open the corresponding
+/// `/legal/:slug` page in-app — avoiding the external-browser hop the
+/// previous implementation did via url_launcher.
 class TermsCheckboxRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   final String? errorText;
-
-  static const _offerUrl = 'https://slyamova.kz/oferta';
-  static const _privacyUrl = 'https://slyamova.kz/privacy';
 
   const TermsCheckboxRow({
     super.key,
@@ -21,13 +20,12 @@ class TermsCheckboxRow extends StatelessWidget {
     this.errorText,
   });
 
-  Future<void> _open(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final linkStyle = const TextStyle(
+      color: AppColors.yellowPrimary,
+      decoration: TextDecoration.underline,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -70,25 +68,26 @@ class TermsCheckboxRow extends StatelessWidget {
                     height: 1.4,
                   ),
                   children: [
-                    const TextSpan(text: 'Соглашаюсь с условиями '),
+                    const TextSpan(text: 'Соглашаюсь с '),
                     TextSpan(
-                      text: 'оферты',
-                      style: const TextStyle(
-                        color: AppColors.yellowPrimary,
-                        decoration: TextDecoration.underline,
-                      ),
+                      text: 'условиями использования',
+                      style: linkStyle,
                       recognizer: TapGestureRecognizer()
-                        ..onTap = () => _open(_offerUrl),
+                        ..onTap = () => _open(context, 'terms'),
+                    ),
+                    const TextSpan(text: ', '),
+                    TextSpan(
+                      text: 'офертой',
+                      style: linkStyle,
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () => _open(context, 'offer'),
                     ),
                     const TextSpan(text: ' и '),
                     TextSpan(
                       text: 'политикой конфиденциальности',
-                      style: const TextStyle(
-                        color: AppColors.yellowPrimary,
-                        decoration: TextDecoration.underline,
-                      ),
+                      style: linkStyle,
                       recognizer: TapGestureRecognizer()
-                        ..onTap = () => _open(_privacyUrl),
+                        ..onTap = () => _open(context, 'privacy'),
                     ),
                   ],
                 ),
@@ -106,5 +105,9 @@ class TermsCheckboxRow extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  void _open(BuildContext context, String slug) {
+    context.push('/legal/$slug');
   }
 }
