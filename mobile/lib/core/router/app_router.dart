@@ -15,6 +15,7 @@ import '../../features/catalog/domain/product.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/cabinet/presentation/pages/personal_data_page.dart';
 import '../../features/cabinet/presentation/pages/settings_page.dart';
+import '../../features/feedback/presentation/pages/feedback_page.dart';
 import '../../features/courses/presentation/pages/course_detail_page.dart';
 import '../../features/courses/presentation/pages/lesson_page.dart';
 import '../../features/clients/presentation/pages/client_detail_page.dart';
@@ -193,6 +194,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/settings',
         builder: (_, _) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: '/client/feedback',
+        builder: (_, _) => const FeedbackPage(),
       ),
       GoRoute(
         path: '/client/notifications',

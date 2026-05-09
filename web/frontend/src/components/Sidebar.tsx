@@ -5,12 +5,14 @@ import { Logo } from "./Logo";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/api";
 import { useUnreadCount } from "../features/chat/unreadHook";
+import { useFeedbackUnreadCount } from "../features/feedback/unreadHook";
 import IconHome from "../assets/icons/sidebar/home.svg?react";
 import IconReports from "../assets/icons/sidebar/reports.svg?react";
 import IconOrders from "../assets/icons/sidebar/orders.svg?react";
 import IconCancellations from "../assets/icons/sidebar/cancellations.svg?react";
 import IconNotifications from "../assets/icons/sidebar/notifications.svg?react";
 import IconChats from "../assets/icons/sidebar/chats.svg?react";
+import IconFeedback from "../assets/icons/sidebar/feedback.svg?react";
 import IconProducts from "../assets/icons/sidebar/products.svg?react";
 import IconManagers from "../assets/icons/sidebar/managers.svg?react";
 import IconClients from "../assets/icons/sidebar/clients.svg?react";
@@ -43,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/cancellations", label: "Отмены", Icon: IconCancellations },
   { to: "/notifications", label: "Нотификации", Icon: IconNotifications },
   { to: "/chats", label: "Чаты", Icon: IconChats },
+  { to: "/feedback", label: "Обратная связь", Icon: IconFeedback },
   { to: "/products", label: "Товары", Icon: IconProducts },
   { to: "/managers", label: "Менеджеры", Icon: IconManagers },
   { to: "/clients", label: "Клиенты", Icon: IconClients },
@@ -89,8 +92,12 @@ export function Sidebar() {
 
 function NavItemRow({ item }: { item: NavItem }) {
   const { Icon } = item;
-  const showBadge = item.to === "/chats";
-  const unread = useUnreadCount(showBadge);
+  const showChatBadge = item.to === "/chats";
+  const showFeedbackBadge = item.to === "/feedback";
+  const chatUnread = useUnreadCount(showChatBadge);
+  const feedbackUnread = useFeedbackUnreadCount(showFeedbackBadge);
+  const showBadge = showChatBadge || showFeedbackBadge;
+  const unread = showChatBadge ? chatUnread : feedbackUnread;
   return (
     <NavLink
       to={item.to}

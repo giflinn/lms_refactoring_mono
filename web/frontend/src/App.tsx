@@ -16,6 +16,7 @@ import { ChatsPage } from "./features/chat/pages/ChatsPage";
 import { NotificationsPage } from "./features/notifications/pages/NotificationsPage";
 import { OrdersPage } from "./features/orders/pages/OrdersPage";
 import { CancellationsPage } from "./features/cancellations/pages/CancellationsPage";
+import { FeedbackPage } from "./features/feedback/pages/FeedbackPage";
 import { SettingsPage } from "./features/settings/pages/SettingsPage";
 import { LmsCoursePage } from "./features/lms/pages/LmsCoursePage";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/cancellations" element={<CancellationsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/chats" element={<ChatsPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<ClientsPage />} />

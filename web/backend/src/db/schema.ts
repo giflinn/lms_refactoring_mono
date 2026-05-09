@@ -1213,3 +1213,60 @@ export const lmsLessons = pgTable(
     index("lms_lessons_module_id_sort_idx").on(t.moduleId, t.sortOrder),
   ],
 );
+
+// Client-submitted feedback messages from the mobile app. Staff process them
+// in the web admin "Обратная связь" inbox. manager_id is a snapshot of the
+// client's manager_id at submit time so reassigning a client's manager later
+// does not migrate historical messages (mirrors orders/cancellations).
+//
+// Status pipeline: new → in_progress → resolved. The sidebar badge counts
+// rows in 'new' under the actor's RBAC scope. read_at is set on the first
+// staff PATCH (audit only — does not affect the badge or pipeline).
+export const feedbackStatusEnum = pgEnum("feedback_status", [
+  "new",
+  "in_progress",
+  "resolved",
+]);
+
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    managerId: uuid("manager_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    status: feedbackStatusEnum("status").notNull().default("new"),
+    // Internal team note. Never surfaced to the client.
+    adminNote: text("admin_note"),
+    // Captured at submit time from the mobile client. Used for diagnosing
+    // version-specific issues; both nullable for forward-compat with new
+    // clients that don't send them.
+    clientPlatform: text("client_platform"),
+    clientAppVersion: text("client_app_version"),
+    // First-touch audit. Set by the first PATCH that mutates status or note.
+    readAt: timestamp("read_at", { withTimezone: true }),
+    readByUserId: uuid("read_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedByUserId: uuid("resolved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("feedback_client_id_idx").on(t.clientId),
+    index("feedback_manager_id_idx").on(t.managerId),
+    index("feedback_status_idx").on(t.status),
+    index("feedback_created_at_idx").on(t.createdAt),
+  ],
+);

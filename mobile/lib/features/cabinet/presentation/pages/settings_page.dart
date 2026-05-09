@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/design/tokens.dart';
@@ -58,7 +59,7 @@ class SettingsPage extends ConsumerWidget {
                     _DrillItem(
                       iconAsset: 'assets/icons/settings/mail.svg',
                       label: 'Обратная связь',
-                      onTap: () => _stub(context),
+                      onTap: () => context.push('/client/feedback'),
                     ),
                     const SizedBox(height: 16),
                     _DrillItem(
