@@ -624,9 +624,9 @@ export async function listMyReviews(input: {
 }
 
 // Staff list. Manager-role rows are scoped via JOIN on users.manager_id of
-// the review's client (live, not snapshot — see schema comment). Always
-// excludes 'deleted' status; admins who need an audit view get a separate
-// route in the future.
+// the review's client (live, not snapshot — see schema comment). The mobile
+// "Удалённые" tab passes status='deleted' to see audit rows; no status param
+// (per-client feed) returns every status including deleted.
 export async function listStaffReviews(input: {
   actorId: string;
   actorRole: StaffRole;
@@ -645,7 +645,7 @@ export async function listStaffReviews(input: {
   const page = Math.max(1, input.page);
   const pageSize = Math.min(50, Math.max(1, input.pageSize));
 
-  const conditions: SQL[] = [ne(productReviews.status, "deleted")];
+  const conditions: SQL[] = [];
 
   if (input.actorRole === "manager") {
     conditions.push(eq(reviewClientUsers.managerId, input.actorId));
@@ -655,7 +655,7 @@ export async function listStaffReviews(input: {
     // and admin who can filter across the full set.
     conditions.push(eq(reviewClientUsers.managerId, input.managerId));
   }
-  if (input.status && input.status !== "deleted") {
+  if (input.status) {
     conditions.push(eq(productReviews.status, input.status));
   }
   if (input.clientId) {
