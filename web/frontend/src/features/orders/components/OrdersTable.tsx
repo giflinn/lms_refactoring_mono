@@ -19,18 +19,17 @@ export function OrdersTable({ orders, onOpen }: Props) {
         </div>
         <div className="flex flex-1 items-center gap-4 px-4 py-3">
           <div className="w-[150px]">Дата</div>
-          <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
+          <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
             Клиент
           </div>
-          <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
+          <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
             Менеджер
           </div>
-          <div aria-hidden className="flex-1" />
           <div className="w-[110px]">Сумма</div>
           <div className="w-[100px]">Оплата</div>
-          <div className="w-[160px]">Статус</div>
+          <div className="w-[140px]">Статус</div>
           {/* CTA column has no header — matches managers/clients tables. */}
-          <div className="w-[140px]" aria-hidden />
+          <div className="w-[112px] shrink-0" aria-hidden />
         </div>
       </div>
       <div className="flex flex-col">
@@ -106,7 +105,7 @@ function OrderRow({
       </div>
       <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
         <div className="w-[150px]">{formatOrderDate(order.createdAt)}</div>
-        <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
+        <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
           <PersonCell
             firstName={order.client.firstName}
             lastName={order.client.lastName}
@@ -114,7 +113,7 @@ function OrderRow({
             avatarUrl={order.client.avatarUrl}
           />
         </div>
-        <div className="min-w-0 max-w-[320px] flex-1 basis-[240px]">
+        <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
           {order.manager ? (
             <PersonCell
               firstName={order.manager.firstName}
@@ -126,7 +125,6 @@ function OrderRow({
             <span className="text-grey-medium">—</span>
           )}
         </div>
-        <div aria-hidden className="flex-1" />
         <div className="w-[110px] font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
@@ -138,15 +136,15 @@ function OrderRow({
           />
           <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
         </div>
-        <div className="flex w-[160px] flex-col gap-1.5">
+        <div className="flex w-[140px] flex-col gap-1.5">
           <PaymentBadge status={order.paymentStatus} />
           <FulfillmentBadge status={order.fulfillmentStatus} />
         </div>
-        <div className="flex w-[140px]">
+        <div className="flex shrink-0">
           <button
             type="button"
             onClick={onOpen}
-            className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-4 py-2 text-[14px] font-medium text-[#0E131F] hover:bg-grey-lighter transition-colors"
+            className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-3 py-2 text-[14px] font-medium text-[#0E131F] hover:bg-grey-lighter transition-colors"
           >
             Просмотреть
           </button>
