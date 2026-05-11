@@ -34,6 +34,11 @@ export const config = {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_FROM,
+    // Override the TLS SNI / hostname used for cert validation. Needed on
+    // shared hosting where the SMTP server presents a wildcard cert for the
+    // hosting provider's domain (e.g. *.hoster.kz) instead of the mail
+    // domain itself.
+    tlsServername: process.env.SMTP_TLS_SERVERNAME,
   },
 
   // Public HTTPS URL the backend is reachable at, used to register the

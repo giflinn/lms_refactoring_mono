@@ -6,7 +6,7 @@ let transporter: Transporter | null = null;
 function getTransporter(): Transporter {
   if (transporter) return transporter;
 
-  const { host, port, user, pass } = config.smtp;
+  const { host, port, user, pass, tlsServername } = config.smtp;
   if (!host || !port || !user || !pass) {
     throw new Error(
       "SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in .env",
@@ -18,6 +18,7 @@ function getTransporter(): Transporter {
     port,
     secure: port === 465,
     auth: { user, pass },
+    ...(tlsServername ? { tls: { servername: tlsServername } } : {}),
   });
   return transporter;
 }
