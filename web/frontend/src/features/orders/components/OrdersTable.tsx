@@ -18,18 +18,18 @@ export function OrdersTable({ orders, onOpen }: Props) {
           № Заказа
         </div>
         <div className="flex flex-1 items-center gap-4 px-4 py-3">
-          <div className="w-[150px] shrink-0">Дата</div>
+          <div className="w-[150px]">Дата</div>
           <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
             Клиент
           </div>
           <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
             Менеджер
           </div>
-          <div className="w-[110px] shrink-0">Сумма</div>
-          <div className="w-[100px] shrink-0">Оплата</div>
-          <div className="w-[140px] shrink-0">Статус</div>
+          <div className="w-[110px]">Сумма</div>
+          <div className="w-[100px]">Оплата</div>
+          <div className="w-[140px]">Статус</div>
           {/* CTA column has no header — matches managers/clients tables. */}
-          <div className="w-[120px] shrink-0" aria-hidden />
+          <div className="w-[112px] shrink-0" aria-hidden />
         </div>
       </div>
       <div className="flex flex-col">
@@ -104,7 +104,7 @@ function OrderRow({
         {order.orderNumber}
       </div>
       <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
-        <div className="w-[150px] shrink-0">{formatOrderDate(order.createdAt)}</div>
+        <div className="w-[150px]">{formatOrderDate(order.createdAt)}</div>
         <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
           <PersonCell
             firstName={order.client.firstName}
@@ -125,10 +125,10 @@ function OrderRow({
             <span className="text-grey-medium">—</span>
           )}
         </div>
-        <div className="w-[110px] shrink-0 font-medium text-[#0E131F]">
+        <div className="w-[110px] font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
-        <div className="flex w-[100px] shrink-0 items-center gap-2">
+        <div className="flex w-[100px] items-center gap-2">
           <img
             src={kaspiIcon}
             alt="Kaspi"
@@ -136,11 +136,11 @@ function OrderRow({
           />
           <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
         </div>
-        <div className="flex w-[140px] shrink-0 flex-col gap-1.5">
+        <div className="flex w-[140px] flex-col gap-1.5">
           <PaymentBadge status={order.paymentStatus} />
           <FulfillmentBadge status={order.fulfillmentStatus} />
         </div>
-        <div className="flex w-[120px] shrink-0 justify-end">
+        <div className="flex shrink-0">
           <button
             type="button"
             onClick={onOpen}
