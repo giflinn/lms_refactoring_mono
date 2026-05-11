@@ -25,6 +25,7 @@ export type Client = {
   managerId: string | null;
   manager: ClientManagerSummary | null;
   deactivatedAt: string | null;
+  selfDeletedAt: string | null;
   createdAt: string;
 };
 

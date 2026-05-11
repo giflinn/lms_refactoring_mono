@@ -56,6 +56,13 @@ export const users = pgTable("users", {
   // Soft-delete marker for staff. When non-null the user is hidden from the
   // managers list, the resolveManagerId fallback, and is `disabled` in Firebase.
   deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+  // Soft-delete marker set when a client deletes their account from the mobile
+  // app (DELETE /me). Distinct from deactivatedAt — Firebase user stays
+  // enabled so the client can sign in again and tap "Restore". Backend gates
+  // all data access by `selfDeletedAt IS NULL`. On set, PII (firstName,
+  // lastName, phone, avatarUrl) is scrubbed and active telegram memberships
+  // are kicked; email + firebaseUid are kept to allow restore.
+  selfDeletedAt: timestamp("self_deleted_at", { withTimezone: true }),
   // Audit timestamp for legal/compliance: when user accepted the offer + privacy
   // policy. Nullable so existing seeded admins (who never saw the form) stay null.
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),

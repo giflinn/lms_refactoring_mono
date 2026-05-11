@@ -86,6 +86,30 @@ class AuthApi {
   /// Returns true if [code] matches an existing manager/senior_manager/admin.
   /// Swallows network errors — the form falls back to server-side validation
   /// on submit, this is just an optimistic UI check.
+  /// Soft-deletes the authenticated client's account. Server scrubs PII,
+  /// cancels future bookings, kicks from any Telegram chats. Idempotent —
+  /// repeated calls return 200.
+  Future<void> deleteAccount(String idToken) async {
+    final res = await _client.delete('/me', idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException(
+          'DELETE /me failed: ${res.statusCode} ${res.body}');
+    }
+  }
+
+  /// Clears the selfDeletedAt marker. Used after the user signs in again and
+  /// confirms "Восстановить аккаунт?". Returns the user row so the caller can
+  /// refresh authProvider in one roundtrip.
+  Future<AppUser> restoreAccount(String idToken) async {
+    final res = await _client.postJson('/auth/restore-me', idToken: idToken);
+    if (res.statusCode != 200) {
+      throw HttpException(
+          'POST /auth/restore-me failed: ${res.statusCode} ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
   Future<bool> isManagerCodeValid(String code) async {
     try {
       final res = await _client.get('/auth/manager-code-valid?code=$code');

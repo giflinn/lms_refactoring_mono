@@ -11,7 +11,9 @@ import '../../../../core/push_preference.dart';
 import '../../../../core/widgets/action_dialog.dart';
 import '../../../../core/widgets/gradient_background.dart';
 // Cross-feature import: settings owns the push on/off UI, chat owns the FCM
-// token plumbing. Single direction (cabinet → chat), no cycle.
+// token plumbing. Single direction (cabinet → chat), no cycle. And the auth
+// controller for the "Удалить аккаунт" action.
+import '../../../auth/presentation/controller/auth_controller.dart';
 import '../../../chat/data/push_service.dart';
 
 /// "Настройки" — client-side app preferences. The notifications row is wired
@@ -72,6 +74,10 @@ class SettingsPage extends ConsumerWidget {
                       iconAsset: 'assets/icons/settings/shield.svg',
                       label: 'Конфиденциальность',
                       onTap: () => context.push('/legal/privacy'),
+                    ),
+                    const SizedBox(height: 24),
+                    _DeleteAccountItem(
+                      onTap: () => _onDeleteAccountPressed(context, ref),
                     ),
                   ],
                 ),
@@ -137,6 +143,90 @@ class SettingsPage extends ConsumerWidget {
       const SnackBar(
         content: Text('В разработке'),
         duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  static Future<void> _onDeleteAccountPressed(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (ctx) => ActionDialog(
+        icon: const Icon(
+          Icons.delete_outline,
+          size: 50,
+          color: AppColors.white,
+        ),
+        title: 'Удалить аккаунт?',
+        subtitle:
+            'Имя, телефон и аватар будут удалены. История заказов и отзывов сохранится анонимно. Вы сможете восстановить доступ позже, войдя тем же email.',
+        primaryLabel: 'Удалить',
+        secondaryLabel: 'Отмена',
+        secondaryLabelColor: AppColors.purpleTertiary,
+        onPrimary: () => Navigator.of(ctx).pop(true),
+        onSecondary: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+    try {
+      await ref.read(authProvider.notifier).deleteAccount();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось удалить аккаунт')),
+      );
+    }
+    // No manual navigation — deleteAccount → signOut clears authProvider, the
+    // router redirect carries the user to /login.
+  }
+}
+
+class _DeleteAccountItem extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _DeleteAccountItem({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.redError.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 24,
+                color: AppColors.redError,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Удалить аккаунт',
+                  style: TextStyle(
+                    color: AppColors.redError,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.redError,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -33,7 +33,12 @@ function makeGuard(allowed: readonly Role[]) {
     }
     try {
       const rows = await db
-        .select({ id: users.id, role: users.role, deactivatedAt: users.deactivatedAt })
+        .select({
+          id: users.id,
+          role: users.role,
+          deactivatedAt: users.deactivatedAt,
+          selfDeletedAt: users.selfDeletedAt,
+        })
         .from(users)
         .where(eq(users.firebaseUid, uid))
         .limit(1);
@@ -44,6 +49,13 @@ function makeGuard(allowed: readonly Role[]) {
       const row = rows[0];
       if (row.deactivatedAt) {
         res.status(403).json({ error: "account_deactivated" });
+        return;
+      }
+      // Self-deleted clients must call POST /auth/restore-me before they can
+      // use the rest of the API. /auth/sync and GET /me pass selfDeletedAt
+      // through in the user payload so the mobile app can show the prompt.
+      if (row.selfDeletedAt) {
+        res.status(403).json({ error: "account_self_deleted" });
         return;
       }
       if (!allowed.includes(row.role)) {

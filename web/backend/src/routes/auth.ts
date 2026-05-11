@@ -1,7 +1,12 @@
 import { Router } from "express";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { users } from "../db/schema";
+import {
+  coachBookings,
+  telegramGroups,
+  telegramMemberships,
+  users,
+} from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import {
   avatarUpload,
@@ -10,6 +15,7 @@ import {
   persistManagerAvatar,
 } from "../services/avatarUpload";
 import { pickManagerForRegistration } from "../services/managerAssignment";
+import { kickUser } from "../services/telegram/links";
 import {
   isValidEmail,
   isValidManagerCode,
@@ -67,6 +73,10 @@ function serializeUser(u: typeof users.$inferSelect) {
     avatarUrl: u.avatarUrl,
     clientCategory: u.clientCategory,
     birthDate: u.birthDate,
+    // Mobile checks selfDeletedAt to show the "Восстановить аккаунт?" prompt
+    // after a sign-in that lands on a self-deleted DB row. Null on normal
+    // accounts.
+    selfDeletedAt: u.selfDeletedAt,
     createdAt: u.createdAt,
   };
 }
@@ -220,18 +230,26 @@ authRouter.patch(
         patch.avatarUrl = await persistManagerAvatar(uid, req.file);
       }
 
+      // Block edits on self-deleted accounts — they must call
+      // /auth/restore-me first. Read the row once and reuse it for the
+      // no-op echo branch below.
+      const current = await db
+        .select()
+        .from(users)
+        .where(eq(users.firebaseUid, uid))
+        .limit(1);
+      if (current.length === 0) {
+        res.status(404).json({ error: "user_not_registered" });
+        return;
+      }
+      if (current[0].selfDeletedAt) {
+        res.status(403).json({ error: "account_self_deleted" });
+        return;
+      }
+
       // Nothing to change → just echo current state. Lets the mobile page
       // treat "save with no edits" as a no-op without a special branch.
       if (Object.keys(patch).length === 0) {
-        const current = await db
-          .select()
-          .from(users)
-          .where(eq(users.firebaseUid, uid))
-          .limit(1);
-        if (current.length === 0) {
-          res.status(404).json({ error: "user_not_registered" });
-          return;
-        }
         res.json({ user: serializeUser(current[0]) });
         return;
       }
@@ -241,10 +259,6 @@ authRouter.patch(
         .set(patch)
         .where(eq(users.firebaseUid, uid))
         .returning();
-      if (updated.length === 0) {
-        res.status(404).json({ error: "user_not_registered" });
-        return;
-      }
       res.json({ user: serializeUser(updated[0]) });
     } catch (err) {
       next(err);
@@ -269,6 +283,157 @@ authRouter.get("/me", requireAuth, async (req, res, next) => {
     }
 
     res.json({ user: serializeUser(result[0]) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /me — client self-service account deletion. Soft-delete: scrubs PII
+// (firstName/lastName/phone/avatarUrl/birthDate + telegram link), sets
+// selfDeletedAt, cancels future coach bookings, kicks the user from any
+// Telegram channels via the bot. firebaseUid and email are kept so the user
+// can sign in again and tap "Восстановить аккаунт" → POST /auth/restore-me.
+//
+// Required by Google Play (in-app account deletion). Staff users cannot
+// self-delete from here — they're managed via admin endpoints.
+authRouter.delete("/me", requireAuth, async (req, res, next) => {
+  try {
+    const uid = req.uid!;
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.firebaseUid, uid))
+      .limit(1);
+    if (!user) {
+      res.status(404).json({ error: "user_not_registered" });
+      return;
+    }
+    if (user.role !== "client") {
+      res.status(403).json({ error: "staff_cannot_self_delete" });
+      return;
+    }
+    // Idempotent — repeated call after a successful delete is a no-op.
+    if (user.selfDeletedAt) {
+      res.json({ ok: true });
+      return;
+    }
+
+    // Snapshot the membership rows + chat IDs we'll need to kick from after
+    // the transaction. The bot's banChatMember call talks to Telegram's API
+    // — we run it outside the DB transaction so a Telegram outage doesn't
+    // roll back the deletion.
+    const activeMemberships = await db
+      .select({
+        id: telegramMemberships.id,
+        chatId: telegramGroups.chatId,
+      })
+      .from(telegramMemberships)
+      .innerJoin(
+        telegramGroups,
+        eq(telegramGroups.id, telegramMemberships.telegramGroupId),
+      )
+      .where(
+        and(
+          eq(telegramMemberships.userId, user.id),
+          inArray(telegramMemberships.status, ["pending", "joined"]),
+        ),
+      );
+
+    const tgUserIdForKick =
+      user.telegramUserId !== null ? Number(user.telegramUserId) : null;
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set({
+          firstName: "",
+          lastName: "",
+          phone: null,
+          avatarUrl: null,
+          birthDate: null,
+          telegramUserId: null,
+          telegramUsername: null,
+          telegramFirstName: null,
+          telegramLinkedAt: null,
+          selfDeletedAt: now,
+        })
+        .where(eq(users.id, user.id));
+
+      // Free up future slot bookings. Past bookings stay 'active' so they
+      // remain in the manager's history view.
+      await tx
+        .update(coachBookings)
+        .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(coachBookings.clientId, user.id),
+            eq(coachBookings.status, "active"),
+            gt(coachBookings.endsAt, now),
+          ),
+        );
+
+      if (activeMemberships.length > 0) {
+        await tx
+          .update(telegramMemberships)
+          .set({ status: "kicked", kickedAt: now, updatedAt: now })
+          .where(
+            inArray(
+              telegramMemberships.id,
+              activeMemberships.map((m) => m.id),
+            ),
+          );
+      }
+    });
+
+    // Best-effort Telegram kick. kickUser swallows "user not in chat" cases
+    // and only logs hard failures.
+    if (tgUserIdForKick !== null && Number.isFinite(tgUserIdForKick)) {
+      for (const m of activeMemberships) {
+        await kickUser({
+          chatId: m.chatId,
+          telegramUserId: tgUserIdForKick,
+        });
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /auth/restore-me — undo a self-delete. The user signs in normally
+// (their Firebase account stays enabled across deletion), GET /me returns
+// selfDeletedAt non-null, mobile shows "Восстановить аккаунт?" → this clears
+// the marker. firstName/lastName/phone were scrubbed and stay empty — mobile
+// routes the restored user through the existing complete-profile page so
+// they re-enter them.
+authRouter.post("/auth/restore-me", requireAuth, async (req, res, next) => {
+  try {
+    const uid = req.uid!;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.firebaseUid, uid))
+      .limit(1);
+    if (!user) {
+      res.status(404).json({ error: "user_not_registered" });
+      return;
+    }
+    if (!user.selfDeletedAt) {
+      // Already active — return the row so the caller can proceed without a
+      // separate GET /me roundtrip.
+      res.json({ user: serializeUser(user) });
+      return;
+    }
+    const [restored] = await db
+      .update(users)
+      .set({ selfDeletedAt: null })
+      .where(eq(users.id, user.id))
+      .returning();
+    res.json({ user: serializeUser(restored) });
   } catch (err) {
     next(err);
   }

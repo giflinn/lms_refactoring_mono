@@ -204,6 +204,13 @@
       "when": 1778357006405,
       "tag": "0028_sharp_luckman",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1778512814448,
+      "tag": "0029_redundant_psylocke",
+      "breakpoints": true
     }
   ]
 }

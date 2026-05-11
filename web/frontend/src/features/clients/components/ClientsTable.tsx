@@ -106,13 +106,20 @@ function ClientRow({
   onReactivate: () => void;
   reactivating: boolean;
 }) {
+  const isSelfDeleted = client.selfDeletedAt !== null;
   const isDeactivated = client.deactivatedAt !== null;
+  const isDimmed = isSelfDeleted || isDeactivated;
+  const badge = isSelfDeleted
+    ? "Удалил аккаунт"
+    : isDeactivated
+      ? "Деактивирован"
+      : undefined;
   return (
     <div
       className={clsx(
         "flex items-center gap-6 border-b border-[#EAECF0] px-6 py-3",
         striped && "bg-grey-lighter",
-        isDeactivated && "opacity-60",
+        isDimmed && "opacity-60",
       )}
     >
       <div className="w-[280px]">
@@ -121,7 +128,7 @@ function ClientRow({
           lastName={client.lastName}
           email={client.email}
           avatarUrl={client.avatarUrl}
-          badge={isDeactivated ? "Деактивирован" : undefined}
+          badge={badge}
         />
       </div>
       <div className="w-[280px]">

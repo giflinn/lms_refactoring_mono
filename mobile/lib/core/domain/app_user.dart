@@ -22,6 +22,10 @@ class AppUser {
   final String? clientCategory;
   /// `YYYY-MM-DD` string from the DB `date` column, or null if unset.
   final String? birthDate;
+  /// Set when the user tapped "Удалить аккаунт" in settings. PII is scrubbed
+  /// in the DB at that point; the router uses this to bounce the user to the
+  /// "Восстановить аккаунт?" prompt instead of /home.
+  final DateTime? selfDeletedAt;
   final DateTime createdAt;
 
   const AppUser({
@@ -37,10 +41,12 @@ class AppUser {
     required this.avatarUrl,
     required this.clientCategory,
     required this.birthDate,
+    required this.selfDeletedAt,
     required this.createdAt,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
+    final selfDeletedRaw = json['selfDeletedAt'] as String?;
     return AppUser(
       id: json['id'] as String,
       firebaseUid: json['firebaseUid'] as String,
@@ -54,6 +60,8 @@ class AppUser {
       avatarUrl: json['avatarUrl'] as String?,
       clientCategory: json['clientCategory'] as String?,
       birthDate: json['birthDate'] as String?,
+      selfDeletedAt:
+          selfDeletedRaw == null ? null : parseServerTime(selfDeletedRaw),
       createdAt: parseServerTime(json['createdAt'] as String),
     );
   }

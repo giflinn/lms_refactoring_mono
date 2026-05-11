@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/forgot_password_email_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_new_pwd_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/restore_account_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/catalog/domain/product.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
@@ -104,8 +105,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             }
             return '/login';
           }
-          // Signed in: never linger on splash or auth screens.
-          if (loc == '/splash' || _authRoutes.contains(loc)) return '/home';
+          // Self-deleted clients are pinned to the restore prompt until they
+          // either tap "Восстановить" (clears selfDeletedAt → re-evaluates
+          // to /home) or "Выйти" (signs out → re-evaluates to /login).
+          if (user.selfDeletedAt != null) {
+            return loc == '/restore-account' ? null : '/restore-account';
+          }
+          // Signed in: never linger on splash, auth screens, or the restore
+          // prompt page.
+          if (loc == '/splash' ||
+              loc == '/restore-account' ||
+              _authRoutes.contains(loc)) {
+            return '/home';
+          }
           return null;
         },
       );
@@ -149,6 +161,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => CompleteProfilePage(
           profile: state.extra as PendingGoogleProfile,
         ),
+      ),
+      GoRoute(
+        path: '/restore-account',
+        builder: (_, _) => const RestoreAccountPage(),
       ),
       GoRoute(
         path: '/home',

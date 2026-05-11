@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "self_deleted_at" timestamp with time zone;

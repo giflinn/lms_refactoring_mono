@@ -58,6 +58,7 @@ function serialize(c: ClientRow, m: ManagerSummary | null) {
     managerId: c.managerId,
     manager: m,
     deactivatedAt: c.deactivatedAt,
+    selfDeletedAt: c.selfDeletedAt,
     createdAt: c.createdAt,
   };
 }
@@ -432,24 +433,29 @@ clientsRouter.post(
         res.status(403).json({ error: "forbidden" });
         return;
       }
-      if (!target.deactivatedAt) {
+      // Accepts both inactive states. For admin deletion (deactivatedAt) we
+      // also re-enable Firebase; for self-deletion (selfDeletedAt) Firebase
+      // was never disabled, so the update is just a flag clear.
+      if (!target.deactivatedAt && !target.selfDeletedAt) {
         res.status(409).json({ error: "not_deactivated" });
         return;
       }
 
       await db
         .update(users)
-        .set({ deactivatedAt: null })
+        .set({ deactivatedAt: null, selfDeletedAt: null })
         .where(eq(users.id, target.id));
 
-      try {
-        await firebaseAuth.updateUser(target.firebaseUid, { disabled: false });
-      } catch (fbErr) {
-        console.error(
-          "[clients] firebase enable failed for",
-          target.firebaseUid,
-          fbErr,
-        );
+      if (target.deactivatedAt) {
+        try {
+          await firebaseAuth.updateUser(target.firebaseUid, { disabled: false });
+        } catch (fbErr) {
+          console.error(
+            "[clients] firebase enable failed for",
+            target.firebaseUid,
+            fbErr,
+          );
+        }
       }
 
       const [{ client, manager }] = await db

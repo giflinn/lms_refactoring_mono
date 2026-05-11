@@ -291,6 +291,39 @@ class AuthController extends AsyncNotifier<AppUser?> {
     newPassword: newPassword,
   );
 
+  /// Soft-deletes the authenticated client account and signs out locally.
+  /// Server scrubs PII, cancels future bookings, kicks the user from any
+  /// paid Telegram chats. Firebase account stays enabled so the user can
+  /// later sign in and restore via [restoreAccount].
+  Future<void> deleteAccount() async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser == null) {
+      throw StateError('deleteAccount called without a signed-in Firebase user');
+    }
+    final token = await fbUser.getIdToken();
+    if (token == null) {
+      throw StateError('deleteAccount: getIdToken returned null');
+    }
+    await _api.deleteAccount(token);
+    await signOut();
+  }
+
+  /// Clears the selfDeletedAt marker after the user signs in and confirms
+  /// they want their account back. Updates [authProvider] with the restored
+  /// row so the router moves them off the prompt page.
+  Future<void> restoreAccount() async {
+    final fbUser = fb.FirebaseAuth.instance.currentUser;
+    if (fbUser == null) {
+      throw StateError('restoreAccount called without a signed-in Firebase user');
+    }
+    final token = await fbUser.getIdToken();
+    if (token == null) {
+      throw StateError('restoreAccount: getIdToken returned null');
+    }
+    final user = await _api.restoreAccount(token);
+    state = AsyncData(user);
+  }
+
   Future<void> signOut() async {
     try {
       await GoogleSignIn().signOut();
