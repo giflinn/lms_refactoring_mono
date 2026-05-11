@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "649416314422-5empqenfbck2udthjsm8rr8hb54a974n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "kz.zhannaslyamova.lms",
+            "certificate_hash": "aa8b6297298511227e176214266b146b70a0c2ed"
+          }
+        },
+        {
+          "client_id": "649416314422-h20u4kgn9anvr4363aj12cikt36qtggo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "kz.zhannaslyamova.lms",
+            "certificate_hash": "86972ef2da90c5351dd69edbdb8af2ed8151608f"
+          }
+        },
+        {
           "client_id": "649416314422-t2pvuachj9q1p38fpsrh78v9gmu53n7p.apps.googleusercontent.com",
           "client_type": 3
         }
