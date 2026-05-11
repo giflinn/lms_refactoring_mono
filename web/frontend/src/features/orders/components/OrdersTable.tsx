@@ -28,8 +28,11 @@ export function OrdersTable({ orders, onOpen }: Props) {
           <div className="w-[95px] shrink-0">Сумма</div>
           <div className="w-[90px] shrink-0">Оплата</div>
           <div className="w-[130px] shrink-0">Статус</div>
-          {/* CTA column has no header — matches managers/clients tables. */}
-          <div className="w-[112px] shrink-0" aria-hidden />
+          {/* CTA column has no header — matches managers/clients tables.
+              ml-auto pins it to the right edge once the flex-1 cells
+              (Клиент / Менеджер) hit their max-w; on narrow screens those
+              cells consume the slack and ml-auto becomes a no-op. */}
+          <div className="ml-auto w-[112px] shrink-0" aria-hidden />
         </div>
       </div>
       <div className="flex flex-col">
@@ -140,7 +143,7 @@ function OrderRow({
           <PaymentBadge status={order.paymentStatus} />
           <FulfillmentBadge status={order.fulfillmentStatus} />
         </div>
-        <div className="flex w-[112px] shrink-0 justify-end">
+        <div className="ml-auto flex w-[112px] shrink-0 justify-end">
           <button
             type="button"
             onClick={onOpen}
