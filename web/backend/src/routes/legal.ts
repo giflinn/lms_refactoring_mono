@@ -69,6 +69,65 @@ legalRouter.get("/legal/:slug", async (req, res, next) => {
   }
 });
 
+// Public HTML pages — Google Play and other stores require the privacy
+// policy URL to be reachable via a normal browser, not just from the app.
+// Nginx routes /api/* → backend stripping the prefix, so the external URL is
+// https://app.zhannaslyamova.net/api/<slug>. Pages are intentionally minimal
+// (no nav, no JS) so they remain reachable when the SPA bundle is offline.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function wrapLegalHtml(title: string, contentHtml: string): string {
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(title)}</title>
+<style>
+  body { max-width: 720px; margin: 0 auto; padding: 32px 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.55; color: #1f2937; }
+  h1 { font-size: 28px; margin: 0 0 16px; }
+  h2 { font-size: 19px; margin: 28px 0 10px; }
+  p, ul { margin: 10px 0; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  a { color: #5b21b6; }
+  em { color: #6b7280; font-style: italic; }
+</style>
+</head>
+<body>${contentHtml}</body>
+</html>`;
+}
+
+const PUBLIC_HTML_SLUGS = ["privacy", "terms", "offer", "about"] as const;
+for (const slug of PUBLIC_HTML_SLUGS) {
+  legalRouter.get(`/${slug}`, async (_req, res, next) => {
+    try {
+      const [row] = await db
+        .select({
+          title: legalDocuments.title,
+          contentHtml: legalDocuments.contentHtml,
+        })
+        .from(legalDocuments)
+        .where(eq(legalDocuments.slug, slug))
+        .limit(1);
+      if (!row) {
+        res.status(404).type("text/plain").send("Document not found");
+        return;
+      }
+      res.type("text/html; charset=utf-8").send(
+        wrapLegalHtml(row.title, row.contentHtml),
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+}
+
 // PATCH /legal/:slug — admin only. Body: { title?: string, contentHtml: string }
 legalRouter.patch(
   "/legal/:slug",
