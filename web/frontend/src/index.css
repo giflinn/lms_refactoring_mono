@@ -55,3 +55,57 @@ body {
 .lms-editor .ProseMirror-focused {
   outline: none;
 }
+
+/* Tailwind preflight zeroes out browser defaults for h1/h2/ul/ol/blockquote,
+   so without these rules the editor preview shows headings and lists as
+   plain 14px text. Sizes track admin typography (base 14, h1 22). */
+.lms-editor .ProseMirror > * + * {
+  margin-top: 0.6em;
+}
+.lms-editor .ProseMirror h1 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.lms-editor .ProseMirror h2 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.lms-editor .ProseMirror h3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.lms-editor .ProseMirror ul,
+.lms-editor .ProseMirror ol {
+  padding-inline-start: 1.5em;
+}
+.lms-editor .ProseMirror ul {
+  list-style: disc;
+}
+.lms-editor .ProseMirror ol {
+  list-style: decimal;
+}
+.lms-editor .ProseMirror li > p {
+  margin: 0;
+}
+.lms-editor .ProseMirror li + li {
+  margin-top: 0.25em;
+}
+.lms-editor .ProseMirror blockquote {
+  border-inline-start: 3px solid var(--color-purple-primary);
+  padding-inline-start: 0.9em;
+  color: var(--color-grey-medium);
+  font-style: italic;
+}
+.lms-editor .ProseMirror a {
+  color: var(--color-purple-primary);
+  text-decoration: underline;
+}
+.lms-editor .ProseMirror img,
+.lms-editor .ProseMirror video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
