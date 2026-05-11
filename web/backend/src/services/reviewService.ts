@@ -633,6 +633,7 @@ export async function listStaffReviews(input: {
   status?: ReviewStatus | null;
   q?: string | null;
   clientId?: string | null;
+  managerId?: string | null;
   page: number;
   pageSize: number;
 }): Promise<{
@@ -648,6 +649,11 @@ export async function listStaffReviews(input: {
 
   if (input.actorRole === "manager") {
     conditions.push(eq(reviewClientUsers.managerId, input.actorId));
+  } else if (input.managerId) {
+    // Plain managers already see only their own clients — ignore the param
+    // for them so the filter can't widen scope. Honoured for senior_manager
+    // and admin who can filter across the full set.
+    conditions.push(eq(reviewClientUsers.managerId, input.managerId));
   }
   if (input.status && input.status !== "deleted") {
     conditions.push(eq(productReviews.status, input.status));

@@ -27,6 +27,7 @@ export function useReviews(params: {
   pageSize: number;
   status?: ReviewStatus | null;
   clientId?: string | null;
+  managerId?: string | null;
 }) {
   return useQuery({
     queryKey: [REVIEWS_KEY, "list", params] as const,

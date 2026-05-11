@@ -231,6 +231,10 @@ reviewsRouter.get(
         typeof req.query.clientId === "string" && req.query.clientId
           ? req.query.clientId
           : null;
+      const managerId =
+        typeof req.query.managerId === "string" && req.query.managerId
+          ? req.query.managerId
+          : null;
       const page = Math.max(1, asNumber(req.query.page, 1));
       const pageSize = Math.min(
         50,
@@ -243,6 +247,7 @@ reviewsRouter.get(
         status,
         q,
         clientId,
+        managerId,
         page,
         pageSize,
       });

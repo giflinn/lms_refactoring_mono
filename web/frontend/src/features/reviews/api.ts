@@ -75,6 +75,7 @@ export async function listReviews(
     pageSize?: number;
     status?: ReviewStatus | null;
     clientId?: string | null;
+    managerId?: string | null;
   } = {},
 ): Promise<ReviewsList> {
   const usp = new URLSearchParams();
@@ -83,6 +84,7 @@ export async function listReviews(
   if (params.pageSize) usp.set("pageSize", String(params.pageSize));
   if (params.status) usp.set("status", params.status);
   if (params.clientId) usp.set("clientId", params.clientId);
+  if (params.managerId) usp.set("managerId", params.managerId);
   const qs = usp.toString();
   const path = qs ? `/reviews?${qs}` : "/reviews";
   const res = await apiClient.get(path, idToken);

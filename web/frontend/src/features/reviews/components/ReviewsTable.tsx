@@ -22,6 +22,7 @@ export function ReviewsTable({ reviews, onOpen }: Props) {
           <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
             Товар
           </div>
+          <div aria-hidden className="flex-1" />
           <div className="w-[110px]">Оценка</div>
           <div className="w-[150px]">Статус</div>
           <div className="w-[112px] shrink-0" aria-hidden />
@@ -83,6 +84,7 @@ function Row({
             {review.product.title}
           </p>
         </div>
+        <div aria-hidden className="flex-1" />
         <div className="w-[110px]">
           <StarRating rating={review.rating} />
         </div>

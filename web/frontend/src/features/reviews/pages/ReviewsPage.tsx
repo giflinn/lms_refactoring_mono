@@ -6,7 +6,9 @@ import { Pagination } from "../../../components/ui/Pagination";
 import { Select, type SelectOption } from "../../../components/ui/Select";
 import { Avatar } from "../../../components/Avatar";
 import { auth } from "../../../firebase";
+import { useAuth } from "../../../auth/AuthContext";
 import { listClients } from "../../clients/api";
+import { listManagers } from "../../managers/api";
 import { useReviews } from "../queries";
 import type { ReviewListItem, ReviewStatus } from "../api";
 import { ReviewsTable } from "../components/ReviewsTable";
@@ -33,10 +35,15 @@ function tabToStatus(tab: TabId): ReviewStatus | null {
 }
 
 export function ReviewsPage() {
+  const { user } = useAuth();
+  const isPlainManager = user?.role === "manager";
+  const showManagerFilter = !isPlainManager;
+
   const [tab, setTab] = useState<TabId>("all");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [clientFilter, setClientFilter] = useState<string | null>(null);
+  const [managerFilter, setManagerFilter] = useState<string | null>(null);
   const [drawerReview, setDrawerReview] = useState<ReviewListItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -48,6 +55,15 @@ export function ReviewsPage() {
       return res.clients;
     },
   });
+  const managersQuery = useQuery({
+    queryKey: ["reviews-managers-dropdown"] as const,
+    enabled: showManagerFilter,
+    queryFn: async () => {
+      const token = await getIdToken();
+      const res = await listManagers(token, { pageSize: 50 });
+      return res.managers;
+    },
+  });
 
   const list = useReviews({
     q,
@@ -55,6 +71,7 @@ export function ReviewsPage() {
     pageSize: PAGE_SIZE,
     status: tabToStatus(tab),
     clientId: clientFilter,
+    managerId: managerFilter,
   });
 
   const pageCount = useMemo(() => {
@@ -77,6 +94,22 @@ export function ReviewsPage() {
       ),
     }));
   }, [clientsQuery.data]);
+
+  const managerOptions = useMemo<SelectOption<string>[]>(() => {
+    return (managersQuery.data ?? []).map((m) => ({
+      value: m.id,
+      label: `${m.firstName} ${m.lastName}`.trim() || m.email,
+      leading: (
+        <Avatar
+          src={m.avatarUrl}
+          firstName={m.firstName}
+          lastName={m.lastName}
+          email={m.email}
+          size={28}
+        />
+      ),
+    }));
+  }, [managersQuery.data]);
 
   // When the list refetches (e.g. after moderate/reply), refresh the drawer's
   // snapshot from the fresh server data so replies show real author info.
@@ -129,6 +162,21 @@ export function ReviewsPage() {
             placeholder="Клиент"
           />
         </div>
+        {showManagerFilter && (
+          <div className="w-[200px]">
+            <Select<string>
+              value={managerFilter}
+              onChange={(v) => {
+                setManagerFilter(v);
+                setPage(1);
+              }}
+              options={managerOptions}
+              searchable
+              clearable
+              placeholder="Менеджер"
+            />
+          </div>
+        )}
       </div>
 
       {list.isError && (
