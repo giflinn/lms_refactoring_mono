@@ -15,6 +15,7 @@ import {
   listThreads,
   loadThreadDetail,
   totalUnreadCount,
+  unreadThreadsCount,
 } from "../services/chatRepo";
 import { loadThreadAccess } from "../services/chatAuthorization";
 import {
@@ -413,6 +414,30 @@ chatRouter.get(
       const actorId = req.actorId!;
       const actorRole = req.actorRole!;
       const count = await totalUnreadCount(actorId, {
+        managerOf: actorRole === "manager" ? actorId : null,
+        isStaffAdmin:
+          actorRole === "senior_manager" || actorRole === "admin",
+      });
+      res.json({ count });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /chat/unread-threads-count — distinct number of threads with unread
+// messages for the actor. Same scoping as /chat/unread-count, but the web
+// admin sidebar prefers reading "N chats need attention" rather than total
+// message count. Mobile still uses /chat/unread-count.
+chatRouter.get(
+  "/chat/unread-threads-count",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId!;
+      const actorRole = req.actorRole!;
+      const count = await unreadThreadsCount(actorId, {
         managerOf: actorRole === "manager" ? actorId : null,
         isStaffAdmin:
           actorRole === "senior_manager" || actorRole === "admin",

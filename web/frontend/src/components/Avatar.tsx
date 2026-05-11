@@ -36,7 +36,7 @@ export function Avatar({ src, firstName, lastName, email, size = 60, className }
         height={size}
         alt=""
         onError={() => setErrored(true)}
-        className={clsx("rounded-full object-cover", className)}
+        className={clsx("shrink-0 rounded-full object-cover", className)}
         style={{ width: size, height: size }}
       />
     );
@@ -45,7 +45,7 @@ export function Avatar({ src, firstName, lastName, email, size = 60, className }
   return (
     <div
       className={clsx(
-        "flex items-center justify-center rounded-full bg-purple-tertiary text-white font-semibold",
+        "flex shrink-0 items-center justify-center rounded-full bg-purple-tertiary text-white font-semibold",
         className,
       )}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}

@@ -453,6 +453,34 @@ ordersRouter.get(
   },
 );
 
+// GET /orders/new-count — count of orders currently in fulfillment 'new'
+// (freshly created, payment not yet decided). Drives the sidebar badge on
+// the web admin. Manager-scoped via the snapshot orders.manager_id, same
+// as the rest of the orders module. Registered before /orders/:id so the
+// static path wins the match.
+ordersRouter.get(
+  "/orders/new-count",
+  requireAuth,
+  requireStaff,
+  async (req, res, next) => {
+    try {
+      const actorId = req.actorId as string;
+      const actorRole = req.actorRole as StaffRole;
+      const scope = scopeFilter(actorId, actorRole);
+      const where = scope
+        ? and(eq(orders.fulfillmentStatus, "new"), scope)
+        : eq(orders.fulfillmentStatus, "new");
+      const [row] = await db
+        .select({ total: count() })
+        .from(orders)
+        .where(where);
+      res.json({ count: Number(row?.total ?? 0) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /orders/:id — full detail with items.
 ordersRouter.get(
   "/orders/:id",

@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/api";
 import { useUnreadCount } from "../features/chat/unreadHook";
 import { useFeedbackUnreadCount } from "../features/feedback/unreadHook";
+import { useNewOrdersCount } from "../features/orders/newCountHook";
 import IconHome from "../assets/icons/sidebar/home.svg?react";
 import IconReports from "../assets/icons/sidebar/reports.svg?react";
 import IconOrders from "../assets/icons/sidebar/orders.svg?react";
@@ -96,10 +97,16 @@ function NavItemRow({ item }: { item: NavItem }) {
   const { Icon } = item;
   const showChatBadge = item.to === "/chats";
   const showFeedbackBadge = item.to === "/feedback";
+  const showOrdersBadge = item.to === "/orders";
   const chatUnread = useUnreadCount(showChatBadge);
   const feedbackUnread = useFeedbackUnreadCount(showFeedbackBadge);
-  const showBadge = showChatBadge || showFeedbackBadge;
-  const unread = showChatBadge ? chatUnread : feedbackUnread;
+  const newOrders = useNewOrdersCount(showOrdersBadge);
+  const showBadge = showChatBadge || showFeedbackBadge || showOrdersBadge;
+  const unread = showChatBadge
+    ? chatUnread
+    : showFeedbackBadge
+      ? feedbackUnread
+      : newOrders;
   return (
     <NavLink
       to={item.to}

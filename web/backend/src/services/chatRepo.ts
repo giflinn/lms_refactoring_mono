@@ -413,6 +413,89 @@ export async function totalUnreadCount(
   return rows[0]?.count ?? 0;
 }
 
+// Same scoping rules as totalUnreadCount, but counts DISTINCT threads with
+// any unread message instead of summing message counts. Powers the web
+// admin sidebar badge, which the product prefers to read as "how many
+// chats need attention" rather than "how many unread messages exist".
+export async function unreadThreadsCount(
+  userId: string,
+  scope: { managerOf: string | null; isStaffAdmin: boolean },
+): Promise<number> {
+  if (scope.managerOf) {
+    const rows = await db
+      .select({
+        count: sql<number>`COUNT(DISTINCT ${chatMessages.threadId})::int`,
+      })
+      .from(chatMessages)
+      .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+      .innerJoin(users, eq(users.id, chatThreads.clientId))
+      .leftJoin(
+        chatReads,
+        and(
+          eq(chatReads.threadId, chatMessages.threadId),
+          eq(chatReads.userId, userId),
+        ),
+      )
+      .where(
+        and(
+          eq(users.managerId, scope.managerOf),
+          sql`${chatMessages.senderId} <> ${userId}`,
+          or(
+            isNull(chatReads.lastReadAt),
+            gt(chatMessages.createdAt, chatReads.lastReadAt),
+          )!,
+        ),
+      );
+    return rows[0]?.count ?? 0;
+  }
+  if (scope.isStaffAdmin) {
+    const rows = await db
+      .select({
+        count: sql<number>`COUNT(DISTINCT ${chatMessages.threadId})::int`,
+      })
+      .from(chatMessages)
+      .innerJoin(
+        chatReads,
+        and(
+          eq(chatReads.threadId, chatMessages.threadId),
+          eq(chatReads.userId, userId),
+        ),
+      )
+      .where(
+        and(
+          sql`${chatMessages.senderId} <> ${userId}`,
+          gt(chatMessages.createdAt, chatReads.lastReadAt),
+        ),
+      );
+    return rows[0]?.count ?? 0;
+  }
+  // Client: at most their own one thread.
+  const rows = await db
+    .select({
+      count: sql<number>`COUNT(DISTINCT ${chatMessages.threadId})::int`,
+    })
+    .from(chatMessages)
+    .innerJoin(chatThreads, eq(chatThreads.id, chatMessages.threadId))
+    .leftJoin(
+      chatReads,
+      and(
+        eq(chatReads.threadId, chatMessages.threadId),
+        eq(chatReads.userId, userId),
+      ),
+    )
+    .where(
+      and(
+        eq(chatThreads.clientId, userId),
+        sql`${chatMessages.senderId} <> ${userId}`,
+        or(
+          isNull(chatReads.lastReadAt),
+          gt(chatMessages.createdAt, chatReads.lastReadAt),
+        )!,
+      ),
+    );
+  return rows[0]?.count ?? 0;
+}
+
 export async function fetchMessages(
   threadId: string,
   before: Date | null,
