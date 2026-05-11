@@ -17,17 +17,17 @@ export function OrdersTable({ orders, onOpen }: Props) {
         <div className="w-[110px] shrink-0 border-r border-[#EAECF0] bg-[#F9F9F9] px-4 py-3">
           № Заказа
         </div>
-        <div className="flex flex-1 items-center gap-4 px-4 py-3">
-          <div className="w-[150px]">Дата</div>
-          <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
+        <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3">
+          <div className="w-[135px] shrink-0">Дата</div>
+          <div className="min-w-0 max-w-[260px] flex-1 basis-[180px]">
             Клиент
           </div>
-          <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
+          <div className="min-w-0 max-w-[260px] flex-1 basis-[180px]">
             Менеджер
           </div>
-          <div className="w-[110px]">Сумма</div>
-          <div className="w-[100px]">Оплата</div>
-          <div className="w-[140px]">Статус</div>
+          <div className="w-[95px] shrink-0">Сумма</div>
+          <div className="w-[90px] shrink-0">Оплата</div>
+          <div className="w-[130px] shrink-0">Статус</div>
           {/* CTA column has no header — matches managers/clients tables. */}
           <div className="w-[112px] shrink-0" aria-hidden />
         </div>
@@ -103,9 +103,9 @@ function OrderRow({
       <div className="flex w-[110px] shrink-0 items-center border-r border-[#EAECF0] bg-white px-4 text-[14px] font-medium text-[#0E131F]">
         {order.orderNumber}
       </div>
-      <div className="flex flex-1 items-center gap-4 px-4 py-3 text-[13px] text-grey-dark">
-        <div className="w-[150px]">{formatOrderDate(order.createdAt)}</div>
-        <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
+      <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-[13px] text-grey-dark">
+        <div className="w-[135px] shrink-0">{formatOrderDate(order.createdAt)}</div>
+        <div className="min-w-0 max-w-[260px] flex-1 basis-[180px]">
           <PersonCell
             firstName={order.client.firstName}
             lastName={order.client.lastName}
@@ -113,7 +113,7 @@ function OrderRow({
             avatarUrl={order.client.avatarUrl}
           />
         </div>
-        <div className="min-w-0 max-w-[320px] flex-1 basis-[200px]">
+        <div className="min-w-0 max-w-[260px] flex-1 basis-[180px]">
           {order.manager ? (
             <PersonCell
               firstName={order.manager.firstName}
@@ -125,10 +125,10 @@ function OrderRow({
             <span className="text-grey-medium">—</span>
           )}
         </div>
-        <div className="w-[110px] font-medium text-[#0E131F]">
+        <div className="w-[95px] shrink-0 font-medium text-[#0E131F]">
           {formatTenge(order.totalTenge)}
         </div>
-        <div className="flex w-[100px] items-center gap-2">
+        <div className="flex w-[90px] shrink-0 items-center gap-2">
           <img
             src={kaspiIcon}
             alt="Kaspi"
@@ -136,11 +136,11 @@ function OrderRow({
           />
           <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
         </div>
-        <div className="flex w-[140px] flex-col gap-1.5">
+        <div className="flex w-[130px] shrink-0 flex-col gap-1.5">
           <PaymentBadge status={order.paymentStatus} />
           <FulfillmentBadge status={order.fulfillmentStatus} />
         </div>
-        <div className="flex shrink-0">
+        <div className="flex w-[112px] shrink-0 justify-end">
           <button
             type="button"
             onClick={onOpen}
