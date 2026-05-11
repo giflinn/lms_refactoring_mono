@@ -76,9 +76,9 @@ class _BottomGradient extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Bottom-up purple gradient. Same colors the carousel card uses (so a
-    // detail navigated from the carousel feels visually continuous), tuned a
-    // touch shorter to leave the upper image area unobstructed.
+    // Same gradient the carousel card uses, so a detail navigated from the
+    // carousel feels visually continuous. Stops cover the bottom ~60% to
+    // match the carousel's content-area proportion.
     return const DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -86,9 +86,9 @@ class _BottomGradient extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             Color(0x002D033B),
-            Color(0xCC7B08A1),
+            Color(0xFF7B08A1),
           ],
-          stops: [0.55, 1.0],
+          stops: [0.4, 1.0],
         ),
       ),
     );
