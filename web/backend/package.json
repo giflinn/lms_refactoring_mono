@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "seed:admin": "tsx --env-file=.env scripts/seed-admin.ts"
+    "seed:admin": "tsx --env-file=.env scripts/seed-admin.ts",
+    "seed:catalog": "tsx --env-file=.env scripts/seed-catalog.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
