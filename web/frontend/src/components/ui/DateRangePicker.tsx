@@ -76,8 +76,18 @@ const PRESETS: Preset[] = [
   },
 ];
 
+// Approx. width of the dropdown (180px preset rail + ~520px for two months
+// of calendar + padding). Used only to pick the open side so a few px off is
+// fine — we never set this as the actual width.
+const DROPDOWN_WIDTH_PX = 720;
+
 export function DateRangePicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  // 'left' = dropdown's left edge sits on the trigger's left edge (extends
+  // rightward). 'right' = right edges aligned (extends leftward). Picked
+  // when opening based on viewport room, so triggers near the right edge
+  // (e.g. inside a drawer) don't clip off-screen.
+  const [openSide, setOpenSide] = useState<"left" | "right">("left");
   // Two-step selection: first click sets `from`, second click sets `to`.
   // Don't commit until both endpoints are picked, so consumer queries don't
   // refetch on the intermediate state.
@@ -90,6 +100,14 @@ export function DateRangePicker({ value, onChange }: Props) {
   useEffect(() => {
     setDraft({ from: value.from, to: value.to });
   }, [value.from, value.to]);
+
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const wouldClipRight =
+      rect.left + DROPDOWN_WIDTH_PX > window.innerWidth - 16;
+    setOpenSide(wouldClipRight ? "right" : "left");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -146,7 +164,12 @@ export function DateRangePicker({ value, onChange }: Props) {
         </span>
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 flex rounded-[12px] border border-[rgba(102,112,133,0.3)] bg-white shadow-[0_8px_24px_-4px_rgba(16,24,40,0.1)]">
+        <div
+          className={clsx(
+            "absolute top-full z-30 mt-1 flex rounded-[12px] border border-[rgba(102,112,133,0.3)] bg-white shadow-[0_8px_24px_-4px_rgba(16,24,40,0.1)]",
+            openSide === "left" ? "left-0" : "right-0",
+          )}
+        >
           <div className="flex w-[180px] flex-col gap-0.5 border-r border-[#EAECF0] py-2">
             {PRESETS.map((p) => (
               <button
