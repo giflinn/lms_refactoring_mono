@@ -113,6 +113,11 @@ async function fetchManagersRows(opts: {
   // Correlated subqueries for the three aggregates. Staff table is small (≤
   // tens of rows in practice) — avoiding GROUP BY keeps the query readable
   // without a meaningful perf hit.
+  //
+  // Note: the outer-scope reference is written as the literal `users.id`
+  // (not `${users.id}`). Drizzle's column interpolation emits a bare `"id"`,
+  // which inside the subquery's `FROM users c` / `FROM orders o` resolves to
+  // the *inner* table's id — silently zeroing every aggregate. Past incident.
   const rows = await db
     .select({
       id: users.id,
@@ -124,11 +129,11 @@ async function fetchManagersRows(opts: {
       role: users.role,
       clientsCount: sql<number>`(
         SELECT COUNT(*)::int FROM users c
-        WHERE c.manager_id = ${users.id} AND c.role = 'client'
+        WHERE c.manager_id = users.id AND c.role = 'client'
       ) AS clients_count`,
       salesTenge: sql<string>`COALESCE((
         SELECT SUM(o.total_tenge) FROM orders o
-        WHERE o.manager_id = ${users.id}
+        WHERE o.manager_id = users.id
           AND o.payment_status = 'paid'
           AND o.first_paid_at IS NOT NULL
           AND o.first_paid_at >= ${from}
@@ -136,7 +141,7 @@ async function fetchManagersRows(opts: {
       ), 0) AS sales_tenge`,
       refundsTenge: sql<string>`COALESCE((
         SELECT SUM(o.total_tenge) FROM orders o
-        WHERE o.manager_id = ${users.id}
+        WHERE o.manager_id = users.id
           AND o.payment_status = 'refunded'
           AND o.first_paid_at IS NOT NULL
           AND o.first_paid_at >= ${from}
