@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, Copy } from "lucide-react";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Modal } from "../../../components/ui/Modal";
 import { Input } from "../../../components/ui/Input";
+import { PhoneInput } from "../../../components/ui/PhoneInput";
 import { Textarea } from "../../../components/ui/Textarea";
 import { Toggle } from "../../../components/ui/Toggle";
 import { Button } from "../../../components/ui/Button";
@@ -83,6 +84,7 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
     setValue,
     setError,
     watch,
+    control,
     reset: resetForm,
     formState: { errors, isSubmitting },
   } = useForm<ManagerFormValues>({
@@ -284,12 +286,17 @@ export function ManagerDrawer({ open, manager, onClose }: Props) {
           {...register("lastName")}
           error={errors.lastName?.message}
         />
-        <Input
-          fullWidth
-          label="Номер телефона*"
-          placeholder="+7…"
-          {...register("phone")}
-          error={errors.phone?.message}
+        <Controller
+          name="phone"
+          control={control}
+          render={({ field, fieldState }) => (
+            <PhoneInput
+              label="Номер телефона*"
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
         />
         <Input
           fullWidth

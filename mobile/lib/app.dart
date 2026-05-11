@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phone_form_field/phone_form_field.dart';
 import 'core/design/tokens.dart';
 import 'core/domain/app_user.dart';
 import 'core/router/app_router.dart';
@@ -54,6 +56,19 @@ class _AppState extends ConsumerState<App> {
           },
         ),
       ),
+      // phone_form_field's bundled country selector + masks pull translated
+      // country names from PhoneFieldLocalization. Without these delegates the
+      // selector falls back to English and TextInputFormatter masks may misbehave.
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        ...PhoneFieldLocalization.delegates,
+      ],
+      supportedLocales: const [
+        Locale('ru'),
+        Locale('en'),
+      ],
       routerConfig: ref.watch(routerProvider),
     );
   }

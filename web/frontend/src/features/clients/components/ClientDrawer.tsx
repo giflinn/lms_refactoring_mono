@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import clsx from "clsx";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Input } from "../../../components/ui/Input";
+import { PhoneInput } from "../../../components/ui/PhoneInput";
 import { Textarea } from "../../../components/ui/Textarea";
 import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/Avatar";
@@ -52,6 +53,7 @@ export function ClientDrawer({ open, client, onClose }: Props) {
     setValue,
     setError,
     watch,
+    control,
     reset: resetForm,
     formState: { errors, isSubmitting },
   } = useForm<ClientFormValues>({
@@ -210,12 +212,17 @@ export function ClientDrawer({ open, client, onClose }: Props) {
                 {...register("birthDate")}
                 error={errors.birthDate?.message}
               />
-              <Input
-                fullWidth
-                label="Номер телефона*"
-                placeholder="+7…"
-                {...register("phone")}
-                error={errors.phone?.message}
+              <Controller
+                name="phone"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <PhoneInput
+                    label="Номер телефона*"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                  />
+                )}
               />
               <Textarea
                 label="Комментарий"

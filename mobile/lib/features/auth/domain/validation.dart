@@ -21,7 +21,7 @@ final _otpRe = RegExp(r'^\d{6}$');
 bool isValidOtp(String value) => _otpRe.hasMatch(value);
 
 // E.164 international format — mirror of backend `isValidPhone`. The mobile
-// `intl_phone_field` outputs phones in this canonical form.
+// `phone_form_field` outputs phones in this canonical form.
 final _phoneRe = RegExp(r'^\+\d{10,15}$');
 
 bool isValidPhone(String value) => _phoneRe.hasMatch(value);
