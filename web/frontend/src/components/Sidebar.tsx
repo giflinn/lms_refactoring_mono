@@ -13,6 +13,7 @@ import IconCancellations from "../assets/icons/sidebar/cancellations.svg?react";
 import IconNotifications from "../assets/icons/sidebar/notifications.svg?react";
 import IconChats from "../assets/icons/sidebar/chats.svg?react";
 import IconFeedback from "../assets/icons/sidebar/feedback.svg?react";
+import IconReviews from "../assets/icons/sidebar/reviews.svg?react";
 import IconProducts from "../assets/icons/sidebar/products.svg?react";
 import IconManagers from "../assets/icons/sidebar/managers.svg?react";
 import IconClients from "../assets/icons/sidebar/clients.svg?react";
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/notifications", label: "Нотификации", Icon: IconNotifications },
   { to: "/chats", label: "Чаты", Icon: IconChats },
   { to: "/feedback", label: "Обратная связь", Icon: IconFeedback },
+  { to: "/reviews", label: "Отзывы", Icon: IconReviews },
   { to: "/products", label: "Товары", Icon: IconProducts },
   { to: "/managers", label: "Менеджеры", Icon: IconManagers },
   { to: "/clients", label: "Клиенты", Icon: IconClients },

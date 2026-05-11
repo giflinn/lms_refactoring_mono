@@ -21,6 +21,7 @@ import { SettingsPage } from "./features/settings/pages/SettingsPage";
 import { LmsCoursePage } from "./features/lms/pages/LmsCoursePage";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { ReportsPage } from "./features/reports/pages/ReportsPage";
+import { ReviewsPage } from "./features/reviews/pages/ReviewsPage";
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/clients" element={<ClientsPage />} />
