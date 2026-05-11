@@ -103,6 +103,7 @@ export function ReviewsPage() {
           setTab(v);
           setPage(1);
         }}
+        className="self-start"
       />
 
       <div className="flex flex-wrap items-center gap-3">
