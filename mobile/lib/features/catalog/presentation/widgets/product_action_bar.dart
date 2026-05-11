@@ -13,7 +13,7 @@ import '../../domain/ru_dates.dart';
 /// Pinned bottom bar on the product detail page. Three CTA states:
 ///
 /// 1. "По запросу" (`product.price == null`) — terms hidden; CTA "Перейти в
-///    чат" routes to support (snackbar stub until chat lands).
+///    чат" pops the detail and switches the client shell to the chat tab.
 /// 2. Priced + not in cart — terms gate; CTA "В корзину" adds the product
 ///    and surfaces a "Continue / Go to cart" popup.
 /// 3. Priced + already in cart — terms hidden (the user already accepted on
@@ -133,7 +133,7 @@ class ProductActionBar extends ConsumerWidget {
               if (isOnRequest)
                 _CtaButton.filled(
                   label: 'Перейти в чат',
-                  onTap: () => _showChatStub(context),
+                  onTap: () => _onChatTap(context, ref),
                 )
               else if (inCart)
                 _CtaButton.outlined(
@@ -222,14 +222,9 @@ class ProductActionBar extends ConsumerWidget {
     }
   }
 
-  void _showChatStub(BuildContext context) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Чат скоро'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  void _onChatTap(BuildContext context, WidgetRef ref) {
+    ref.read(clientShellTabProvider.notifier).goTo(1);
+    context.pop();
   }
 }
 
