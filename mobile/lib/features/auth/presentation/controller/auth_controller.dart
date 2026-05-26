@@ -1,10 +1,6 @@
-import 'dart:convert';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../../core/domain/app_user.dart';
 import '../../../../core/log.dart';
 import '../../../cancellations/presentation/controller/staff_cancellations_controller.dart';
@@ -245,46 +241,36 @@ class AuthController extends AsyncNotifier<AppUser?> {
     );
   }
 
-  /// Apple sign-in flow (iOS only — `sign_in_with_apple` falls back to web on
-  /// Android, but we don't surface the button there).
+  /// Apple sign-in flow (iOS only — the button is gated by Platform.isIOS).
   ///
-  /// Apple returns `givenName` and `familyName` only on the **first** sign-in
-  /// for a given Apple ID + bundle pair. On repeat sign-ins both are null;
-  /// the CompleteProfilePage handles that by showing empty editable fields.
+  /// Uses Firebase's native [fb.AppleAuthProvider] via `signInWithProvider`,
+  /// which delegates to the iOS SDK's `ASAuthorizationController`. No
+  /// Service ID / private key configuration is needed on the Firebase side
+  /// for this path — Firebase Console marks those fields as "not required
+  /// for Apple" exactly because of this flow.
+  ///
+  /// Apple's name is exposed through Firebase as `displayName`, populated
+  /// only on the FIRST sign-in for a given Apple ID. On repeat sign-ins it
+  /// is null and the user fills the fields on CompleteProfilePage.
   Future<AppleSignInResult> signInWithApple() async {
-    // Nonce: send the SHA256-hashed nonce to Apple, pass the raw nonce to
-    // Firebase. Firebase verifies that the Apple identity token's `nonce`
-    // claim matches sha256(rawNonce) — prevents replay.
-    final rawNonce = _generateNonce();
-    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+    final provider = fb.AppleAuthProvider()
+      ..addScope('email')
+      ..addScope('name');
 
-    AuthorizationCredentialAppleID appleCred;
+    fb.UserCredential fbCred;
     try {
-      appleCred = await SignInWithApple.getAppleIDCredential(
-        scopes: const [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      );
-    } on SignInWithAppleAuthorizationException catch (e) {
-      if (e.code == AuthorizationErrorCode.canceled) {
+      fbCred = await fb.FirebaseAuth.instance.signInWithProvider(provider);
+    } on fb.FirebaseAuthException catch (e) {
+      // Cancelled from the system sheet (user tapped Cancel / dismissed
+      // Face ID). Firebase surfaces this differently across SDK versions —
+      // catch both known codes.
+      if (e.code == 'canceled' ||
+          e.code == 'cancelled' ||
+          e.code == 'web-context-cancelled') {
         return const AppleSignInCancelled();
       }
       rethrow;
     }
-
-    final idToken = appleCred.identityToken;
-    if (idToken == null) {
-      throw StateError('Apple did not return an identityToken');
-    }
-    final oauthCred = fb.OAuthProvider('apple.com').credential(
-      idToken: idToken,
-      rawNonce: rawNonce,
-    );
-    final fbCred = await fb.FirebaseAuth.instance.signInWithCredential(
-      oauthCred,
-    );
     final fbUser = fbCred.user!;
 
     final token = await fbUser.getIdToken();
@@ -296,15 +282,14 @@ class AuthController extends AsyncNotifier<AppUser?> {
       return const AppleSignInLoggedIn();
     }
 
-    // First-time names from Apple, falling back to whatever Firebase parsed
-    // from the identity token. `email` may be a private relay address if the
-    // user chose "Hide My Email" — that's fine, we store it verbatim.
-    final firstName = (appleCred.givenName ?? '').trim();
-    final lastName = (appleCred.familyName ?? '').trim();
+    final fullName = (fbUser.displayName ?? '').trim();
+    final parts = fullName.split(RegExp(r'\s+'));
+    final firstName = parts.isNotEmpty ? parts.first : '';
+    final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
     return AppleSignInNeedsProfile(
       PendingOAuthProfile(
-        email: fbUser.email ?? appleCred.email ?? '',
+        email: fbUser.email ?? '',
         firstName: firstName,
         lastName: lastName,
         photoUrl: null,
@@ -455,14 +440,4 @@ class AuthController extends AsyncNotifier<AppUser?> {
     ref.invalidate(chatSocketProvider);
     state = const AsyncData(null);
   }
-}
-
-String _generateNonce([int length = 32]) {
-  const charset =
-      '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._';
-  final random = Random.secure();
-  return List.generate(
-    length,
-    (_) => charset[random.nextInt(charset.length)],
-  ).join();
 }

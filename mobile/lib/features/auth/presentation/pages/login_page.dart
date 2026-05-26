@@ -57,13 +57,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     } catch (e, st) {
       logd('signInWithApple failed', e, st);
       if (!mounted) return;
-      final code = e is fb.FirebaseAuthException
-          ? '${e.code}${e.message != null ? ': ${e.message}' : ''}'
-          : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Apple sign-in error: $code'),
-          duration: const Duration(seconds: 10),
+        const SnackBar(
+          content: Text('Не удалось войти через Apple. Попробуйте позже.'),
         ),
       );
     }
