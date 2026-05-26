@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7.apps.googleusercontent.com</string>
+	<string>649416314422-9q1fr7ns4783r7550718ijhgkhkemrfj.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7</string>
+	<string>com.googleusercontent.apps.649416314422-9q1fr7ns4783r7550718ijhgkhkemrfj</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>649416314422-5empqenfbck2udthjsm8rr8hb54a974n.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyDUqsLsqkyes85Vj915MoMGdYOhF1gQErY</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>kz.zhannaslyamova.lms</string>
+	<string>kz.zhannaslyamova.lms.ios</string>
 	<key>PROJECT_ID</key>
 	<string>zhanna-slyamova-mobile</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:649416314422:ios:b23a6795c2849b89fd9297</string>
+	<string>1:649416314422:ios:0cdf46e56c7aa650fd9297</string>
 </dict>
 </plist>

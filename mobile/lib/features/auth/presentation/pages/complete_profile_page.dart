@@ -16,12 +16,13 @@ import '../controller/auth_controller.dart';
 import '../../../../core/widgets/labeled_text_field.dart';
 import '../../../../core/widgets/phone_field.dart';
 
-/// Shown after a successful Google sign-in for users who don't yet have a row
-/// in our DB. Asks for the few fields Google didn't give us (phone, manager
-/// code, terms acceptance). Name fields are prefilled from the Google profile
-/// but editable.
+/// Shown after a successful OAuth sign-in (Google or Apple) for users who
+/// don't yet have a row in our DB. Asks for the few fields the OAuth provider
+/// doesn't give us (phone, manager code, terms acceptance). Name fields are
+/// prefilled from the OAuth profile when available (always for Google; only
+/// the first time for Apple) but stay editable.
 class CompleteProfilePage extends ConsumerStatefulWidget {
-  final PendingGoogleProfile profile;
+  final PendingOAuthProfile profile;
 
   const CompleteProfilePage({super.key, required this.profile});
 
@@ -101,7 +102,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     setState(() => _submitting = true);
     try {
       final code = _managerCodeCtrl.text.trim();
-      await ref.read(authProvider.notifier).completeGoogleProfile(
+      await ref.read(authProvider.notifier).completeOAuthProfile(
             firstName: _firstNameCtrl.text.trim(),
             lastName: _lastNameCtrl.text.trim(),
             phone: _phone,
@@ -157,7 +158,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           style: TextStyle(color: AppColors.white),
         ),
         content: const Text(
-          'Без заполнения профиля вход через Google не будет завершён.',
+          'Без заполнения профиля вход не будет завершён.',
           style: TextStyle(color: AppColors.white),
         ),
         actions: [
@@ -173,7 +174,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       ),
     );
     if (result == true) {
-      await ref.read(authProvider.notifier).abandonGoogleSignUp();
+      await ref.read(authProvider.notifier).abandonOAuthSignUp();
       return true;
     }
     return false;
@@ -188,7 +189,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         final shouldExit = await _confirmExit();
         if (!context.mounted) return;
         if (shouldExit) {
-          // The user confirmed they want to abandon Google sign-up. The
+          // The user confirmed they want to abandon OAuth sign-up. The
           // controller revoked the firebase user, so authProvider will go to
           // null and the router redirect will land on /login.
           context.go('/login');
@@ -219,7 +220,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Несколько данных, которые Google не передал.',
+                    'Несколько данных, которые провайдер не передал.',
                     style: TextStyle(
                       color: AppColors.white.withValues(alpha: 0.8),
                       fontSize: 14,

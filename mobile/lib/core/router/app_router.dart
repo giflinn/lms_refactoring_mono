@@ -161,7 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/complete-profile',
         builder: (_, state) => CompleteProfilePage(
-          profile: state.extra as PendingGoogleProfile,
+          profile: state.extra as PendingOAuthProfile,
         ),
       ),
       GoRoute(

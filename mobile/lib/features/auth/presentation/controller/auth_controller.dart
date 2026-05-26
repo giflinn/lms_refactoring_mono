@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../../core/domain/app_user.dart';
 import '../../../../core/log.dart';
 import '../../../cancellations/presentation/controller/staff_cancellations_controller.dart';
@@ -53,12 +57,30 @@ class GoogleSignInLoggedIn extends GoogleSignInResult {
 }
 
 class GoogleSignInNeedsProfile extends GoogleSignInResult {
-  final PendingGoogleProfile profile;
+  final PendingOAuthProfile profile;
   const GoogleSignInNeedsProfile(this.profile);
 }
 
 class GoogleSignInCancelled extends GoogleSignInResult {
   const GoogleSignInCancelled();
+}
+
+/// Result of [AuthController.signInWithApple]. Mirrors [GoogleSignInResult].
+sealed class AppleSignInResult {
+  const AppleSignInResult();
+}
+
+class AppleSignInLoggedIn extends AppleSignInResult {
+  const AppleSignInLoggedIn();
+}
+
+class AppleSignInNeedsProfile extends AppleSignInResult {
+  final PendingOAuthProfile profile;
+  const AppleSignInNeedsProfile(this.profile);
+}
+
+class AppleSignInCancelled extends AppleSignInResult {
+  const AppleSignInCancelled();
 }
 
 class AuthController extends AsyncNotifier<AppUser?> {
@@ -214,18 +236,86 @@ class AuthController extends AsyncNotifier<AppUser?> {
     final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
     return GoogleSignInNeedsProfile(
-      PendingGoogleProfile(
+      PendingOAuthProfile(
         email: fbUser.email ?? googleUser.email,
         firstName: firstName,
         lastName: lastName,
-        googlePhotoUrl: fbUser.photoURL ?? googleUser.photoUrl,
+        photoUrl: fbUser.photoURL ?? googleUser.photoUrl,
       ),
     );
   }
 
-  /// Called from CompleteProfilePage after a Google sign-in. The Firebase user
-  /// already exists and is signed in; we just sync the profile to our DB.
-  Future<void> completeGoogleProfile({
+  /// Apple sign-in flow (iOS only — `sign_in_with_apple` falls back to web on
+  /// Android, but we don't surface the button there).
+  ///
+  /// Apple returns `givenName` and `familyName` only on the **first** sign-in
+  /// for a given Apple ID + bundle pair. On repeat sign-ins both are null;
+  /// the CompleteProfilePage handles that by showing empty editable fields.
+  Future<AppleSignInResult> signInWithApple() async {
+    // Nonce: send the SHA256-hashed nonce to Apple, pass the raw nonce to
+    // Firebase. Firebase verifies that the Apple identity token's `nonce`
+    // claim matches sha256(rawNonce) — prevents replay.
+    final rawNonce = _generateNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    AuthorizationCredentialAppleID appleCred;
+    try {
+      appleCred = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return const AppleSignInCancelled();
+      }
+      rethrow;
+    }
+
+    final idToken = appleCred.identityToken;
+    if (idToken == null) {
+      throw StateError('Apple did not return an identityToken');
+    }
+    final oauthCred = fb.OAuthProvider('apple.com').credential(
+      idToken: idToken,
+      rawNonce: rawNonce,
+    );
+    final fbCred = await fb.FirebaseAuth.instance.signInWithCredential(
+      oauthCred,
+    );
+    final fbUser = fbCred.user!;
+
+    final token = await fbUser.getIdToken();
+    if (token == null) throw StateError('Firebase user has no ID token');
+
+    final existing = await _api.fetchMe(token);
+    if (existing != null) {
+      state = AsyncData(existing);
+      return const AppleSignInLoggedIn();
+    }
+
+    // First-time names from Apple, falling back to whatever Firebase parsed
+    // from the identity token. `email` may be a private relay address if the
+    // user chose "Hide My Email" — that's fine, we store it verbatim.
+    final firstName = (appleCred.givenName ?? '').trim();
+    final lastName = (appleCred.familyName ?? '').trim();
+
+    return AppleSignInNeedsProfile(
+      PendingOAuthProfile(
+        email: fbUser.email ?? appleCred.email ?? '',
+        firstName: firstName,
+        lastName: lastName,
+        photoUrl: null,
+      ),
+    );
+  }
+
+  /// Called from CompleteProfilePage after an OAuth sign-in (Google or
+  /// Apple). The Firebase user already exists and is signed in; we just sync
+  /// the profile to our DB.
+  Future<void> completeOAuthProfile({
     required String firstName,
     required String lastName,
     required String phone,
@@ -256,21 +346,22 @@ class AuthController extends AsyncNotifier<AppUser?> {
     state = AsyncData(user);
   }
 
-  /// Cancel an in-progress Google sign-up (the user backed out of the
-  /// CompleteProfilePage). Removes the Firebase user so they can retry cleanly.
-  Future<void> abandonGoogleSignUp() async {
+  /// Cancel an in-progress OAuth sign-up (the user backed out of the
+  /// CompleteProfilePage). Removes the Firebase user so they can retry
+  /// cleanly. Google signOut is a no-op for Apple users.
+  Future<void> abandonOAuthSignUp() async {
     final fbUser = fb.FirebaseAuth.instance.currentUser;
     if (fbUser != null) {
       try {
         await fbUser.delete();
       } catch (e) {
-        logd('abandonGoogleSignUp: firebase user delete failed', e);
+        logd('abandonOAuthSignUp: firebase user delete failed', e);
       }
     }
     try {
       await GoogleSignIn().signOut();
     } catch (e) {
-      logd('abandonGoogleSignUp: google signOut failed', e);
+      logd('abandonOAuthSignUp: google signOut failed', e);
     }
     await fb.FirebaseAuth.instance.signOut();
   }
@@ -364,4 +455,14 @@ class AuthController extends AsyncNotifier<AppUser?> {
     ref.invalidate(chatSocketProvider);
     state = const AsyncData(null);
   }
+}
+
+String _generateNonce([int length = 32]) {
+  const charset =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._';
+  final random = Random.secure();
+  return List.generate(
+    length,
+    (_) => charset[random.nextInt(charset.length)],
+  ).join();
 }

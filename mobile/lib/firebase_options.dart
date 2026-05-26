@@ -59,11 +59,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDUqsLsqkyes85Vj915MoMGdYOhF1gQErY',
-    appId: '1:649416314422:ios:b23a6795c2849b89fd9297',
+    appId: '1:649416314422:ios:0cdf46e56c7aa650fd9297',
     messagingSenderId: '649416314422',
     projectId: 'zhanna-slyamova-mobile',
     storageBucket: 'zhanna-slyamova-mobile.firebasestorage.app',
-    iosClientId: '649416314422-nq7n7mtgbvcvc2b075d5urnbumqsogr7.apps.googleusercontent.com',
-    iosBundleId: 'kz.zhannaslyamova.lms',
+    iosClientId: '649416314422-9q1fr7ns4783r7550718ijhgkhkemrfj.apps.googleusercontent.com',
+    iosBundleId: 'kz.zhannaslyamova.lms.ios',
   );
 }

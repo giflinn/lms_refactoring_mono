@@ -1,4 +1,4 @@
-/// Submitted to /auth/sync on first sign-in (email or Google). After sync the
+/// Submitted to /auth/sync on first sign-in (email or OAuth). After sync the
 /// row exists in our DB and subsequent /auth/sync calls just echo it back.
 class RegistrationData {
   final String email;
@@ -29,22 +29,26 @@ class RegistrationData {
   });
 }
 
-/// State carried from a successful Google sign-in to the "complete profile"
-/// page. The Firebase user is already created and signed in; we just need
-/// the rest of the profile fields before calling /auth/sync.
-class PendingGoogleProfile {
+/// State carried from a successful OAuth sign-in (Google or Apple) to the
+/// "complete profile" page. The Firebase user is already created and signed
+/// in; we just need the rest of the profile fields before calling /auth/sync.
+///
+/// Apple only returns `givenName`/`familyName` on the FIRST sign-in. If a
+/// user has signed in with Apple before and we don't have their name, the
+/// fields will arrive empty — the user will fill them on this page.
+class PendingOAuthProfile {
   final String email;
   final String firstName;
   final String lastName;
 
-  /// Photo URL from the Google account. Not used for storage (we only persist
-  /// avatars uploaded to our backend), but we could prefetch & re-upload later.
-  final String? googlePhotoUrl;
+  /// Optional photo URL (Google provides it, Apple does not). Not used for
+  /// storage today — we only persist avatars uploaded to our backend.
+  final String? photoUrl;
 
-  const PendingGoogleProfile({
+  const PendingOAuthProfile({
     required this.email,
     required this.firstName,
     required this.lastName,
-    required this.googlePhotoUrl,
+    required this.photoUrl,
   });
 }

@@ -37,13 +37,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  void _showInDevelopmentSnackbar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('В разработке'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _signInWithApple() async {
+    // Mirror Google: drop focus so the keyboard doesn't linger across the
+    // route change to /complete-profile or /home.
+    FocusManager.instance.primaryFocus?.unfocus();
+    try {
+      final result = await ref.read(authProvider.notifier).signInWithApple();
+      if (!mounted) return;
+      switch (result) {
+        case AppleSignInLoggedIn():
+          // Router watches authProvider — redirect takes us to /home.
+          break;
+        case AppleSignInNeedsProfile(:final profile):
+          context.push('/complete-profile', extra: profile);
+        case AppleSignInCancelled():
+          // User cancelled the system Apple sheet — nothing to do.
+          break;
+      }
+    } catch (e, st) {
+      logd('signInWithApple failed', e, st);
+      if (!mounted) return;
+      final code = e is fb.FirebaseAuthException
+          ? '${e.code}${e.message != null ? ': ${e.message}' : ''}'
+          : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Apple sign-in error: $code'),
+          duration: const Duration(seconds: 10),
+        ),
+      );
+    }
   }
 
   Future<void> _signInWithGoogle() async {
@@ -241,7 +264,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     SocialButton(
                       icon: FontAwesomeIcons.apple,
                       label: 'Продолжить с Apple',
-                      onPressed: _showInDevelopmentSnackbar,
+                      onPressed: _signInWithApple,
                     ),
                   ],
                   const SizedBox(height: 24),
