@@ -10,6 +10,7 @@ import {
   createLesson,
   createModule,
   deleteLesson,
+  deleteLessonAttachment,
   deleteModule,
   getCourse,
   getLesson,
@@ -20,6 +21,7 @@ import {
   updateCourse,
   updateLesson,
   updateModule,
+  uploadLessonAttachment,
   uploadMedia,
   type LmsCourseInput,
   type LmsLessonFull,
@@ -249,5 +251,29 @@ export function useReorderLmsLessons(courseId: string) {
 export function useUploadLmsMedia() {
   return useMutation({
     mutationFn: async (file: File) => uploadMedia(await token(), file),
+  });
+}
+
+// ---------- Lesson attachments (PDF) ----------
+
+export function useUploadLessonAttachment(lessonId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) =>
+      uploadLessonAttachment(await token(), lessonId, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: lessonKey(lessonId) });
+    },
+  });
+}
+
+export function useDeleteLessonAttachment(lessonId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (attachmentId: string) =>
+      deleteLessonAttachment(await token(), attachmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: lessonKey(lessonId) });
+    },
   });
 }

@@ -51,8 +51,20 @@ export type LmsLessonSummary = {
   updatedAt: string;
 };
 
+export type LmsLessonAttachment = {
+  id: string;
+  lessonId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  urlPath: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
 export type LmsLessonFull = LmsLessonSummary & {
   contentHtml: string;
+  attachments: LmsLessonAttachment[];
 };
 
 export type LmsCourseDetail = {
@@ -269,4 +281,34 @@ export async function uploadMedia(
   const res = await apiClient.postFormData("/lms/media", fd, idToken);
   await ensureOk(res);
   return (await res.json()) as LmsMediaUploadResult;
+}
+
+// ---------- Lesson attachments (PDF) ----------
+
+export async function uploadLessonAttachment(
+  idToken: string,
+  lessonId: string,
+  file: File,
+): Promise<LmsLessonAttachment> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await apiClient.postFormData(
+    `/lms/lessons/${lessonId}/attachments`,
+    fd,
+    idToken,
+  );
+  await ensureOk(res);
+  const json = (await res.json()) as { attachment: LmsLessonAttachment };
+  return json.attachment;
+}
+
+export async function deleteLessonAttachment(
+  idToken: string,
+  attachmentId: string,
+): Promise<void> {
+  const res = await apiClient.delete(
+    `/lms/lesson-attachments/${attachmentId}`,
+    idToken,
+  );
+  await ensureOk(res);
 }

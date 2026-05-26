@@ -90,12 +90,41 @@ class CourseDetail {
   }
 }
 
+/// PDF material hung off a lesson. Rendered as a list under the HTML body
+/// and opened in a screenshot-protected fullscreen viewer when tapped.
+class LessonAttachment {
+  final String id;
+  final String fileName;
+  final String mimeType;
+  final int sizeBytes;
+  final String urlPath;
+
+  const LessonAttachment({
+    required this.id,
+    required this.fileName,
+    required this.mimeType,
+    required this.sizeBytes,
+    required this.urlPath,
+  });
+
+  factory LessonAttachment.fromJson(Map<String, dynamic> json) {
+    return LessonAttachment(
+      id: json['id'] as String,
+      fileName: json['fileName'] as String,
+      mimeType: json['mimeType'] as String,
+      sizeBytes: (json['sizeBytes'] as num).toInt(),
+      urlPath: json['urlPath'] as String,
+    );
+  }
+}
+
 class LessonContent {
   final String id;
   final String moduleId;
   final String courseId;
   final String title;
   final String contentHtml;
+  final List<LessonAttachment> attachments;
 
   const LessonContent({
     required this.id,
@@ -103,6 +132,7 @@ class LessonContent {
     required this.courseId,
     required this.title,
     required this.contentHtml,
+    required this.attachments,
   });
 
   factory LessonContent.fromJson(Map<String, dynamic> json) {
@@ -112,6 +142,12 @@ class LessonContent {
       courseId: json['courseId'] as String,
       title: json['title'] as String,
       contentHtml: json['contentHtml'] as String,
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map(
+                (e) => LessonAttachment.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          const [],
     );
   }
 }

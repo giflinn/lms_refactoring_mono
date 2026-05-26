@@ -47,7 +47,11 @@ import { AVATAR_DIR } from "./services/avatarUpload";
 import { PRODUCT_IMAGE_DIR } from "./services/productImageUpload";
 import { PRODUCT_VIDEO_DIR } from "./services/productVideoUpload";
 import { CHAT_DIR } from "./services/chatAttachments";
-import { LMS_COVER_DIR, LMS_MEDIA_DIR } from "./services/lmsUpload";
+import {
+  LMS_ATTACHMENT_DIR,
+  LMS_COVER_DIR,
+  LMS_MEDIA_DIR,
+} from "./services/lmsUpload";
 
 const app = express();
 
@@ -60,6 +64,7 @@ app.use("/product-videos", express.static(PRODUCT_VIDEO_DIR));
 app.use("/chat-files", express.static(CHAT_DIR));
 app.use("/lms-covers", express.static(LMS_COVER_DIR));
 app.use("/lms-media", express.static(LMS_MEDIA_DIR));
+app.use("/lms-attachments", express.static(LMS_ATTACHMENT_DIR));
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "lms-backend" });

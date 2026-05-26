@@ -8,6 +8,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   lmsCourses,
+  lmsLessonAttachments,
   lmsLessons,
   lmsModules,
   orderItems,
@@ -21,6 +22,7 @@ export const meLmsRouter = Router();
 
 type CourseRow = typeof lmsCourses.$inferSelect;
 type LessonRow = typeof lmsLessons.$inferSelect;
+type AttachmentRow = typeof lmsLessonAttachments.$inferSelect;
 
 // Returns true iff the actor owns at least one fulfilment_status='active' +
 // payment_status='paid' order_item linked (via product.lms_course_id) to the
@@ -203,8 +205,16 @@ meLmsRouter.get(
         res.status(404).json({ error: "lesson_not_found" });
         return;
       }
+      const attachments = await db
+        .select()
+        .from(lmsLessonAttachments)
+        .where(eq(lmsLessonAttachments.lessonId, row.lesson.id))
+        .orderBy(
+          asc(lmsLessonAttachments.sortOrder),
+          asc(lmsLessonAttachments.createdAt),
+        );
       res.json({
-        lesson: serializeLessonFull(row.lesson, row.courseId),
+        lesson: serializeLessonFull(row.lesson, row.courseId, attachments),
       });
     } catch (err) {
       next(err);
@@ -212,13 +222,25 @@ meLmsRouter.get(
   },
 );
 
-function serializeLessonFull(l: LessonRow, courseId: string) {
+function serializeLessonFull(
+  l: LessonRow,
+  courseId: string,
+  attachments: AttachmentRow[],
+) {
   return {
     id: l.id,
     moduleId: l.moduleId,
     courseId,
     title: l.title,
     contentHtml: l.contentHtml,
+    attachments: attachments.map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      urlPath: a.urlPath,
+      sortOrder: a.sortOrder,
+    })),
   };
 }
 

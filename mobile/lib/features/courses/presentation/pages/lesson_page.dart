@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/network/api_exceptions.dart' show NetworkException;
 import '../../../../core/widgets/gradient_background.dart';
+import '../../domain/course.dart';
 import '../controller/lesson_controller.dart';
+import '../widgets/lesson_attachments_section.dart';
 import '../widgets/lesson_html.dart';
 import '../widgets/screen_protected.dart';
 
@@ -20,6 +23,13 @@ class LessonPage extends ConsumerWidget {
     required this.courseId,
     required this.lessonId,
   });
+
+  void _openAttachment(BuildContext context, LessonAttachment a) {
+    context.push(
+      '/client/courses/$courseId/lessons/$lessonId/attachments/${a.id}',
+      extra: a,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -78,7 +88,8 @@ class LessonPage extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            if (lesson.contentHtml.isEmpty)
+                            if (lesson.contentHtml.isEmpty &&
+                                lesson.attachments.isEmpty)
                               const Text(
                                 'Контент пока не добавлен.',
                                 style: TextStyle(
@@ -86,8 +97,12 @@ class LessonPage extends ConsumerWidget {
                                   fontSize: 14,
                                 ),
                               )
-                            else
+                            else if (lesson.contentHtml.isNotEmpty)
                               LessonHtml(html: lesson.contentHtml),
+                            LessonAttachmentsSection(
+                              attachments: lesson.attachments,
+                              onTap: (a) => _openAttachment(context, a),
+                            ),
                           ],
                         ),
                       ),

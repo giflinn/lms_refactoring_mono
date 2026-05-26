@@ -18,8 +18,10 @@ import '../../features/cabinet/presentation/pages/personal_data_page.dart';
 import '../../features/cabinet/presentation/pages/settings_page.dart';
 import '../../features/feedback/presentation/pages/feedback_page.dart';
 import '../../features/legal/presentation/pages/legal_document_page.dart';
+import '../../features/courses/domain/course.dart';
 import '../../features/courses/presentation/pages/course_detail_page.dart';
 import '../../features/courses/presentation/pages/lesson_page.dart';
+import '../../features/courses/presentation/pages/protected_pdf_viewer_page.dart';
 import '../../features/clients/presentation/pages/client_detail_page.dart';
 import '../../features/clients/presentation/pages/client_purchases_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
@@ -254,6 +256,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               courseId: state.pathParameters['id']!,
               lessonId: state.pathParameters['lessonId']!,
             ),
+            routes: [
+              GoRoute(
+                path: 'attachments/:attachmentId',
+                builder: (_, state) => ProtectedPdfViewerPage(
+                  attachment: state.extra as LessonAttachment,
+                ),
+              ),
+            ],
           ),
         ],
       ),

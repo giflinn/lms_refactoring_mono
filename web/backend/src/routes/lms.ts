@@ -3,6 +3,7 @@ import { asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   lmsCourses,
+  lmsLessonAttachments,
   lmsLessons,
   lmsModules,
   products,
@@ -10,11 +11,14 @@ import {
 import { requireAuth } from "../middleware/auth";
 import { requireStaffAdmin } from "../middleware/requireRole";
 import {
+  deleteLmsAttachmentFile,
   deleteLmsCover,
   isMediaImage,
   isMediaVideo,
+  lmsAttachmentUpload,
   lmsCoverUpload,
   lmsMediaUpload,
+  persistLmsAttachment,
   persistLmsCover,
   persistLmsMedia,
 } from "../services/lmsUpload";
@@ -28,6 +32,7 @@ const HTML_MAX = 100_000;
 type CourseRow = typeof lmsCourses.$inferSelect;
 type ModuleRow = typeof lmsModules.$inferSelect;
 type LessonRow = typeof lmsLessons.$inferSelect;
+type AttachmentRow = typeof lmsLessonAttachments.$inferSelect;
 
 function serializeCourse(c: CourseRow, productsCount: number) {
   return {
@@ -65,8 +70,48 @@ function serializeLessonSummary(l: LessonRow) {
   };
 }
 
-function serializeLessonFull(l: LessonRow) {
-  return { ...serializeLessonSummary(l), contentHtml: l.contentHtml };
+function serializeAttachment(a: AttachmentRow) {
+  return {
+    id: a.id,
+    lessonId: a.lessonId,
+    fileName: a.fileName,
+    mimeType: a.mimeType,
+    sizeBytes: a.sizeBytes,
+    urlPath: a.urlPath,
+    sortOrder: a.sortOrder,
+    createdAt: a.createdAt,
+  };
+}
+
+function serializeLessonFull(l: LessonRow, attachments: AttachmentRow[]) {
+  return {
+    ...serializeLessonSummary(l),
+    contentHtml: l.contentHtml,
+    attachments: attachments.map(serializeAttachment),
+  };
+}
+
+async function loadLessonAttachments(
+  lessonId: string,
+): Promise<AttachmentRow[]> {
+  return db
+    .select()
+    .from(lmsLessonAttachments)
+    .where(eq(lmsLessonAttachments.lessonId, lessonId))
+    .orderBy(
+      asc(lmsLessonAttachments.sortOrder),
+      asc(lmsLessonAttachments.createdAt),
+    );
+}
+
+async function nextSortOrderForAttachments(lessonId: string): Promise<number> {
+  const rows = await db
+    .select({
+      max: sql<number | null>`max(${lmsLessonAttachments.sortOrder})`,
+    })
+    .from(lmsLessonAttachments)
+    .where(eq(lmsLessonAttachments.lessonId, lessonId));
+  return Number(rows[0]?.max ?? -1) + 1;
 }
 
 async function loadCourseProductsCount(
@@ -576,7 +621,7 @@ lmsRouter.post(
         .insert(lmsLessons)
         .values({ moduleId, title, contentHtml: html, sortOrder })
         .returning();
-      res.json({ lesson: serializeLessonFull(created) });
+      res.json({ lesson: serializeLessonFull(created, []) });
     } catch (err) {
       next(err);
     }
@@ -600,7 +645,8 @@ lmsRouter.get(
         res.status(404).json({ error: "lesson_not_found" });
         return;
       }
-      res.json({ lesson: serializeLessonFull(lesson) });
+      const attachments = await loadLessonAttachments(id);
+      res.json({ lesson: serializeLessonFull(lesson, attachments) });
     } catch (err) {
       next(err);
     }
@@ -653,7 +699,8 @@ lmsRouter.patch(
         .set(patch)
         .where(eq(lmsLessons.id, id))
         .returning();
-      res.json({ lesson: serializeLessonFull(updated) });
+      const attachments = await loadLessonAttachments(id);
+      res.json({ lesson: serializeLessonFull(updated, attachments) });
     } catch (err) {
       next(err);
     }
@@ -700,7 +747,9 @@ lmsRouter.patch(
   },
 );
 
-// DELETE /lms/lessons/:id
+// DELETE /lms/lessons/:id — also wipes attachment files from disk. The DB
+// rows cascade via FK; without this loop the binaries would orphan in
+// uploads/lms-attachments/.
 lmsRouter.delete(
   "/lms/lessons/:id",
   requireAuth,
@@ -708,11 +757,132 @@ lmsRouter.delete(
   async (req, res, next) => {
     try {
       const id = req.params.id;
+      const attachments = await loadLessonAttachments(id);
       const result = await db.delete(lmsLessons).where(eq(lmsLessons.id, id));
       if ((result.rowCount ?? 0) === 0) {
         res.status(404).json({ error: "lesson_not_found" });
         return;
       }
+      for (const a of attachments) {
+        await deleteLmsAttachmentFile(a.urlPath);
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---------- lesson attachments (PDF) ----------
+
+// POST /lms/lessons/:lessonId/attachments — multipart; field "file" required.
+// Returns the persisted attachment row so the admin UI can append it to the
+// list without a follow-up GET.
+lmsRouter.post(
+  "/lms/lessons/:lessonId/attachments",
+  requireAuth,
+  requireStaffAdmin,
+  lmsAttachmentUpload.single("file"),
+  async (req, res, next) => {
+    try {
+      const lessonId = req.params.lessonId;
+      const [lesson] = await db
+        .select({ id: lmsLessons.id })
+        .from(lmsLessons)
+        .where(eq(lmsLessons.id, lessonId))
+        .limit(1);
+      if (!lesson) {
+        res.status(404).json({ error: "lesson_not_found" });
+        return;
+      }
+      if (!req.file) {
+        res.status(400).json({ error: "file_required" });
+        return;
+      }
+      const persisted = await persistLmsAttachment(req.file);
+      const sortOrder = await nextSortOrderForAttachments(lessonId);
+      const [created] = await db
+        .insert(lmsLessonAttachments)
+        .values({
+          lessonId,
+          fileName: persisted.fileName,
+          mimeType: persisted.mimeType,
+          sizeBytes: persisted.sizeBytes,
+          urlPath: persisted.urlPath,
+          sortOrder,
+        })
+        .returning();
+      res.json({ attachment: serializeAttachment(created) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// DELETE /lms/lesson-attachments/:id — removes the row and the file on disk.
+// Not nested under /lms/lessons/:lessonId since the id is globally unique
+// and the UI already knows the lessonId from its local state for cache
+// invalidation.
+lmsRouter.delete(
+  "/lms/lesson-attachments/:id",
+  requireAuth,
+  requireStaffAdmin,
+  async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const [existing] = await db
+        .select()
+        .from(lmsLessonAttachments)
+        .where(eq(lmsLessonAttachments.id, id))
+        .limit(1);
+      if (!existing) {
+        res.status(404).json({ error: "attachment_not_found" });
+        return;
+      }
+      await db
+        .delete(lmsLessonAttachments)
+        .where(eq(lmsLessonAttachments.id, id));
+      await deleteLmsAttachmentFile(existing.urlPath);
+      res.json({ ok: true, lessonId: existing.lessonId });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PATCH /lms/lessons/:lessonId/attachments/order — body: {ids: string[]}
+lmsRouter.patch(
+  "/lms/lessons/:lessonId/attachments/order",
+  requireAuth,
+  requireStaffAdmin,
+  async (req, res, next) => {
+    try {
+      const lessonId = req.params.lessonId;
+      const body = req.body as Record<string, unknown>;
+      const ids = Array.isArray(body.ids) ? (body.ids as unknown[]) : null;
+      if (!ids || !ids.every((v): v is string => typeof v === "string")) {
+        res.status(400).json({ error: "invalid_ids" });
+        return;
+      }
+      const rows = await db
+        .select({ id: lmsLessonAttachments.id })
+        .from(lmsLessonAttachments)
+        .where(eq(lmsLessonAttachments.lessonId, lessonId));
+      const owned = new Set(rows.map((r) => r.id));
+      for (const id of ids) {
+        if (!owned.has(id)) {
+          res.status(400).json({ error: "attachment_not_in_lesson" });
+          return;
+        }
+      }
+      await db.transaction(async (tx) => {
+        for (let i = 0; i < ids.length; i++) {
+          await tx
+            .update(lmsLessonAttachments)
+            .set({ sortOrder: i })
+            .where(eq(lmsLessonAttachments.id, ids[i] as string));
+        }
+      });
       res.json({ ok: true });
     } catch (err) {
       next(err);

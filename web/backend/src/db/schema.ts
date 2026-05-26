@@ -1231,6 +1231,39 @@ export const lmsLessons = pgTable(
   ],
 );
 
+// PDF attachments hung off a lesson — separate from the inline HTML body so
+// they're listed as a distinct "Материалы" section on mobile and rendered in
+// a screenshot-protected full-screen viewer. We keep them in their own table
+// (not a JSON column on lessons) so admin can reorder and delete individual
+// files by id, and the mobile client can stream-download a single file with
+// a bearer header without parsing a blob.
+export const lmsLessonAttachments = pgTable(
+  "lms_lesson_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lmsLessons.id, { onDelete: "cascade" }),
+    // Original filename from the uploader, shown in the list ("Глава 1.pdf").
+    // Distinct from urlPath which is a uuid-named file on disk.
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // Path under /lms-attachments/<file>.
+    urlPath: text("url_path").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("lms_lesson_attachments_lesson_id_sort_idx").on(
+      t.lessonId,
+      t.sortOrder,
+    ),
+  ],
+);
+
 // Client-submitted feedback messages from the mobile app. Staff process them
 // in the web admin "Обратная связь" inbox. manager_id is a snapshot of the
 // client's manager_id at submit time so reassigning a client's manager later
