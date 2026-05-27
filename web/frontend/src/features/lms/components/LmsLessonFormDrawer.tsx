@@ -262,7 +262,7 @@ function AttachmentsSection({
                   ) : (
                     <div className="flex items-center gap-0.5">
                       <a
-                        href={`${import.meta.env.VITE_API_URL}/lms-attachments/${a.urlPath}`}
+                        href={`${import.meta.env.VITE_API_URL}${a.urlPath}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Открыть"
