@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/push_preference.dart';
@@ -18,9 +20,11 @@ import '../../../chat/data/push_service.dart';
 
 /// "Настройки" — client-side app preferences. The notifications row is wired
 /// (toggles registering/deleting the FCM token via [pushPreferenceProvider] +
-/// [pushServiceProvider]). All other rows surface "В разработке". The "Язык"
-/// row from the Figma is intentionally omitted — Russian-only per
-/// `mobile/CLAUDE.md`.
+/// [pushServiceProvider]). "Про нас" / "Обратная связь" / "Конфиденциальность"
+/// route to their respective pages; "Поделиться" opens the system share sheet
+/// with both store links; "Оценить приложение" tries the native in-app review
+/// overlay and falls back to opening the store page. The "Язык" row from the
+/// Figma is intentionally omitted — Russian-only per `mobile/CLAUDE.md`.
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -55,7 +59,7 @@ class SettingsPage extends ConsumerWidget {
                     _DrillItem(
                       iconAsset: 'assets/icons/settings/share.svg',
                       label: 'Поделиться',
-                      onTap: () => _stub(context),
+                      onTap: () => _onSharePressed(context),
                     ),
                     const SizedBox(height: 16),
                     _DrillItem(
@@ -67,7 +71,7 @@ class SettingsPage extends ConsumerWidget {
                     _DrillItem(
                       iconAsset: 'assets/icons/settings/star.svg',
                       label: 'Оценить приложение',
-                      onTap: () => _stub(context),
+                      onTap: () => _onRatePressed(),
                     ),
                     const SizedBox(height: 16),
                     _DrillItem(
@@ -138,13 +142,41 @@ class SettingsPage extends ConsumerWidget {
     }
   }
 
-  static void _stub(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('В разработке'),
-        duration: Duration(seconds: 1),
+  // Share text + both store URLs. App Store URL works after the iOS app goes
+  // public (the App ID is allocated when the App Store Connect entry is
+  // created); until then, tapping the link from iOS shows an "Item Not
+  // Available" page — acceptable as a temporary state. Android side is live.
+  static const _shareText =
+      'Приложение Жанны Слямовой — курсы, расписание занятий и поддержка коуча.\n\n'
+      'Google Play: https://play.google.com/store/apps/details?id=kz.zhannaslyamova.lms\n'
+      'App Store: https://apps.apple.com/app/id6773443347';
+
+  static Future<void> _onSharePressed(BuildContext context) async {
+    // iPad requires a source rect for the share popover; phones ignore it.
+    // Anchor to the tapped row's render box.
+    final box = context.findRenderObject() as RenderBox?;
+    await SharePlus.instance.share(
+      ShareParams(
+        text: _shareText,
+        sharePositionOrigin: box != null
+            ? box.localToGlobal(Offset.zero) & box.size
+            : null,
       ),
     );
+  }
+
+  // Native in-app review on iOS (SKStoreReviewController) and Android (Play
+  // Core). `isAvailable()` is true on iOS 10.3+ / supported Play installs;
+  // when the overlay can't show (sideloaded debug, TestFlight, pre-launch
+  // App Store), `requestReview()` silently no-ops — Apple/Google's design.
+  // openStoreListing is the manual fallback when the API itself is missing.
+  static Future<void> _onRatePressed() async {
+    final review = InAppReview.instance;
+    if (await review.isAvailable()) {
+      await review.requestReview();
+    } else {
+      await review.openStoreListing(appStoreId: '6773443347');
+    }
   }
 
   static Future<void> _onDeleteAccountPressed(
