@@ -10,17 +10,21 @@ async function main() {
     options: {
       email: { type: "string" },
       password: { type: "string" },
+      "first-name": { type: "string" },
+      "last-name": { type: "string" },
     },
   });
 
   if (!values.email) {
     console.error(
-      "Usage: npm run seed:reviewer -- --email=<email> [--password=<password>]",
+      "Usage: npm run seed:reviewer -- --email=<email> [--password=<pw>] [--first-name=<name>] [--last-name=<name>]",
     );
     process.exit(1);
   }
 
   const email = values.email;
+  const firstName = values["first-name"] ?? "Reviewer";
+  const lastName = values["last-name"] ?? "Account";
   const password =
     values.password ??
     crypto.randomBytes(9).toString("base64").replace(/[+/=]/g, "").slice(0, 12);
@@ -79,8 +83,8 @@ async function main() {
       .update(users)
       .set({
         role: "client",
-        firstName: "Google",
-        lastName: "Review",
+        firstName,
+        lastName,
         phone: "+77770000000",
         managerId,
         selfDeletedAt: null,
@@ -96,8 +100,8 @@ async function main() {
         firebaseUid,
         email,
         role: "client",
-        firstName: "Google",
-        lastName: "Review",
+        firstName,
+        lastName,
         phone: "+77770000000",
         managerId,
         termsAcceptedAt: new Date(),
@@ -107,10 +111,11 @@ async function main() {
   }
 
   console.log("\n──────────────────────────────────────────────");
-  console.log("Google Play Reviewer credentials");
+  console.log("Reviewer credentials");
   console.log("──────────────────────────────────────────────");
   console.log(`  email:    ${email}`);
   console.log(`  password: ${password}`);
+  console.log(`  name:     ${firstName} ${lastName}`);
   console.log("──────────────────────────────────────────────");
   process.exit(0);
 }
