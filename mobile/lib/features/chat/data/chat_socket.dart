@@ -116,6 +116,11 @@ class ChatSocket {
   String? get activeThreadId => _activeThreadId;
 
   Future<void> dispose() async {
+    // disconnect() synchronously stops socket.io's auto-reconnect loop;
+    // dispose() alone has been observed to let an in-flight reconnect carry
+    // the previous user's bearer token into the next session (see
+    // "non-authorized" after sign-out + sign-in without app restart).
+    _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
     await _messageNew.close();

@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/domain/app_user.dart';
 import '../../../../core/log.dart';
+import '../../../../core/network/api_provider.dart';
 import '../../../cancellations/presentation/controller/staff_cancellations_controller.dart';
 import '../../../catalog/presentation/controller/favorite_ids_controller.dart';
 import '../../../catalog/presentation/controller/favorite_products_controller.dart';
 import '../../../catalog/presentation/controller/home_controller.dart';
 import '../../../chat/data/chat_socket.dart';
+import '../../../chat/data/push_service.dart';
 import '../../../chat/presentation/controller/chat_controllers.dart';
 import '../../../clients/presentation/controller/clients_list_controller.dart';
 import '../../../notifications/presentation/controller/notifications_controllers.dart';
@@ -411,6 +413,15 @@ class AuthController extends AsyncNotifier<AppUser?> {
     // this session. Anything fetched with the previous user's ID token must
     // be invalidated; derived `Provider<bool>` flags (hasNewOrders, etc.)
     // refresh automatically when their source resets.
+    //
+    // Cross-cutting singletons first: apiClientProvider's onSessionRevoked
+    // closure captures `ref` for the user that built it; pushServiceProvider
+    // holds the last-known FCM token. Reset both so the next user gets clean
+    // instances. apiClientProvider being invalidated also cascades to
+    // chatSocketProvider (which watches it), forcing a fresh socket with the
+    // new user's bearer token.
+    ref.invalidate(apiClientProvider);
+    ref.invalidate(pushServiceProvider);
     ref.invalidate(favoriteIdsProvider);
     ref.invalidate(favoriteProductsProvider);
     ref.invalidate(homeCatalogProvider);

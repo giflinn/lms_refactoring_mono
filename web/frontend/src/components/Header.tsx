@@ -31,6 +31,8 @@ const ROUTE_TITLES: Record<string, string> = {
   "/managers": "Менеджеры",
   "/clients": "Клиенты",
   "/coach-calendar": "Календарь Коуча",
+  "/feedback": "Обратная связь",
+  "/reviews": "Отзывы",
   "/settings": "Настройки",
 };
 

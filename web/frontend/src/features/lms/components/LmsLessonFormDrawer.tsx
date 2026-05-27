@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FileText, Trash2 } from "lucide-react";
+import { Download, FileText, Trash2 } from "lucide-react";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -260,14 +260,25 @@ function AttachmentsSection({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPendingDelete(a.id)}
-                      title="Удалить"
-                      className="rounded p-1 text-grey-medium hover:bg-grey-light hover:text-red-error"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <a
+                        href={`${import.meta.env.VITE_API_URL}/lms-attachments/${a.urlPath}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Открыть"
+                        className="rounded p-1 text-grey-medium hover:bg-grey-light hover:text-purple-primary"
+                      >
+                        <Download size={14} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(a.id)}
+                        title="Удалить"
+                        className="rounded p-1 text-grey-medium hover:bg-grey-light hover:text-red-error"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
