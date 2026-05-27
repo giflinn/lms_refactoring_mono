@@ -1,3 +1,4 @@
+import path from "node:path";
 import { Router } from "express";
 import { asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
@@ -9,8 +10,10 @@ import {
   products,
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
-import { requireStaffAdmin } from "../middleware/requireRole";
+import { requireAnyRole, requireStaffAdmin } from "../middleware/requireRole";
+import { userOwnsCourse } from "../services/lmsAccess";
 import {
+  LMS_ATTACHMENT_DIR,
   deleteLmsAttachmentFile,
   deleteLmsCover,
   isMediaImage,
@@ -77,7 +80,10 @@ function serializeAttachment(a: AttachmentRow) {
     fileName: a.fileName,
     mimeType: a.mimeType,
     sizeBytes: a.sizeBytes,
-    urlPath: a.urlPath,
+    // Authenticated download endpoint (see GET /lms/lesson-attachments/:id/
+    // download below). The DB `a.urlPath` is the on-disk relative path —
+    // we never expose it to clients so the static mount can stay removed.
+    urlPath: `/lms/lesson-attachments/${a.id}/download`,
     sortOrder: a.sortOrder,
     createdAt: a.createdAt,
   };
@@ -884,6 +890,70 @@ lmsRouter.patch(
         }
       });
       res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /lms/lesson-attachments/:id/download — serve the file with role-aware
+// access control. Replaces the previous /lms-attachments/* express.static
+// mount, which served PDFs publicly to anyone with the uuid URL. Now:
+//   * admin / manager / senior_manager → always allowed
+//   * client → must own the parent course (paid + active order_item)
+//   * any other case → 404 (treat as not_found to avoid leaking existence)
+lmsRouter.get(
+  "/lms/lesson-attachments/:id/download",
+  requireAuth,
+  requireAnyRole,
+  async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const rows = await db
+        .select({
+          attachment: lmsLessonAttachments,
+          courseId: lmsModules.courseId,
+        })
+        .from(lmsLessonAttachments)
+        .innerJoin(lmsLessons, eq(lmsLessons.id, lmsLessonAttachments.lessonId))
+        .innerJoin(lmsModules, eq(lmsModules.id, lmsLessons.moduleId))
+        .where(eq(lmsLessonAttachments.id, id))
+        .limit(1);
+      if (rows.length === 0) {
+        res.status(404).json({ error: "attachment_not_found" });
+        return;
+      }
+      const { attachment, courseId } = rows[0];
+
+      if (req.actorRole === "client") {
+        const owns = await userOwnsCourse(req.actorId as string, courseId);
+        if (!owns) {
+          res.status(404).json({ error: "attachment_not_found" });
+          return;
+        }
+      }
+      // staff roles (admin / manager / senior_manager) pass through.
+
+      // attachment.urlPath is stored as "/lms-attachments/<uuid>.pdf" — strip
+      // the directory portion and rebuild against LMS_ATTACHMENT_DIR so we
+      // don't blindly trust whatever was persisted.
+      const filename = path.basename(attachment.urlPath);
+      const filePath = path.join(LMS_ATTACHMENT_DIR, filename);
+
+      // Filename* with RFC 5987 percent-encoding so Cyrillic survives.
+      const safeAscii = attachment.fileName.replace(
+        /[^a-zA-Z0-9.\-_]/g,
+        "_",
+      );
+      const encoded = encodeURIComponent(attachment.fileName);
+      res.setHeader("Content-Type", attachment.mimeType || "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${safeAscii}"; filename*=UTF-8''${encoded}`,
+      );
+      res.sendFile(filePath, (err) => {
+        if (err) next(err);
+      });
     } catch (err) {
       next(err);
     }

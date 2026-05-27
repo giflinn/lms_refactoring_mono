@@ -35,11 +35,11 @@ class CoursesApi {
   }
 
   /// Downloads a PDF attachment into the app's temporary directory and
-  /// returns the local path. The bearer token authorises the download (the
-  /// /lms-attachments/* static mount is unauthenticated by design — leaking
-  /// the URL is mitigated by the uuid-named file, but the *list* of urls is
-  /// only returned to clients who own the course). We cache by attachment
-  /// id so re-opening the same file doesn't re-download.
+  /// returns the local path. The bearer token authorises the download —
+  /// the server endpoint (GET /lms/lesson-attachments/:id/download) checks
+  /// that the client owns the parent course via a paid+active order, or is
+  /// staff. We cache by attachment id so re-opening the same file doesn't
+  /// re-download.
   Future<File> downloadAttachment({
     required String urlPath,
     required String attachmentId,

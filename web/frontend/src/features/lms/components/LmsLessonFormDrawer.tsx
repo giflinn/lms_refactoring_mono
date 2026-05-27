@@ -3,6 +3,7 @@ import { Download, FileText, Trash2 } from "lucide-react";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { auth } from "../../../firebase";
 import {
   LmsApiError,
   type LmsLessonAttachment,
@@ -211,6 +212,42 @@ function AttachmentsSection({
     }
   }
 
+  // The download endpoint requires a Firebase ID token, so we can't just put
+  // it in an <a href>. Open a tab synchronously (avoids the popup blocker)
+  // then navigate it to a blob URL once the bytes arrive.
+  async function onOpen(a: LmsLessonAttachment) {
+    setError(undefined);
+    const win = window.open("", "_blank");
+    if (!win) {
+      setError("Браузер заблокировал открытие. Разрешите popup для домена.");
+      return;
+    }
+    try {
+      const u = auth.currentUser;
+      if (!u) throw new Error("not_authenticated");
+      const idToken = await u.getIdToken();
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}${a.urlPath}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) {
+        win.close();
+        setError("Не удалось открыть файл.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      win.location.href = url;
+      // Revoke after 60s — the tab still has the bytes loaded by then. If
+      // the user later reloads the tab the URL is gone, but that's
+      // acceptable since the file is one click away.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      win.close();
+      setError("Не удалось открыть файл.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[12px] font-medium text-grey-medium">
@@ -261,15 +298,14 @@ function AttachmentsSection({
                     </div>
                   ) : (
                     <div className="flex items-center gap-0.5">
-                      <a
-                        href={`${import.meta.env.VITE_API_URL}${a.urlPath}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => onOpen(a)}
                         title="Открыть"
                         className="rounded p-1 text-grey-medium hover:bg-grey-light hover:text-purple-primary"
                       >
                         <Download size={14} />
-                      </a>
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPendingDelete(a.id)}

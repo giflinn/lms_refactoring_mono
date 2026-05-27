@@ -64,7 +64,10 @@ app.use("/product-videos", express.static(PRODUCT_VIDEO_DIR));
 app.use("/chat-files", express.static(CHAT_DIR));
 app.use("/lms-covers", express.static(LMS_COVER_DIR));
 app.use("/lms-media", express.static(LMS_MEDIA_DIR));
-app.use("/lms-attachments", express.static(LMS_ATTACHMENT_DIR));
+// /lms-attachments/* used to be a public static mount. Replaced with the
+// authenticated route GET /lms/lesson-attachments/:id/download (lms.ts) so
+// paid course PDFs aren't downloadable by URL alone. LMS_ATTACHMENT_DIR is
+// still imported because lms.ts reads files from it directly.
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "lms-backend" });

@@ -17,36 +17,13 @@ import {
 } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole } from "../middleware/requireRole";
+import { userOwnsCourse } from "../services/lmsAccess";
 
 export const meLmsRouter = Router();
 
 type CourseRow = typeof lmsCourses.$inferSelect;
 type LessonRow = typeof lmsLessons.$inferSelect;
 type AttachmentRow = typeof lmsLessonAttachments.$inferSelect;
-
-// Returns true iff the actor owns at least one fulfilment_status='active' +
-// payment_status='paid' order_item linked (via product.lms_course_id) to the
-// course. This is the access check for /me/courses/:id and /me/lessons/:id.
-async function userOwnsCourse(
-  userId: string,
-  courseId: string,
-): Promise<boolean> {
-  const rows = await db
-    .select({ id: orderItems.id })
-    .from(orderItems)
-    .innerJoin(orders, eq(orders.id, orderItems.orderId))
-    .innerJoin(products, eq(products.id, orderItems.productId))
-    .where(
-      and(
-        eq(orders.clientId, userId),
-        eq(orders.paymentStatus, "paid"),
-        eq(orders.fulfillmentStatus, "active"),
-        eq(products.lmsCourseId, courseId),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
 
 // GET /me/courses — список курсов, к которым у пользователя есть активный
 // доступ через order_items. Возвращает плоский список карточек.
@@ -238,7 +215,10 @@ function serializeLessonFull(
       fileName: a.fileName,
       mimeType: a.mimeType,
       sizeBytes: a.sizeBytes,
-      urlPath: a.urlPath,
+      // Authenticated download endpoint — see lms.ts. The actual file path on
+      // disk is hidden from clients; we look it up by attachment id when the
+      // download request lands.
+      urlPath: `/lms/lesson-attachments/${a.id}/download`,
       sortOrder: a.sortOrder,
     })),
   };
