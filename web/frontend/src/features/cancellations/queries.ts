@@ -58,7 +58,7 @@ export function useDecideCancellation() {
       comment: string | null;
     }) => {
       const token = await getIdToken();
-      await decideCancellation(token, vars.id, {
+      return decideCancellation(token, vars.id, {
         decision: vars.decision,
         comment: vars.comment,
       });

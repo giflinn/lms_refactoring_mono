@@ -72,8 +72,9 @@ class CancellationsApi {
 
   /// PATCH /cancellations/:id — apply staff decision. [decision] is one of
   /// `'approved'` / `'rejected'`. [comment] is optional and clamped server-
-  /// side to 1000 chars.
-  Future<void> decide({
+  /// side to 1000 chars. Returns the card-refund outcome of an approved
+  /// cancellation: 'refunded' | 'failed' | 'none'.
+  Future<String> decide({
     required String idToken,
     required String cancellationId,
     required CancellationStatus decision,
@@ -93,7 +94,10 @@ class CancellationsApi {
       idToken: idToken,
       body: body,
     );
-    if (res.statusCode == 200) return;
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return (json['refund'] as String?) ?? 'none';
+    }
     throw CancellationDecisionException(
       code: ApiClient.parseErrorCode(res.body),
       statusCode: res.statusCode,

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import clsx from "clsx";
+import { toast } from "sonner";
 import { Drawer } from "../../../components/ui/Drawer";
+import { Modal } from "../../../components/ui/Modal";
 import { Avatar } from "../../../components/Avatar";
 import { useCancellation, useDecideCancellation } from "../queries";
 import type { CancellationDecision, CancellationStatus } from "../api";
@@ -37,6 +39,9 @@ export function CancellationDrawer({ cancellationId, open, onClose }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  // Approval is irreversible (auto-refund + refunded-lock), so it goes through
+  // a confirm step. Rejection applies directly.
+  const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Reset transient state on open/close.
@@ -44,6 +49,7 @@ export function CancellationDrawer({ cancellationId, open, onClose }: Props) {
     if (!open) {
       setMenuOpen(false);
       setErrorCode(null);
+      setConfirmApproveOpen(false);
     }
   }, [open]);
 
@@ -62,11 +68,22 @@ export function CancellationDrawer({ cancellationId, open, onClose }: Props) {
     if (!cancellation) return;
     setErrorCode(null);
     try {
-      await decide.mutateAsync({
+      const result = await decide.mutateAsync({
         id: cancellation.id,
         decision,
         comment: comment.trim() ? comment.trim() : null,
       });
+      if (decision === "rejected") {
+        toast.success("В отмене отказано.");
+      } else if (result.refund === "refunded") {
+        toast.success("Отмена одобрена, оплата возвращена на карту.");
+      } else if (result.refund === "failed") {
+        toast.error(
+          "Отмена одобрена, но автоматический возврат не прошёл — верните оплату вручную.",
+        );
+      } else {
+        toast.success("Отмена одобрена.");
+      }
     } catch (err) {
       const code =
         err && typeof err === "object" && "code" in err
@@ -239,9 +256,54 @@ export function CancellationDrawer({ cancellationId, open, onClose }: Props) {
           open={menuOpen}
           triggerRef={triggerRef}
           onClose={() => setMenuOpen(false)}
-          onSelect={(decision) => applyDecision(decision)}
+          onSelect={(decision) => {
+            // Approve is irreversible → confirm first; reject applies directly.
+            if (decision === "approved") {
+              setConfirmApproveOpen(true);
+            } else {
+              applyDecision(decision);
+            }
+          }}
         />
       )}
+
+      <Modal
+        open={confirmApproveOpen}
+        onClose={
+          decide.isPending ? () => {} : () => setConfirmApproveOpen(false)
+        }
+      >
+        <div className="w-[440px] p-6">
+          <h3 className="text-[18px] font-semibold text-[#0E131F]">
+            Одобрить отмену заказа?
+          </h3>
+          <p className="mt-2 text-[14px] leading-snug text-grey-dark">
+            Действие необратимо. Если заказ оплачен картой, оплата вернётся на
+            карту, и вернуть заказ в «оплачен» или «активен» будет нельзя.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmApproveOpen(false)}
+              disabled={decide.isPending}
+              className="cursor-pointer rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-[#FCFAFD] px-4 py-2 text-[14px] font-medium text-[#0E131F] transition-colors hover:bg-grey-lighter disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await applyDecision("approved");
+                setConfirmApproveOpen(false);
+              }}
+              disabled={decide.isPending}
+              className="cursor-pointer rounded-[8px] bg-purple-primary px-4 py-2 text-[14px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {decide.isPending ? "Одобрение…" : "Одобрить отмену"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

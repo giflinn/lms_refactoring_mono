@@ -51,19 +51,15 @@ class _StaffCancellationDetailPageState
     setState(() => _deciding = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref
+      final refund = await ref
           .read(staffCancellationDetailProvider(widget.cancellationId)
               .notifier)
           .decide(decision: decision, comment: comment);
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            decision == CancellationStatus.approved
-                ? 'Отмена заказа подтверждена'
-                : 'В отмене заказа отказано',
-          ),
-          duration: const Duration(seconds: 2),
+          content: Text(_decisionMessage(decision, refund)),
+          duration: const Duration(seconds: 3),
         ),
       );
       // Pop back to the list — the user usually wants to act on the next
@@ -160,6 +156,22 @@ class _StaffCancellationDetailPageState
         ),
       ),
     );
+  }
+}
+
+// Success message after a decision. For an approved cancellation of a card
+// order the backend auto-refunds and reports the outcome.
+String _decisionMessage(CancellationStatus decision, String refund) {
+  if (decision != CancellationStatus.approved) {
+    return 'В отмене заказа отказано';
+  }
+  switch (refund) {
+    case 'refunded':
+      return 'Отмена подтверждена, оплата возвращена на карту';
+    case 'failed':
+      return 'Отмена подтверждена, но возврат не прошёл — верните оплату вручную';
+    default:
+      return 'Отмена заказа подтверждена';
   }
 }
 

@@ -34,6 +34,8 @@ import '../../features/cancellations/presentation/pages/staff_cancellation_detai
 import '../../features/orders/presentation/pages/client_order_detail_page.dart';
 import '../../features/orders/presentation/pages/my_purchases_page.dart';
 import '../../features/orders/presentation/pages/staff_order_detail_page.dart';
+import '../../features/cart/domain/card_checkout_args.dart';
+import '../../features/cart/presentation/pages/card_checkout_page.dart';
 import '../../features/reviews/domain/leave_review_args.dart';
 import '../../features/reviews/presentation/pages/all_reviews_page.dart';
 import '../../features/reviews/presentation/pages/leave_review_page.dart';
@@ -231,6 +233,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/client/notifications',
         builder: (_, _) => const ClientNotificationsPage(),
+      ),
+      GoRoute(
+        path: '/client/card-checkout',
+        builder: (_, state) =>
+            CardCheckoutPage(args: state.extra as CardCheckoutArgs),
       ),
       GoRoute(
         path: '/client/purchases',

@@ -48,4 +48,22 @@ export const config = {
   // a warning and skips setWebhook (admin can still save the token; webhook
   // wiring activates once this is set).
   backendPublicUrl: (process.env.BACKEND_PUBLIC_URL ?? "").trim(),
+
+  // BCC (Bank CenterCredit) card-payment gateway. All optional at startup —
+  // the payment service throws a clear error at first use if a field is
+  // missing, so a dev machine without BCC config still boots (same policy as
+  // smtp). Real values are deployed out-of-band (secrets, not in git).
+  // BCC_MAC_KEY is the assembled HMAC key (XOR of the two bank-issued key
+  // components). NOTIFY_URL / BACKREF are derived from backendPublicUrl.
+  // See docs/bcc-payment-integration.md.
+  bcc: {
+    webviewUrl: process.env.BCC_WEBVIEW_URL,
+    merchantId: process.env.BCC_MERCHANT_ID,
+    terminalId: process.env.BCC_TERMINAL_ID,
+    macKey: process.env.BCC_MAC_KEY,
+    merchName: process.env.BCC_MERCH_NAME,
+    merchRnId: process.env.BCC_MERCH_RN_ID,
+    notifyUser: process.env.BCC_NOTIFY_USER,
+    notifyPass: process.env.BCC_NOTIFY_PASS,
+  },
 };

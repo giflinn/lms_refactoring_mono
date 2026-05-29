@@ -20,6 +20,8 @@ import {
   createCancellationForClient,
   decideCancellation,
 } from "../services/cancellationService";
+import { changeOrderPaymentStatus } from "../services/orderStatus";
+import { refundCardOrder } from "../services/bcc/refund";
 
 export const cancellationsRouter = Router();
 
@@ -400,7 +402,40 @@ cancellationsRouter.patch(
         throw err;
       }
 
-      res.json({ ok: true });
+      // Card orders: an approved cancellation auto-refunds the captured payment
+      // via BCC, then flips payment_status to 'refunded'. Best-effort — the
+      // cancellation already succeeded (fulfillment is cancelled); on a refund
+      // failure staff can retry from the order drawer. We report the outcome so
+      // the client shows the right message. docs/bcc-payment-integration.md §6/§8.
+      let refund: "refunded" | "failed" | "none" = "none";
+      if (decisionRaw === "approved") {
+        try {
+          const [c] = await db
+            .select({ orderId: orderCancellations.orderId })
+            .from(orderCancellations)
+            .where(eq(orderCancellations.id, cancellationId))
+            .limit(1);
+          if (c) {
+            const result = await refundCardOrder(c.orderId);
+            if (result.outcome === "refunded") {
+              await changeOrderPaymentStatus(c.orderId, "refunded", actorId);
+              refund = "refunded";
+            } else if (result.outcome === "error") {
+              refund = "failed";
+              console.error(
+                "[cancellations] card auto-refund failed",
+                c.orderId,
+                result.errorCode,
+              );
+            }
+          }
+        } catch (err) {
+          refund = "failed";
+          console.error("[cancellations] card auto-refund hook error:", err);
+        }
+      }
+
+      res.json({ ok: true, refund });
     } catch (err) {
       next(err);
     }

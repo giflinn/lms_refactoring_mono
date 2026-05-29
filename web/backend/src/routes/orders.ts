@@ -12,7 +12,13 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { db } from "../db";
-import { orderItems, orders, products, users } from "../db/schema";
+import {
+  orderItems,
+  orders,
+  paymentTransactions,
+  products,
+  users,
+} from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole, requireStaff } from "../middleware/requireRole";
 import {
@@ -28,6 +34,7 @@ import {
   changeOrderPaymentStatus,
 } from "../services/orderStatus";
 import { pendingCancellationsByOrderId } from "../services/cancellationService";
+import { refundCardOrder } from "../services/bcc/refund";
 
 export const ordersRouter = Router();
 
@@ -532,11 +539,28 @@ ordersRouter.get(
         .where(eq(orderItems.orderId, orderId))
         .orderBy(asc(orderItems.createdAt));
 
+      // Latest payment attempt (method + card details + result) for the admin
+      // drawer. Null for orders with no card-payment attempt.
+      const [latestTx] = await db
+        .select({
+          status: paymentTransactions.status,
+          cardMask: paymentTransactions.cardMask,
+          rc: paymentTransactions.rc,
+          rcText: paymentTransactions.rcText,
+          rrn: paymentTransactions.rrn,
+        })
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.orderId, orderId))
+        .orderBy(desc(paymentTransactions.createdAt))
+        .limit(1);
+
       res.json({
         order: {
           id: r.order.id,
           orderNumber: r.order.orderNumber,
           paymentStatus: r.order.paymentStatus,
+          paymentMethod: r.order.paymentMethod,
+          payment: latestTx ?? null,
           fulfillmentStatus: r.order.fulfillmentStatus,
           totalTenge: r.order.totalTenge,
           createdAt: r.order.createdAt,
@@ -687,6 +711,18 @@ ordersRouter.patch(
       }
       const force = body.force === true;
 
+      // A 'refunded' transition on a CARD order must actually return the money
+      // via BCC before we flip the status. Non-card / nothing-captured →
+      // 'not_card' → fall through to the normal manual flip (e.g. Kaspi).
+      // docs/bcc-payment-integration.md §8.
+      if (paymentStatusRaw === "refunded") {
+        const refundResult = await refundCardOrder(orderId);
+        if (refundResult.outcome === "error") {
+          res.status(502).json({ error: refundResult.errorCode });
+          return;
+        }
+      }
+
       try {
         // Apply payment first so first_paid_at side-effects land before any
         // fulfillment change in the same request observes them.
@@ -753,6 +789,7 @@ ordersRouter.patch(
           id: r.order.id,
           orderNumber: r.order.orderNumber,
           paymentStatus: r.order.paymentStatus,
+          paymentMethod: r.order.paymentMethod,
           fulfillmentStatus: r.order.fulfillmentStatus,
           totalTenge: r.order.totalTenge,
           createdAt: r.order.createdAt,

@@ -2,19 +2,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/network/api_exceptions.dart';
 import '../../../orders/data/orders_api.dart';
 import '../../../orders/data/orders_api_provider.dart';
+import '../../data/bcc_payment_api.dart';
+import '../../data/bcc_payment_api_provider.dart';
 import '../../data/kaspi_api_provider.dart';
+import '../../domain/card_checkout_args.dart';
 import '../controller/cart_controller.dart';
 import 'cart_item_card.dart';
 
-/// Centered modal: "Выберите способ оплаты". Two payment rows (Kaspi, bank
-/// card) + cancel. Bank is intentionally disabled with a "Скоро" badge —
-/// only Kaspi has a flow today, and even that is a manual receipt-via-chat
-/// stub until proper order creation lands.
+/// Centered modal: "Выберите способ оплаты". Two payment rows + cancel:
+/// Kaspi (manual receipt-via-chat) and bank card (BCC hosted WebView — see
+/// card_checkout_page.dart). Both create the order on the server first, then
+/// hand off to payment.
 ///
 /// Show via [showPaymentMethodPopup]. Returns when the user taps cancel or
 /// completes a flow.
@@ -83,11 +87,14 @@ class _PaymentMethodDialog extends StatelessWidget {
               },
             ),
             const SizedBox(height: 8),
-            const _MethodRow(
-              logo: _BankLogo(),
+            _MethodRow(
+              logo: const _BankLogo(),
               title: 'Банковская карта',
               subtitle: 'Комиссия 2%\nМоментальная активация покупки',
-              disabled: true,
+              onTap: () {
+                Navigator.of(context).pop();
+                _showCardCheckout(context, totalTenge: totalTenge);
+              },
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -125,14 +132,12 @@ class _MethodRow extends StatelessWidget {
   final Widget logo;
   final String title;
   final String subtitle;
-  final bool disabled;
   final VoidCallback? onTap;
 
   const _MethodRow({
     required this.logo,
     required this.title,
     required this.subtitle,
-    this.disabled = false,
     this.onTap,
   });
 
@@ -153,41 +158,14 @@ class _MethodRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                    if (disabled) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Text(
-                          'Скоро',
-                          style: TextStyle(
-                            color: AppColors.white.withValues(alpha: 0.7),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -202,19 +180,15 @@ class _MethodRow extends StatelessWidget {
               ],
             ),
           ),
-          if (!disabled)
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.purpleTertiary.withValues(alpha: 0.9),
-              size: 22,
-            ),
+          Icon(
+            Icons.chevron_right,
+            color: AppColors.purpleTertiary.withValues(alpha: 0.9),
+            size: 22,
+          ),
         ],
       ),
     );
 
-    if (disabled) {
-      return Opacity(opacity: 0.55, child: body);
-    }
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -491,29 +465,7 @@ class _KaspiInstructionsDialogState
     ).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  String _messageForCode(String code) {
-    switch (code) {
-      case 'slot_taken':
-        return 'Это время уже забронировано. Выберите другое.';
-      case 'slot_unavailable':
-        return 'Слот недоступен. Попробуйте другое время.';
-      case 'product_inactive':
-      case 'product_not_found':
-        return 'Один из товаров больше недоступен.';
-      case 'product_not_orderable':
-        return 'Этот товар нельзя заказать напрямую — напишите менеджеру.';
-      case 'product_misconfigured':
-        return 'Этот товар нельзя забронировать — напишите менеджеру.';
-      case 'booked_start_in_past':
-      case 'invalid_booked_start':
-      case 'booked_start_required':
-        return 'Время бронирования некорректно. Выберите снова.';
-      case 'forbidden':
-        return 'Только клиенты могут создавать заказы.';
-      default:
-        return 'Не удалось создать заказ. Попробуйте позже.';
-    }
-  }
+  String _messageForCode(String code) => _orderCreationError(code);
 }
 
 class _Step extends StatelessWidget {
@@ -558,5 +510,276 @@ class _Step extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Friendly message for a POST /orders error code. Shared by the Kaspi and
+/// card flows (both create the order first).
+String _orderCreationError(String code) {
+  switch (code) {
+    case 'slot_taken':
+      return 'Это время уже забронировано. Выберите другое.';
+    case 'slot_unavailable':
+      return 'Слот недоступен. Попробуйте другое время.';
+    case 'product_inactive':
+    case 'product_not_found':
+      return 'Один из товаров больше недоступен.';
+    case 'product_not_orderable':
+      return 'Этот товар нельзя заказать напрямую — напишите менеджеру.';
+    case 'product_misconfigured':
+      return 'Этот товар нельзя забронировать — напишите менеджеру.';
+    case 'booked_start_in_past':
+    case 'invalid_booked_start':
+    case 'booked_start_required':
+      return 'Время бронирования некорректно. Выберите снова.';
+    case 'forbidden':
+      return 'Только клиенты могут создавать заказы.';
+    default:
+      return 'Не удалось создать заказ. Попробуйте позже.';
+  }
+}
+
+/// Friendly message for a POST /payments (start) error code.
+String _paymentStartError(String code) {
+  switch (code) {
+    case 'order_not_payable':
+      return 'Этот заказ уже оплачен или отменён.';
+    case 'payment_unavailable':
+      return 'Оплата картой временно недоступна. Попробуйте Kaspi.';
+    default:
+      return 'Не удалось начать оплату. Попробуйте позже.';
+  }
+}
+
+Future<void> _showCardCheckout(
+  BuildContext context, {
+  required num totalTenge,
+}) async {
+  await showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (ctx) => _CardCheckoutDialog(totalTenge: totalTenge),
+  );
+}
+
+/// Confirms the amount, creates the order, starts a BCC payment, then pushes
+/// the WebView checkout page. Mirrors the Kaspi dialog's order-first guarantee
+/// — we never open the bank page for an order that wasn't recorded.
+class _CardCheckoutDialog extends ConsumerStatefulWidget {
+  final num totalTenge;
+  const _CardCheckoutDialog({required this.totalTenge});
+
+  @override
+  ConsumerState<_CardCheckoutDialog> createState() =>
+      _CardCheckoutDialogState();
+}
+
+class _CardCheckoutDialogState extends ConsumerState<_CardCheckoutDialog> {
+  bool _starting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.purpleGradientTop, AppColors.purplePrimary],
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(
+              child: SizedBox(width: 50, height: 50, child: _BankLogo()),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Оплата картой',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'К оплате: ${formatTenge(widget.totalTenge)} ₸',
+                style: const TextStyle(
+                  color: AppColors.yellowPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Вы перейдёте на защищённую страницу банка для ввода данных '
+              'карты. Активация покупки — сразу после оплаты.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.purpleTertiary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 54,
+              child: Material(
+                color: Colors.transparent,
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.yellowGradientTop,
+                        AppColors.yellowGradientBottom,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: InkWell(
+                    onTap: _starting ? null : _start,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Center(
+                      child: _starting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppColors.purpleDark,
+                              ),
+                            )
+                          : const Text(
+                              'Оплатить картой',
+                              style: TextStyle(
+                                color: AppColors.purpleDark,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48,
+              child: TextButton(
+                onPressed: _starting ? null : () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Закрыть',
+                  style: TextStyle(
+                    color: AppColors.purpleTertiary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _start() async {
+    if (_starting) return;
+    setState(() => _starting = true);
+    final router = GoRouter.of(context);
+
+    try {
+      final cart = ref.read(cartProvider);
+      if (cart.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showError('Войдите в аккаунт, чтобы продолжить');
+        return;
+      }
+      final idToken = await user.getIdToken();
+      if (idToken == null || idToken.isEmpty) {
+        _showError('Не удалось получить токен. Попробуйте перезайти.');
+        return;
+      }
+
+      final CreatedOrder order;
+      try {
+        order = await ref
+            .read(ordersApiProvider)
+            .createOrder(
+              items: cart
+                  .map(
+                    (c) => CreateOrderItemInput(
+                      productId: c.productId,
+                      bookedStart: c.bookedStart,
+                    ),
+                  )
+                  .toList(),
+              idToken: idToken,
+            );
+      } on OrderCreationException catch (e) {
+        if (mounted) _showError(_orderCreationError(e.code));
+        return;
+      }
+
+      // Order is recorded — start the card payment. If this fails the order
+      // still exists (pending); clear the cart and let the user retry from
+      // "Мои покупки" or via Kaspi.
+      final StartedPayment started;
+      try {
+        started = await ref
+            .read(bccPaymentApiProvider)
+            .start(orderId: order.id, idToken: idToken);
+      } on PaymentException catch (e) {
+        ref.read(cartProvider.notifier).clear();
+        if (mounted) _showError(_paymentStartError(e.code));
+        return;
+      }
+
+      ref.read(cartProvider.notifier).clear();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      router.push(
+        '/client/card-checkout',
+        extra: CardCheckoutArgs(
+          orderId: order.id,
+          paymentId: started.paymentId,
+          checkoutUrl: started.checkoutUrl,
+          returnUrl: started.returnUrl,
+        ),
+      );
+    } on NetworkException {
+      if (mounted) _showError('Нет соединения с сервером');
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }

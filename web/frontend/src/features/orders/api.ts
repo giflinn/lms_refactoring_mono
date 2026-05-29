@@ -48,6 +48,17 @@ export type OrderDetail = {
   id: string;
   orderNumber: number;
   paymentStatus: PaymentStatus;
+  // null on legacy/Kaspi orders (UI treats null as Kaspi); "card" once a BCC
+  // card payment was initiated.
+  paymentMethod: "kaspi" | "card" | null;
+  // Latest card-payment attempt summary (null if there was none).
+  payment: {
+    status: string;
+    cardMask: string | null;
+    rc: string | null;
+    rcText: string | null;
+    rrn: string | null;
+  } | null;
   fulfillmentStatus: FulfillmentStatus;
   totalTenge: string;
   createdAt: string;

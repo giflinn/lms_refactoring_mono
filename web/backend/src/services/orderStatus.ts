@@ -84,6 +84,14 @@ export async function changeOrderPaymentStatus(
       };
     }
 
+    // Once refunded (money returned to the client — by a BCC refund or a
+    // manual flip), block re-flagging as 'paid': that would re-grant access
+    // for money we no longer hold. Reactivating fulfillment is blocked
+    // symmetrically in changeOrderFulfillmentStatus.
+    if (order.paymentStatus === "refunded" && toStatus === "paid") {
+      throw new OrderStatusError("order_refunded");
+    }
+
     const fromStatus = order.paymentStatus as PaymentStatus;
     const isFirstPaid = toStatus === "paid" && order.firstPaidAt === null;
     const now = new Date();
@@ -200,6 +208,7 @@ export async function changeOrderFulfillmentStatus(
         id: orders.id,
         clientId: orders.clientId,
         fulfillmentStatus: orders.fulfillmentStatus,
+        paymentStatus: orders.paymentStatus,
         orderNumber: orders.orderNumber,
       })
       .from(orders)
@@ -211,6 +220,12 @@ export async function changeOrderFulfillmentStatus(
         status: order.fulfillmentStatus as FulfillmentStatus,
         push: null,
       };
+    }
+
+    // A refunded order can't be re-activated — the money's been returned.
+    // Mirrors the refunded→paid block in changeOrderPaymentStatus.
+    if (toStatus === "active" && order.paymentStatus === "refunded") {
+      throw new OrderStatusError("order_refunded");
     }
 
     const fromStatus = order.fulfillmentStatus as FulfillmentStatus;

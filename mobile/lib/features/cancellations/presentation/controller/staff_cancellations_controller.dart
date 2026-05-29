@@ -247,12 +247,12 @@ class StaffCancellationDetailController
   /// Approve or reject this cancellation request. [decision] must be
   /// `approved` or `rejected` — the API throws on `requested`. Refetches
   /// detail and nudges list+badge so the surrounding UI updates.
-  Future<void> decide({
+  Future<String> decide({
     required CancellationStatus decision,
     String? comment,
   }) async {
     final token = await _idToken();
-    await ref.read(cancellationsApiProvider).decide(
+    final refund = await ref.read(cancellationsApiProvider).decide(
           idToken: token,
           cancellationId: cancellationId,
           decision: decision,
@@ -269,6 +269,7 @@ class StaffCancellationDetailController
         .refresh();
     ref.read(staffPendingCancellationsCountProvider.notifier).refresh();
     await _refetch();
+    return refund;
   }
 }
 

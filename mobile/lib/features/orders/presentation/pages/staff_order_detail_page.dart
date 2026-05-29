@@ -196,6 +196,10 @@ String _friendlyPatchError(String code) {
       return 'Недопустимый статус.';
     case 'status_required':
       return 'Не указан новый статус.';
+    case 'order_refunded':
+      return 'Заказ возвращён — нельзя снова сделать оплаченным или активным.';
+    case 'refund_failed':
+      return 'Не удалось вернуть оплату через банк. Попробуйте ещё раз или верните вручную.';
     default:
       return 'Не удалось сохранить';
   }

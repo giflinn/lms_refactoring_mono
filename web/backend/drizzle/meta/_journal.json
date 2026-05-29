@@ -218,6 +218,13 @@
       "when": 1779819577318,
       "tag": "0030_left_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1780073889688,
+      "tag": "0031_slimy_boom_boom",
+      "breakpoints": true
     }
   ]
 }

@@ -121,11 +121,15 @@ export async function getCancellation(
   return body.cancellation;
 }
 
+// For an approved cancellation of a CARD order the backend auto-refunds via
+// BCC and reports the outcome here so the UI can show the right message.
+export type CancellationRefundOutcome = "refunded" | "failed" | "none";
+
 export async function decideCancellation(
   idToken: string,
   id: string,
   payload: { decision: CancellationDecision; comment: string | null },
-): Promise<void> {
+): Promise<{ refund: CancellationRefundOutcome }> {
   const res = await apiClient.patchJson(
     `/cancellations/${id}`,
     {
@@ -135,4 +139,6 @@ export async function decideCancellation(
     idToken,
   );
   await ensureOk(res);
+  const body = (await res.json()) as { refund?: CancellationRefundOutcome };
+  return { refund: body.refund ?? "none" };
 }

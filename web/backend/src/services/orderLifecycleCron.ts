@@ -6,13 +6,16 @@
 // Single pm2 host, in-process scheduler — same model as
 // notificationDispatcher.
 
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "../db";
-import { orderItems, orders } from "../db/schema";
+import { orderItems, orders, paymentTransactions } from "../db/schema";
 import {
   changeOrderFulfillmentStatus,
   changeOrderPaymentStatus,
 } from "./orderStatus";
+import { config } from "../config";
+import { checkStatus, isPaid } from "./bcc/client";
+import { settlePaid } from "./bcc/settle";
 
 const TICK_MS = 60 * 60 * 1000; // 1 hour
 const STALE_NEW_AFTER_MS = 24 * 60 * 60 * 1000;
@@ -30,6 +33,9 @@ async function tick(): Promise<void> {
   );
   await sweepActiveToCompleted().catch((err) =>
     console.error("[orders-cron] active->completed sweep failed:", err),
+  );
+  await reconcilePendingBccPayments().catch((err) =>
+    console.error("[orders-cron] bcc reconcile sweep failed:", err),
   );
 }
 
@@ -82,6 +88,37 @@ async function sweepActiveToCompleted(): Promise<void> {
       await changeOrderFulfillmentStatus(o.id, "completed", null);
     } catch (err) {
       console.error("[orders-cron] active->completed for", o.id, err);
+    }
+  }
+}
+
+// 3. Reconcile pending BCC card payments younger than 24h via TRTYPE=90 —
+//    covers a lost/delayed callback. Skipped entirely when BCC isn't configured
+//    (dev machines) so it never hits the network there. The 24h window matches
+//    BCC's status-check validity and the new→unpaid sweep that eventually
+//    releases an abandoned booking. docs/bcc-payment-integration.md §8.
+async function reconcilePendingBccPayments(): Promise<void> {
+  if (!config.bcc.macKey) return;
+  const cutoff = new Date(Date.now() - STALE_NEW_AFTER_MS);
+  const pending = await db
+    .select({
+      id: paymentTransactions.id,
+      orderId: paymentTransactions.orderId,
+      bccOrder: paymentTransactions.bccOrder,
+    })
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.status, "pending"),
+        gt(paymentTransactions.createdAt, cutoff),
+      ),
+    );
+  for (const p of pending) {
+    try {
+      const result = await checkStatus(String(p.bccOrder));
+      if (isPaid(result)) await settlePaid(p.id, p.orderId, result);
+    } catch (err) {
+      console.error("[orders-cron] bcc reconcile for", p.id, err);
     }
   }
 }

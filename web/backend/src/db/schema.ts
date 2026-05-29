@@ -12,6 +12,7 @@ import {
   date,
   numeric,
   boolean,
+  jsonb,
   primaryKey,
   AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -548,11 +549,34 @@ export const fulfillmentStatusEnum = pgEnum("fulfillment_status", [
   "cancelled",
 ]);
 
+// How the client paid. NULL on legacy/Kaspi orders — the manual Kaspi flow
+// never recorded a method; 'card' is set when a BCC card payment is initiated.
+// UI treats NULL as Kaspi. See docs/bcc-payment-integration.md.
+export const paymentMethodEnum = pgEnum("payment_method", ["kaspi", "card"]);
+
+// Provider-side state of a single BCC card-payment attempt
+// (payment_transactions). Distinct from orders.payment_status, which the
+// verified callback drives through changeOrderPaymentStatus.
+export const bccTransactionStatusEnum = pgEnum("bcc_transaction_status", [
+  "pending",
+  "paid",
+  "failed",
+  "refunded",
+]);
+
 // Human-friendly 7+ digit order number shown in the UI ("№1210920"). Internal
 // references still use uuid id; this column is for staff and clients who need
 // to read or quote a number out loud. Starts at 1_000_000 so even the very
 // first order looks like a real one.
 export const ordersNumberSeq = pgSequence("orders_number_seq", {
+  startWith: 1000000,
+});
+
+// Numeric reference sent to BCC as the ORDER field for each card-payment
+// attempt. Separate from orders_number_seq so a retry of the same order gets a
+// fresh value — BCC dedups on the low 6 digits within a day (ACTION=1 on a
+// repeat). docs/bcc-payment-integration.md §3/§7.
+export const bccOrderSeq = pgSequence("bcc_order_seq", {
   startWith: 1000000,
 });
 
@@ -587,6 +611,9 @@ export const orders = pgTable(
     fulfillmentStatus: fulfillmentStatusEnum("fulfillment_status")
       .notNull()
       .default("new"),
+    // NULL for legacy/Kaspi orders; set to 'card' once a BCC card payment is
+    // initiated for this order (POST /payments). UI treats NULL as Kaspi.
+    paymentMethod: paymentMethodEnum("payment_method"),
     // Tenge with two decimal places to match products.price; populated server-
     // side from the snapshot row prices, never trusted from the client.
     totalTenge: numeric("total_tenge", { precision: 12, scale: 2 }).notNull(),
@@ -683,6 +710,55 @@ export const orderStatusLog = pgTable(
       .defaultNow(),
   },
   (t) => [index("order_status_log_order_id_idx").on(t.orderId)],
+);
+
+// One BCC card-payment attempt against an order. An order may have several
+// attempts (each a fresh bcc_order); the successful one carries the rrn/int_ref
+// needed to refund or void later (TRTYPE=14/22). `status` tracks the provider
+// side and is distinct from orders.payment_status — the verified callback (or
+// the TRTYPE=90 reconcile) drives the order to 'paid' via
+// changeOrderPaymentStatus. raw_request/raw_callback keep the full payloads for
+// audit. See docs/bcc-payment-integration.md.
+export const paymentTransactions = pgTable(
+  "payment_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("bcc"),
+    // The numeric ORDER sent to BCC. Sequence-generated so it's globally unique
+    // (numeric, >6 digits, unique low-6/day — BCC's duplicate rule).
+    bccOrder: integer("bcc_order")
+      .notNull()
+      .unique()
+      .default(sql`nextval('bcc_order_seq')`),
+    // Per-attempt CSPRNG nonce — hex, upper-case, no dashes. Secondary key the
+    // callback can be matched on.
+    nonce: text("nonce").notNull().unique(),
+    amountTenge: numeric("amount_tenge", { precision: 12, scale: 2 }).notNull(),
+    status: bccTransactionStatusEnum("status").notNull().default("pending"),
+    // Last result codes from BCC (callback or TRTYPE=90 status check).
+    action: text("action"),
+    rc: text("rc"),
+    rcText: text("rc_text"),
+    // Populated from a successful purchase — required to refund/void (TRTYPE=14/22).
+    rrn: text("rrn"),
+    intRef: text("int_ref"),
+    cardMask: text("card_mask"),
+    rawRequest: jsonb("raw_request").$type<Record<string, string>>(),
+    rawCallback: jsonb("raw_callback").$type<Record<string, string>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("payment_transactions_order_id_idx").on(t.orderId),
+    index("payment_transactions_status_idx").on(t.status),
+  ],
 );
 
 // Sub-range reservation inside a coach_slot. Created together with an

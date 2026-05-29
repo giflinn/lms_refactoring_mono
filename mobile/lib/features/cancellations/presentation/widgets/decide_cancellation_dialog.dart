@@ -136,6 +136,29 @@ class _DecideDialogState extends State<_DecideDialog> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Одобрение необратимо: при оплате картой деньги вернутся '
+                'клиенту, и заказ нельзя будет вернуть в «оплачен» или «активен».',
+                style: TextStyle(
+                  color: AppColors.white.withValues(alpha: 0.85),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.34,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             _PrimaryButton(
               label: 'Подтвердить отмену',

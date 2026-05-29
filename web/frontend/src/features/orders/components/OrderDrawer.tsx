@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import clsx from "clsx";
+import { toast } from "sonner";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Avatar } from "../../../components/Avatar";
 import {
@@ -81,6 +82,16 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
     try {
       await patch.mutateAsync({ id: order.id, paymentStatus: target });
     } catch (err) {
+      if (err instanceof ApiError && err.code === "refund_failed") {
+        toast.error(
+          "Не удалось вернуть оплату через банк. Попробуйте ещё раз или обработайте возврат вручную.",
+        );
+        return;
+      }
+      if (err instanceof ApiError && err.code === "order_refunded") {
+        toast.error("Заказ возвращён — нельзя снова отметить как оплаченный.");
+        return;
+      }
       console.error("[orders] payment status change failed", err);
     }
   }
@@ -97,6 +108,10 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
     } catch (err) {
       if (err instanceof ApiError && err.code === "booking_conflict") {
         setConflict({ target });
+        return;
+      }
+      if (err instanceof ApiError && err.code === "order_refunded") {
+        toast.error("Заказ возвращён — нельзя снова сделать активным.");
         return;
       }
       console.error("[orders] fulfillment status change failed", err);
@@ -175,6 +190,41 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
                 )}
                 <ChevronDown size={18} strokeWidth={1.5} />
               </button>
+              <div className="mt-2 flex flex-col gap-1 rounded-[8px] border border-[#EAECF0] bg-[#F9F9F9] p-3 text-[13px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-grey-dark/60">Способ</span>
+                  <span className="font-medium text-grey-dark">
+                    {order.paymentMethod === "card"
+                      ? "Банковская карта"
+                      : "Kaspi"}
+                  </span>
+                </div>
+                {order.payment?.cardMask && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-grey-dark/60">Карта</span>
+                    <span className="font-medium text-grey-dark">
+                      {order.payment.cardMask}
+                    </span>
+                  </div>
+                )}
+                {order.payment?.rrn && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-grey-dark/60">RRN</span>
+                    <span className="font-medium text-grey-dark">
+                      {order.payment.rrn}
+                    </span>
+                  </div>
+                )}
+                {order.payment?.rc && order.payment.rc !== "00" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-grey-dark/60">Код ответа</span>
+                    <span className="font-medium text-grey-dark">
+                      {order.payment.rc}
+                      {order.payment.rcText ? ` — ${order.payment.rcText}` : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
             </Section>
 
             <Section label="Состояние">
