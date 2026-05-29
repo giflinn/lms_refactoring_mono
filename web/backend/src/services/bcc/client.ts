@@ -72,5 +72,20 @@ export async function refund(p: {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(fields).toString(),
   });
-  return toResult(parseUrlEncoded(await res.text()));
+  const text = await res.text();
+  // Diagnostic: the test 3DS host has returned non-key=value bodies for
+  // server-to-server ops before (TRTYPE=90 status was dropped for exactly
+  // this). When a refund "declines" with all-null ACTION/RC it means the body
+  // wasn't parseable — log the raw response so we can see what BCC actually
+  // returns (HTML? error? empty?). Safe to drop once the refund mechanism is
+  // confirmed with the bank. docs/bcc-payment-integration.md §17.
+  console.log(
+    "[bcc] refund response",
+    `order=${p.bccOrder}`,
+    `http=${res.status}`,
+    `ct=${res.headers.get("content-type") ?? ""}`,
+    `len=${text.length}`,
+    `body=${text.slice(0, 1000)}`,
+  );
+  return toResult(parseUrlEncoded(text));
 }
