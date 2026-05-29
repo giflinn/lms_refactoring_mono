@@ -15,6 +15,9 @@ export type BccResult = {
   intRef: string | null;
   cardMask: string | null;
   raw: Record<string, string>;
+  // HTTP status of the BCC response (set by callers that make an outbound
+  // request, e.g. refund). Omitted for results parsed from an inbound callback.
+  httpStatus?: number | null;
 };
 
 function parseUrlEncoded(body: string): Record<string, string> {
@@ -56,6 +59,7 @@ export function toResult(raw: Record<string, string>): BccResult {
     intRef: raw.INT_REF || null,
     cardMask: raw.CARD_MASK || null,
     raw,
+    httpStatus: null,
   };
 }
 
@@ -98,7 +102,7 @@ export async function refund(p: {
   });
   const text = await res.text();
   const ct = res.headers.get("content-type") ?? "";
-  const result = toResult(parseBccBody(text, ct));
+  const result = { ...toResult(parseBccBody(text, ct)), httpStatus: res.status };
   // Log only the verdict fields — never the raw body, which carries
   // RRN/INT_REF/P_SIGN. action/rc/rcText is enough to tell success
   // (ACTION=0/RC=00) from a gateway decline (e.g. RC=-17 "Access denied").

@@ -8,6 +8,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders, paymentTransactions } from "../../db/schema";
 import { isSuccess, refund as bccRefund } from "./client";
+import { logBccEvent } from "./events";
 
 export type RefundOutcome =
   | { outcome: "refunded" }
@@ -35,6 +36,15 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     .limit(1);
   if (!tx) return { outcome: "not_card" }; // card order but nothing captured
   if (!tx.rrn || !tx.intRef) {
+    await logBccEvent({
+      kind: "refund",
+      trtype: "14",
+      outcome: "error",
+      paymentTransactionId: tx.id,
+      orderId,
+      bccOrder: tx.bccOrder,
+      note: "missing rrn/int_ref — cannot refund",
+    });
     return { outcome: "error", errorCode: "refund_missing_reference" };
   }
 
@@ -48,6 +58,15 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     });
   } catch (err) {
     console.error("[bcc] refund call failed:", err);
+    await logBccEvent({
+      kind: "refund",
+      trtype: "14",
+      outcome: "error",
+      paymentTransactionId: tx.id,
+      orderId,
+      bccOrder: tx.bccOrder,
+      note: `refund request threw: ${err instanceof Error ? err.message : String(err)}`,
+    });
     return { outcome: "error", errorCode: "refund_failed" };
   }
   if (!isSuccess(result)) {
@@ -58,6 +77,20 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
       result.rc,
       result.rcText,
     );
+    await logBccEvent({
+      kind: "refund",
+      trtype: "14",
+      outcome: "declined",
+      paymentTransactionId: tx.id,
+      orderId,
+      bccOrder: tx.bccOrder,
+      action: result.action,
+      rc: result.rc,
+      rcText: result.rcText,
+      httpStatus: result.httpStatus,
+      note: "refund declined by bank",
+      payload: result.raw,
+    });
     return { outcome: "error", errorCode: "refund_failed" };
   }
 
@@ -72,5 +105,18 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
       updatedAt: new Date(),
     })
     .where(eq(paymentTransactions.id, tx.id));
+  await logBccEvent({
+    kind: "refund",
+    trtype: "14",
+    outcome: "success",
+    paymentTransactionId: tx.id,
+    orderId,
+    bccOrder: tx.bccOrder,
+    action: result.action,
+    rc: result.rc,
+    rcText: result.rcText,
+    httpStatus: result.httpStatus,
+    payload: result.raw,
+  });
   return { outcome: "refunded" };
 }

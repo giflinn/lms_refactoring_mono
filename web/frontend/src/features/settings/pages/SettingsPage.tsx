@@ -5,6 +5,7 @@ import { TelegramGroupsSection } from "../components/TelegramGroupsSection";
 import { ChatsSection } from "../components/ChatsSection";
 import { ManagerAssignmentSection } from "../components/ManagerAssignmentSection";
 import { KaspiSection } from "../components/KaspiSection";
+import { BccSection } from "../components/BccSection";
 import { LmsCoursesSection } from "../../lms/components/LmsCoursesSection";
 import { LegalDocumentsSection } from "../../legal/components/LegalDocumentsSection";
 
@@ -14,6 +15,7 @@ type TabId =
   | "chats"
   | "assignment"
   | "kaspi"
+  | "bcc"
   | "legal";
 
 const TABS: { id: TabId; label: string }[] = [
@@ -22,6 +24,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "chats", label: "Чаты" },
   { id: "assignment", label: "Назначение" },
   { id: "kaspi", label: "Kaspi" },
+  { id: "bcc", label: "BCC" },
   { id: "legal", label: "Документы" },
 ];
 
@@ -60,6 +63,11 @@ export function SettingsPage() {
       {active === "kaspi" && (
         <div className="flex flex-col gap-6">
           <KaspiSection />
+        </div>
+      )}
+      {active === "bcc" && (
+        <div className="flex flex-col gap-6">
+          <BccSection />
         </div>
       )}
       {active === "legal" && (

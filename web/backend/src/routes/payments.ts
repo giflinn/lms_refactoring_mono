@@ -23,6 +23,7 @@ import {
   checkoutHtml,
   requireBccConfig,
 } from "../services/bcc/checkout";
+import { logBccEvent } from "../services/bcc/events";
 
 export const paymentsRouter = Router();
 
@@ -186,6 +187,17 @@ paymentsRouter.get("/payments/:id/checkout", async (req, res, next) => {
       .update(paymentTransactions)
       .set({ rawRequest: fields, updatedAt: now })
       .where(eq(paymentTransactions.id, tx.id));
+
+    await logBccEvent({
+      kind: "purchase_form",
+      trtype: "1",
+      outcome: "pending",
+      paymentTransactionId: tx.id,
+      orderId: tx.orderId,
+      bccOrder: tx.bccOrder,
+      note: "checkout form generated",
+      payload: fields,
+    });
 
     res.type("html").send(checkoutHtml(cfg.webviewUrl, fields));
   } catch (err) {

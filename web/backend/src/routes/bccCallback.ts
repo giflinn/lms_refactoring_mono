@@ -25,6 +25,7 @@ import { db } from "../db";
 import { paymentTransactions } from "../db/schema";
 import { config } from "../config";
 import { settlePaid } from "../services/bcc/settle";
+import { logBccEvent } from "../services/bcc/events";
 
 export const bccCallbackRouter = Router();
 
@@ -35,8 +36,21 @@ bccCallbackRouter.post(
     const authConfigured = !!(
       config.bcc.notifyUser && config.bcc.notifyPass
     );
+    const data = (req.body ?? {}) as Record<string, string>;
+    const bccOrder = typeof data.ORDER === "string" ? data.ORDER : "";
+    const nonce = typeof data.NONCE === "string" ? data.NONCE : "";
+    const orderNum = bccOrder ? Number(bccOrder) : null;
+
     if (authConfigured) {
       if (!checkBasicAuth(req)) {
+        await logBccEvent({
+          kind: "callback",
+          trtype: data.TRTYPE ?? null,
+          outcome: "unverified",
+          bccOrder: orderNum,
+          note: "rejected: Basic-Auth failed",
+          payload: data,
+        });
         res.status(401).json({ error: "invalid_credentials" });
         return;
       }
@@ -45,11 +59,17 @@ bccCallbackRouter.post(
         "[bcc] callback accepted without Basic-Auth — BCC_NOTIFY_USER/PASS not set (test mode); NONCE still verified",
       );
     }
+    const authNote = authConfigured ? "basic-auth ok" : "basic-auth skipped (test)";
 
-    const data = (req.body ?? {}) as Record<string, string>;
-    const bccOrder = typeof data.ORDER === "string" ? data.ORDER : "";
-    const nonce = typeof data.NONCE === "string" ? data.NONCE : "";
     if (!bccOrder || !nonce) {
+      await logBccEvent({
+        kind: "callback",
+        trtype: data.TRTYPE ?? null,
+        outcome: "unverified",
+        bccOrder: orderNum,
+        note: "rejected: missing ORDER/NONCE",
+        payload: data,
+      });
       res.status(400).json({ error: "missing_fields" });
       return;
     }
@@ -68,6 +88,17 @@ bccCallbackRouter.post(
 
       if (!tx) {
         console.warn("[bcc] callback for unknown order", bccOrder);
+        await logBccEvent({
+          kind: "callback",
+          trtype: data.TRTYPE ?? null,
+          outcome: "unverified",
+          bccOrder: orderNum,
+          action: data.ACTION ?? null,
+          rc: data.RC ?? null,
+          rcText: data.RC_TEXT ?? null,
+          note: `${authNote}; no matching transaction (unknown/forged ORDER)`,
+          payload: data,
+        });
         res.sendStatus(200);
         return;
       }
@@ -75,10 +106,33 @@ bccCallbackRouter.post(
       // generated for this ORDER. Rejects forged callbacks.
       if (!safeEqual(nonce, tx.nonce)) {
         console.warn("[bcc] callback NONCE mismatch for order", bccOrder);
+        await logBccEvent({
+          kind: "callback",
+          trtype: data.TRTYPE ?? null,
+          outcome: "unverified",
+          paymentTransactionId: tx.id,
+          orderId: tx.orderId,
+          bccOrder: orderNum,
+          note: `${authNote}; rejected: NONCE mismatch`,
+          payload: data,
+        });
         res.status(401).json({ error: "invalid_nonce" });
         return;
       }
       if (tx.status !== "pending") {
+        await logBccEvent({
+          kind: "callback",
+          trtype: data.TRTYPE ?? null,
+          outcome: "success",
+          paymentTransactionId: tx.id,
+          orderId: tx.orderId,
+          bccOrder: orderNum,
+          action: data.ACTION ?? null,
+          rc: data.RC ?? null,
+          rcText: data.RC_TEXT ?? null,
+          note: `${authNote}; duplicate ack (already ${tx.status})`,
+          payload: data,
+        });
         res.sendStatus(200); // already settled — idempotent ack
         return;
       }
@@ -92,6 +146,19 @@ bccCallbackRouter.post(
           intRef: data.INT_REF || null,
           cardMask: data.CARD_MASK || null,
           raw: data,
+        });
+        await logBccEvent({
+          kind: "callback",
+          trtype: data.TRTYPE ?? null,
+          outcome: "success",
+          paymentTransactionId: tx.id,
+          orderId: tx.orderId,
+          bccOrder: orderNum,
+          action: data.ACTION ?? null,
+          rc: data.RC ?? null,
+          rcText: data.RC_TEXT ?? null,
+          note: `${authNote}; settled paid`,
+          payload: data,
         });
       } else {
         // Record the failed attempt; leave the order pending — the user may
@@ -112,6 +179,19 @@ bccCallbackRouter.post(
               eq(paymentTransactions.status, "pending"),
             ),
           );
+        await logBccEvent({
+          kind: "callback",
+          trtype: data.TRTYPE ?? null,
+          outcome: "declined",
+          paymentTransactionId: tx.id,
+          orderId: tx.orderId,
+          bccOrder: orderNum,
+          action: data.ACTION ?? null,
+          rc: data.RC ?? null,
+          rcText: data.RC_TEXT ?? null,
+          note: `${authNote}; payment failed/declined`,
+          payload: data,
+        });
       }
       res.sendStatus(200);
     } catch (err) {

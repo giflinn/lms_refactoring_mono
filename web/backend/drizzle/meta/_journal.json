@@ -232,6 +232,13 @@
       "when": 1780082410311,
       "tag": "0032_talented_sabra",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1780084894138,
+      "tag": "0033_dazzling_thaddeus_ross",
+      "breakpoints": true
     }
   ]
 }

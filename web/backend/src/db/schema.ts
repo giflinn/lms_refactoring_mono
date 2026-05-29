@@ -752,6 +752,57 @@ export const paymentTransactions = pgTable(
   ],
 );
 
+// Append-only audit journal of every BCC touchpoint — surfaced read-only in
+// the admin Settings → BCC tab. Distinct from payment_transactions (which is
+// the current state of an attempt): this records each interaction, including
+// callbacks that don't map to a known transaction (forged / unrecognized
+// ORDER). Writes are best-effort — a failed insert here must never break a
+// payment or callback. NONCE/P_SIGN are redacted out of `payload` before
+// storing (auth material). docs/bcc-payment-integration.md §17.
+export const bccEvents = pgTable(
+  "bcc_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Nullable + ON DELETE SET NULL so the journal outlives the order/txn it
+    // describes (and exists for callbacks with no matching transaction).
+    paymentTransactionId: uuid("payment_transaction_id").references(
+      () => paymentTransactions.id,
+      { onDelete: "set null" },
+    ),
+    orderId: uuid("order_id").references(() => orders.id, {
+      onDelete: "set null",
+    }),
+    // The ORDER value seen in the event — kept even when no transaction matched.
+    bccOrder: integer("bcc_order"),
+    // 'purchase_form' | 'callback' | 'refund' (text, not enum: event kinds may
+    // grow and we don't want an enum-alter migration each time).
+    kind: text("kind").notNull(),
+    // BCC TRTYPE: '1' purchase, '14' refund, '22' void.
+    trtype: text("trtype"),
+    // Coarse row status: 'pending' | 'success' | 'declined' | 'error' |
+    // 'unverified' (callback failed Basic-Auth / NONCE / no matching txn).
+    outcome: text("outcome").notNull(),
+    action: text("action"),
+    rc: text("rc"),
+    rcText: text("rc_text"),
+    // HTTP status of an outbound BCC response (refund). Null for inbound events.
+    httpStatus: integer("http_status"),
+    // Short human note: auth/NONCE result, decline reason, etc.
+    note: text("note"),
+    // Redacted raw fields (NONCE/P_SIGN stripped). Request, response, or body.
+    payload: jsonb("payload").$type<Record<string, string>>(),
+  },
+  (t) => [
+    index("bcc_events_created_at_idx").on(t.createdAt),
+    index("bcc_events_payment_transaction_id_idx").on(t.paymentTransactionId),
+    index("bcc_events_order_id_idx").on(t.orderId),
+    index("bcc_events_kind_idx").on(t.kind),
+  ],
+);
+
 // Sub-range reservation inside a coach_slot. Created together with an
 // order_item in the same transaction at order creation time. The coach
 // calendar reads these to render colored slices over the slot tile and to
