@@ -34,11 +34,14 @@ function publicBase(): string {
   return b.replace(/\/+$/, "");
 }
 
-// BCC requires NOTIFY_URL to carry an explicit port (docs §3/§14).
+// BCC requires NOTIFY_URL to carry an explicit port (docs §3/§14). URL
+// normalization drops the default https port (443), so build the string by
+// hand to keep the port.
 function notifyUrl(): string {
   const u = new URL(publicBase());
-  if (!u.port) u.port = "443";
-  return `${u.toString().replace(/\/+$/, "")}/payments/bcc/callback`;
+  const port = u.port || "443";
+  const path = u.pathname === "/" ? "" : u.pathname.replace(/\/+$/, "");
+  return `${u.protocol}//${u.hostname}:${port}${path}/payments/bcc/callback`;
 }
 
 function backrefUrl(): string {
