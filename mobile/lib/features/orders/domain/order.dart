@@ -63,6 +63,12 @@ class ClientOrder {
   final String id;
   final int orderNumber;
   final OrderStatus status;
+  /// Raw `orders.payment_status` (pending | paid | unpaid | refunded). The
+  /// fulfillment-based [status] drives the tabs; this drives the payment CTA.
+  final String paymentStatus;
+  /// 'kaspi' | 'card' | null. Null = legacy/Kaspi (set only on card payment).
+  /// Staff history (`/clients/:id/orders`) omits it — null there is fine.
+  final String? paymentMethod;
   final num totalTenge;
   final DateTime createdAt;
   /// Computed server-side as `firstPaidAt + min(daysUntilCancel)`. NULL when
@@ -79,6 +85,8 @@ class ClientOrder {
     required this.id,
     required this.orderNumber,
     required this.status,
+    required this.paymentStatus,
+    required this.paymentMethod,
     required this.totalTenge,
     required this.createdAt,
     required this.cancellationDeadline,
@@ -88,6 +96,11 @@ class ClientOrder {
   });
 
   List<String> get productTitles => items.map((i) => i.productTitle).toList();
+
+  /// A card (BCC) order whose payment hasn't completed yet — the client should
+  /// be sent to the bank checkout to finish paying, not to the manager chat.
+  bool get isUnpaidCard =>
+      paymentMethod == 'card' && paymentStatus == 'pending';
 
   bool get canCancel {
     if (pendingCancellation != null) return false;
@@ -104,6 +117,8 @@ class ClientOrder {
       id: json['id'] as String,
       orderNumber: json['orderNumber'] as int,
       status: orderStatusFromString(json['fulfillmentStatus'] as String),
+      paymentStatus: (json['paymentStatus'] as String?) ?? 'pending',
+      paymentMethod: json['paymentMethod'] as String?,
       totalTenge: num.parse(json['totalTenge'].toString()),
       createdAt: DateTime.parse(json['createdAt'] as String),
       cancellationDeadline:

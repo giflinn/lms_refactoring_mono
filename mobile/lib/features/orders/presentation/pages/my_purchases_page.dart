@@ -1,10 +1,18 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tokens.dart';
+import '../../../../core/network/api_exceptions.dart';
 import '../../../../core/widgets/gradient_background.dart';
+// Card payment lives in the cart feature (its first consumer). Reused here so
+// an unpaid BCC order can be resumed from "Мои покупки" — mirrors how cart
+// already reaches into orders/data to create the order.
+import '../../../cart/data/bcc_payment_api.dart';
+import '../../../cart/data/bcc_payment_api_provider.dart';
+import '../../../cart/domain/card_checkout_args.dart';
 import '../../../home/presentation/controller/client_shell_tab_controller.dart';
 import '../../../reviews/domain/leave_review_args.dart';
 import '../../data/orders_api.dart';
@@ -287,7 +295,11 @@ class _OrdersTab extends ConsumerWidget {
     if (orders.isEmpty) {
       return _EmptyTab(status: status);
     }
-    final showSnackbar = status == OrderStatus.newOrder;
+    // The "go to chat" banner only applies to manually-activated (Kaspi)
+    // orders. Hide it when every new order is an unpaid card order — those
+    // show "Оплатить" instead of a chat hand-off.
+    final showSnackbar = status == OrderStatus.newOrder &&
+        orders.any((o) => !o.isUnpaidCard);
     return RefreshIndicator(
       color: AppColors.purplePrimary,
       onRefresh: () => ref.read(clientOrdersProvider.notifier).refresh(),
@@ -434,6 +446,12 @@ class _NewOrderActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // BCC card orders that haven't been paid yet go straight to the bank
+    // checkout to finish payment. Kaspi (and legacy null-method) orders are
+    // activated manually — hand off to the manager chat as before.
+    if (order.isUnpaidCard) {
+      return _PayCardButton(order: order);
+    }
     return _LargeYellowButton(
       label: 'Перейти в чат с менеджером',
       onTap: () {
@@ -446,6 +464,104 @@ class _NewOrderActions extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// "Оплатить" for an unpaid BCC card order. Starts a fresh payment attempt
+/// (POST /payments) on the *existing* order and opens the bank checkout —
+/// same as the cart's card flow minus the order creation. On return, refreshes
+/// the list so a now-paid order drops out of "Новые".
+class _PayCardButton extends ConsumerStatefulWidget {
+  final ClientOrder order;
+
+  const _PayCardButton({required this.order});
+
+  @override
+  ConsumerState<_PayCardButton> createState() => _PayCardButtonState();
+}
+
+class _PayCardButtonState extends ConsumerState<_PayCardButton> {
+  bool _starting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LargeYellowButton(
+      label: _starting ? 'Открываем оплату…' : 'Оплатить',
+      onTap: _pay,
+    );
+  }
+
+  Future<void> _pay() async {
+    if (_starting) return;
+    setState(() => _starting = true);
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final idToken = await user?.getIdToken();
+      if (!mounted) return;
+      if (idToken == null || idToken.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось получить токен. Попробуйте перезайти.'),
+          ),
+        );
+        return;
+      }
+
+      final StartedPayment started;
+      try {
+        started = await ref
+            .read(bccPaymentApiProvider)
+            .start(orderId: widget.order.id, idToken: idToken);
+      } on PaymentException catch (e) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text(_payStartError(e.code))),
+        );
+        // order_not_payable → it was paid/cancelled elsewhere; refresh so the
+        // card drops out of "Новые".
+        if (e.code == 'order_not_payable') {
+          await ref.read(clientOrdersProvider.notifier).refresh();
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      await router.push(
+        '/client/card-checkout',
+        extra: CardCheckoutArgs(
+          orderId: widget.order.id,
+          paymentId: started.paymentId,
+          checkoutUrl: started.checkoutUrl,
+          returnUrl: started.returnUrl,
+        ),
+      );
+      // Back from checkout — refresh so a paid order moves to "Активные".
+      if (mounted) {
+        await ref.read(clientOrdersProvider.notifier).refresh();
+      }
+    } on NetworkException {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Нет соединения с сервером')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+}
+
+/// Friendly message for a POST /payments (start) error code.
+String _payStartError(String code) {
+  switch (code) {
+    case 'order_not_payable':
+      return 'Этот заказ уже оплачен или отменён.';
+    case 'payment_unavailable':
+      return 'Оплата картой временно недоступна. Обратитесь к менеджеру.';
+    default:
+      return 'Не удалось начать оплату. Попробуйте позже.';
   }
 }
 
