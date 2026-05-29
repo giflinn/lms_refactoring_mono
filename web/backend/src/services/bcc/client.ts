@@ -23,6 +23,30 @@ function parseUrlEncoded(body: string): Record<string, string> {
   return out;
 }
 
+// BCC replies to the synchronous server-to-server refund (TRTYPE=14) with JSON
+// (content-type application/json), NOT the url-encoded shape the notification
+// callback uses. Parse by content-type, falling back to url-encoded. Returns an
+// empty map on an unparseable body (→ ACTION/RC null → caller treats it as a
+// failure). docs/bcc-payment-integration.md §17.
+function parseBccBody(
+  text: string,
+  contentType: string,
+): Record<string, string> {
+  if (contentType.includes("application/json")) {
+    try {
+      const obj = JSON.parse(text) as Record<string, unknown>;
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = v == null ? "" : String(v);
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+  return parseUrlEncoded(text);
+}
+
 export function toResult(raw: Record<string, string>): BccResult {
   return {
     action: raw.ACTION ?? null,
@@ -73,19 +97,20 @@ export async function refund(p: {
     body: new URLSearchParams(fields).toString(),
   });
   const text = await res.text();
-  // Diagnostic: the test 3DS host has returned non-key=value bodies for
-  // server-to-server ops before (TRTYPE=90 status was dropped for exactly
-  // this). When a refund "declines" with all-null ACTION/RC it means the body
-  // wasn't parseable — log the raw response so we can see what BCC actually
-  // returns (HTML? error? empty?). Safe to drop once the refund mechanism is
-  // confirmed with the bank. docs/bcc-payment-integration.md §17.
+  const ct = res.headers.get("content-type") ?? "";
+  const result = toResult(parseBccBody(text, ct));
+  // Log only the verdict fields — never the raw body, which carries
+  // RRN/INT_REF/P_SIGN. action/rc/rcText is enough to tell success
+  // (ACTION=0/RC=00) from a gateway decline (e.g. RC=-17 "Access denied").
   console.log(
     "[bcc] refund response",
     `order=${p.bccOrder}`,
     `http=${res.status}`,
-    `ct=${res.headers.get("content-type") ?? ""}`,
+    `ct=${ct}`,
     `len=${text.length}`,
-    `body=${text.slice(0, 1000)}`,
+    `action=${result.action}`,
+    `rc=${result.rc}`,
+    `rcText=${result.rcText}`,
   );
-  return toResult(parseUrlEncoded(text));
+  return result;
 }
