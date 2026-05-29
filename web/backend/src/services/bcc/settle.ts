@@ -21,13 +21,17 @@ export async function settlePaid(
     .update(paymentTransactions)
     .set({
       status: "paid",
-      action: result.action,
-      rc: result.rc,
-      rcText: result.rcText,
-      rrn: result.rrn,
-      intRef: result.intRef,
-      cardMask: result.cardMask,
-      rawCallback: result.raw,
+      // Pass undefined (not null) for absent fields — drizzle then leaves the
+      // column as-is instead of serializing a null, which it chokes on here.
+      action: result.action ?? undefined,
+      rc: result.rc ?? undefined,
+      rcText: result.rcText ?? undefined,
+      rrn: result.rrn ?? undefined,
+      intRef: result.intRef ?? undefined,
+      cardMask: result.cardMask ?? undefined,
+      // Spread into a plain object — express.urlencoded gives a null-prototype
+      // object, which the jsonb encoder can trip on.
+      rawCallback: { ...result.raw },
       updatedAt: new Date(),
     })
     .where(
