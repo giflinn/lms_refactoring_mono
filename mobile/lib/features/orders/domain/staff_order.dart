@@ -105,6 +105,7 @@ class StaffOrder {
   final String id;
   final int orderNumber;
   final PaymentStatus paymentStatus;
+  final String? paymentMethod; // 'kaspi' | 'card' | null (null = Kaspi)
   final FulfillmentStatus fulfillmentStatus;
   final num totalTenge;
   final int itemsCount;
@@ -117,6 +118,7 @@ class StaffOrder {
     required this.id,
     required this.orderNumber,
     required this.paymentStatus,
+    this.paymentMethod,
     required this.fulfillmentStatus,
     required this.totalTenge,
     required this.itemsCount,
@@ -132,6 +134,7 @@ class StaffOrder {
       orderNumber: json['orderNumber'] as int,
       paymentStatus:
           paymentStatusFromString(json['paymentStatus'] as String),
+      paymentMethod: json['paymentMethod'] as String?,
       fulfillmentStatus:
           fulfillmentStatusFromString(json['fulfillmentStatus'] as String),
       totalTenge: num.parse(json['totalTenge'].toString()),

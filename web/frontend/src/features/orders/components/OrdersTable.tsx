@@ -4,6 +4,7 @@ import type { OrderListItem } from "../api";
 import { FulfillmentBadge, PaymentBadge } from "./StatusBadge";
 import { formatOrderDate, formatTenge } from "../format";
 import kaspiIcon from "../../../assets/icons/payment/kaspi.png";
+import { CreditCard } from "lucide-react";
 
 type Props = {
   orders: OrderListItem[];
@@ -132,12 +133,28 @@ function OrderRow({
           {formatTenge(order.totalTenge)}
         </div>
         <div className="flex w-[90px] shrink-0 items-center gap-2">
-          <img
-            src={kaspiIcon}
-            alt="Kaspi"
-            className="h-6 w-6 shrink-0 rounded-full"
-          />
-          <span className="text-[13px] font-medium text-[#0E131F]">Kaspi</span>
+          {order.paymentMethod === "card" ? (
+            <>
+              <CreditCard
+                className="h-6 w-6 shrink-0 text-purple-primary"
+                strokeWidth={1.5}
+              />
+              <span className="text-[13px] font-medium text-[#0E131F]">
+                Карта
+              </span>
+            </>
+          ) : (
+            <>
+              <img
+                src={kaspiIcon}
+                alt="Kaspi"
+                className="h-6 w-6 shrink-0 rounded-full"
+              />
+              <span className="text-[13px] font-medium text-[#0E131F]">
+                Kaspi
+              </span>
+            </>
+          )}
         </div>
         <div className="flex w-[130px] shrink-0 flex-col gap-1.5">
           <PaymentBadge status={order.paymentStatus} />

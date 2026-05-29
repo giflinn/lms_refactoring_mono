@@ -79,7 +79,7 @@ class StaffOrderCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   _SumRow(value: order.totalTenge),
                   const SizedBox(height: 12),
-                  const _PaymentMethodRow(),
+                  _PaymentMethodRow(method: order.paymentMethod),
                 ],
               ),
             ),
@@ -213,14 +213,15 @@ class _SumRow extends StatelessWidget {
   }
 }
 
-/// "Способ оплаты [K] Kaspi" row. We don't store payment method on the
-/// order — every order in this app flows through Kaspi. If we ever add a
-/// second method, this becomes data-driven.
+/// "Способ оплаты [icon] Kaspi/Карта" row, driven by the order's
+/// payment_method ('kaspi' | 'card' | null → Kaspi).
 class _PaymentMethodRow extends StatelessWidget {
-  const _PaymentMethodRow();
+  final String? method;
+  const _PaymentMethodRow({this.method});
 
   @override
   Widget build(BuildContext context) {
+    final isCard = method == 'card';
     return Row(
       children: [
         const Text(
@@ -236,16 +237,18 @@ class _PaymentMethodRow extends StatelessWidget {
         const Spacer(),
         ClipOval(
           child: Image.asset(
-            'assets/icons/cart/kaspi.png',
+            isCard
+                ? 'assets/icons/cart/bank_card.png'
+                : 'assets/icons/cart/kaspi.png',
             width: 22,
             height: 22,
             fit: BoxFit.cover,
           ),
         ),
         const SizedBox(width: 8),
-        const Text(
-          'Kaspi',
-          style: TextStyle(
+        Text(
+          isCard ? 'Карта' : 'Kaspi',
+          style: const TextStyle(
             color: AppColors.white,
             fontSize: 15,
             fontWeight: FontWeight.w500,

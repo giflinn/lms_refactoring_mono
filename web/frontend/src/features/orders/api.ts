@@ -19,6 +19,7 @@ export type OrderListItem = {
   id: string;
   orderNumber: number;
   paymentStatus: PaymentStatus;
+  paymentMethod: "kaspi" | "card" | null;
   fulfillmentStatus: FulfillmentStatus;
   // Postgres numeric arrives as a JSON string ("10000.00"); render with
   // formatTenge (see ./format.ts).

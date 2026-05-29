@@ -438,6 +438,7 @@ ordersRouter.get(
           id: r.order.id,
           orderNumber: r.order.orderNumber,
           paymentStatus: r.order.paymentStatus,
+          paymentMethod: r.order.paymentMethod,
           fulfillmentStatus: r.order.fulfillmentStatus,
           totalTenge: r.order.totalTenge,
           itemsCount: Number(r.itemsCount ?? 0),
