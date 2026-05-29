@@ -4,11 +4,11 @@
 //                                  a WebView navigation can't carry a bearer; the
 //                                  id is an unguessable uuid and only renders
 //                                  while the attempt is still pending)
-//   GET  /payments/:id           — poll status (nudges BCC via TRTYPE=90 if a
-//                                  callback hasn't landed yet)
+//   GET  /payments/:id           — poll the current DB status (the verified
+//                                  callback settles it)
 //
-// The authoritative "paid" signal is the verified callback / TRTYPE=90, never
-// the browser return. See docs/bcc-payment-integration.md §5/§8.
+// The authoritative "paid" signal is the BCC notification callback, never the
+// browser return. See docs/bcc-payment-integration.md §5/§8.
 
 import { Router } from "express";
 import { eq } from "drizzle-orm";
@@ -23,8 +23,6 @@ import {
   checkoutHtml,
   requireBccConfig,
 } from "../services/bcc/checkout";
-import { checkStatus, isPaid } from "../services/bcc/client";
-import { settlePaid } from "../services/bcc/settle";
 
 export const paymentsRouter = Router();
 
@@ -85,6 +83,7 @@ paymentsRouter.post(
       const [order] = await db
         .select({
           id: orders.id,
+          orderNumber: orders.orderNumber,
           clientId: orders.clientId,
           paymentStatus: orders.paymentStatus,
           fulfillmentStatus: orders.fulfillmentStatus,
@@ -105,10 +104,18 @@ paymentsRouter.post(
         return;
       }
 
+      // BCC ORDER = order_number * 100 + attempt index — traceable in the BCC
+      // dashboard (first digits = order number) and unique per retry (BCC
+      // dedups on the low 6 digits within a day).
+      const attempt = await db.$count(
+        paymentTransactions,
+        eq(paymentTransactions.orderId, order.id),
+      );
       const [tx] = await db
         .insert(paymentTransactions)
         .values({
           orderId: order.id,
+          bccOrder: order.orderNumber * 100 + attempt,
           amountTenge: order.totalTenge,
           nonce: bccNonce(),
         })
@@ -197,10 +204,8 @@ paymentsRouter.get(
         .select({
           id: paymentTransactions.id,
           status: paymentTransactions.status,
-          bccOrder: paymentTransactions.bccOrder,
           rc: paymentTransactions.rc,
           rcText: paymentTransactions.rcText,
-          orderId: paymentTransactions.orderId,
           clientId: orders.clientId,
         })
         .from(paymentTransactions)
@@ -212,22 +217,14 @@ paymentsRouter.get(
         return;
       }
 
-      let status = row.status;
-      // Best-effort nudge: if a callback hasn't settled this yet, ask BCC
-      // directly so the app isn't stuck on "проверяем оплату".
-      if (status === "pending") {
-        try {
-          const result = await checkStatus(String(row.bccOrder));
-          if (isPaid(result)) {
-            await settlePaid(row.id, row.orderId, result);
-            status = "paid";
-          }
-        } catch (err) {
-          console.error("[bcc] inline status check failed:", err);
-        }
-      }
-
-      res.json({ paymentId: row.id, status, rc: row.rc, rcText: row.rcText });
+      // The verified callback settles the order; the app polls this to reflect
+      // the DB state. (No inline TRTYPE=90 — the status host returns HTML.)
+      res.json({
+        paymentId: row.id,
+        status: row.status,
+        rc: row.rc,
+        rcText: row.rcText,
+      });
     } catch (err) {
       handlePaymentError(err, res, next);
     }

@@ -572,14 +572,6 @@ export const ordersNumberSeq = pgSequence("orders_number_seq", {
   startWith: 1000000,
 });
 
-// Numeric reference sent to BCC as the ORDER field for each card-payment
-// attempt. Separate from orders_number_seq so a retry of the same order gets a
-// fresh value — BCC dedups on the low 6 digits within a day (ACTION=1 on a
-// repeat). docs/bcc-payment-integration.md §3/§7.
-export const bccOrderSeq = pgSequence("bcc_order_seq", {
-  startWith: 1000000,
-});
-
 // One purchase. Created in a transaction by POST /orders right before the
 // mobile app hands the user off to Kaspi. Snapshot semantics live on
 // order_items (title/category/price frozen at create-time); this table holds
@@ -727,12 +719,11 @@ export const paymentTransactions = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     provider: text("provider").notNull().default("bcc"),
-    // The numeric ORDER sent to BCC. Sequence-generated so it's globally unique
-    // (numeric, >6 digits, unique low-6/day — BCC's duplicate rule).
-    bccOrder: integer("bcc_order")
-      .notNull()
-      .unique()
-      .default(sql`nextval('bcc_order_seq')`),
+    // The numeric ORDER sent to BCC: order_number * 100 + attempt index, set
+    // explicitly in POST /payments. Encodes the system order number (so the BCC
+    // dashboard is traceable) and stays unique per attempt (BCC dedups on the
+    // low 6 digits within a day). docs/bcc-payment-integration.md §3/§7.
+    bccOrder: integer("bcc_order").notNull().unique(),
     // Per-attempt CSPRNG nonce — hex, upper-case, no dashes. Secondary key the
     // callback can be matched on.
     nonce: text("nonce").notNull().unique(),

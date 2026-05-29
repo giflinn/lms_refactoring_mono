@@ -225,6 +225,13 @@
       "when": 1780073889688,
       "tag": "0031_slimy_boom_boom",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1780082410311,
+      "tag": "0032_talented_sabra",
+      "breakpoints": true
     }
   ]
 }

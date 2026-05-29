@@ -1,8 +1,10 @@
 // Server-side BCC operations the merchant initiates directly (not browser-
-// side): the TRTYPE=90 status check. Purchase is browser-side (checkout.ts);
-// refund/void (TRTYPE=14/22) land in Phase 2. docs/bcc-payment-integration.md §8.
+// side): refund (TRTYPE=14). Purchase is browser-side (checkout.ts) and the
+// settle signal is the notification callback. (Server-side TRTYPE=90 status
+// polling was dropped — the status host returns an HTML page, not a parseable
+// result — see docs/bcc-payment-integration.md §17.)
 
-import { REFUND_FIELD_ORDER, STATUS_FIELD_ORDER, signFields } from "./sign";
+import { REFUND_FIELD_ORDER, signFields } from "./sign";
 import { bccNonce, bccTimestamp, requireBccConfig } from "./checkout";
 
 export type BccResult = {
@@ -33,41 +35,12 @@ export function toResult(raw: Record<string, string>): BccResult {
   };
 }
 
-// Query the status of a prior operation by its ORDER (TRTYPE=90, valid ≤24h).
-// NOTE: the exact semantics of the status RESPONSE (does ACTION/RC reflect the
-// query or the original txn's outcome?) need confirming with BCC — docs §17.
-// We treat ACTION=0 & RC=00 conservatively as "the queried purchase is
-// approved". Used by the callback re-check and the reconcile cron.
-export async function checkStatus(bccOrder: string): Promise<BccResult> {
-  const cfg = requireBccConfig();
-  const fields: Record<string, string> = {
-    ORDER: bccOrder,
-    TERMINAL: cfg.terminalId,
-    TIMESTAMP: bccTimestamp(new Date()),
-    TRTYPE: "90",
-    NONCE: bccNonce(),
-  };
-  fields.P_SIGN = signFields(fields, STATUS_FIELD_ORDER, cfg.macKey);
-
-  const res = await fetch(cfg.webviewUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(fields).toString(),
-  });
-  return toResult(parseUrlEncoded(await res.text()));
-}
-
-/** Generic success check (ACTION=0 & RC=00) — purchase, status, or refund. */
+/** Generic success check (ACTION=0 & RC=00) — purchase or refund. */
 export function isSuccess(r: {
   action: string | null;
   rc: string | null;
 }): boolean {
   return r.action === "0" && r.rc === "00";
-}
-
-/** Did this result represent a successful payment? Alias of isSuccess. */
-export function isPaid(r: { action: string | null; rc: string | null }): boolean {
-  return isSuccess(r);
 }
 
 // Full refund of a prior purchase (TRTYPE=14, ≤30 days). Needs RRN + INT_REF
