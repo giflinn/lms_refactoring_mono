@@ -91,6 +91,12 @@ export async function refund(p: {
     INT_REF: p.intRef,
     TERMINAL: cfg.terminalId,
     TIMESTAMP: bccTimestamp(new Date()),
+    // MERCH_GMT="0" pairs with the UTC TIMESTAMP — the doc requires both and
+    // the TRTYPE=22 reversal request carries it. It is intentionally NOT in
+    // REFUND_FIELD_ORDER (the MAC excludes it, same as TRTYPE=22), so adding it
+    // here does not change P_SIGN. Sent because an absent MERCH_GMT can make
+    // the gateway misread the timestamp → RC=-17. docs/bcc-payment-integration.md §3.
+    MERCH_GMT: "0",
     TRTYPE: "14",
     NONCE: bccNonce(),
   };
