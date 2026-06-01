@@ -102,13 +102,17 @@ export async function refund(p: {
   };
   fields.P_SIGN = signFields(fields, REFUND_FIELD_ORDER, cfg.macKey);
   // TEMP diagnostic (BCC support asked for the exact refund request body + MAC
-  // source string on a fresh attempt). Test env, test data — remove once the
-  // refund RC=-17 is resolved with the bank.
-  console.log(
-    "[bcc] refund request",
-    `body=${JSON.stringify(fields)}`,
-    `macsrc=${sourceString(REFUND_FIELD_ORDER.map((k) => fields[k]))}`,
-  );
+  // source string on a fresh attempt). Gated to the BCC TEST host ONLY: there
+  // the macKey is the public sandbox key from the doc, so P_SIGN/source aren't
+  // secret. On the prod host (3dsecure.bcc.kz) the key is the real secret — this
+  // never fires there. Remove once the refund RC=-17 is resolved with the bank.
+  if (cfg.webviewUrl.includes("test3ds")) {
+    console.log(
+      "[bcc] refund request",
+      `body=${JSON.stringify(fields)}`,
+      `macsrc=${sourceString(REFUND_FIELD_ORDER.map((k) => fields[k]))}`,
+    );
+  }
   const res = await fetch(cfg.webviewUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
