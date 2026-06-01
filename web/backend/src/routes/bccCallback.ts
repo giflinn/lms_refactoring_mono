@@ -170,7 +170,12 @@ bccCallbackRouter.post(
             action: data.ACTION ?? null,
             rc: data.RC ?? null,
             rcText: data.RC_TEXT ?? null,
-            rawCallback: data,
+            // Spread into a plain object: urlencoded({extended:false}) yields a
+            // null-prototype body, and drizzle's jsonb mapper reads
+            // `.constructor` → crashes on null-proto ("Cannot read properties
+            // of null"). Same fix as settlePaid. Without it a decline callback
+            // throws, the tx stays pending, and we never see the bank's reason.
+            rawCallback: { ...data },
             updatedAt: new Date(),
           })
           .where(
