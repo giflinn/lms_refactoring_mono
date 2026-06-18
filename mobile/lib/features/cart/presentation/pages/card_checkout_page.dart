@@ -52,8 +52,19 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
             return NavigationDecision.navigate;
           },
         ),
-      )
-      ..loadRequest(Uri.parse(widget.args.checkoutUrl));
+      );
+    unawaited(_loadCheckout(widget.args.checkoutUrl));
+  }
+
+  /// Clears any cached BCC session (cookies / cache / local storage) before
+  /// loading a fresh checkout. A stale 3DS/session left over from a prior
+  /// failed attempt can make the bank page misbehave — BCC support's fix is
+  /// literally "очистите кэш и попробуйте ещё раз", so we do it on every load.
+  Future<void> _loadCheckout(String url) async {
+    await WebViewCookieManager().clearCookies();
+    await _controller.clearCache();
+    await _controller.clearLocalStorage();
+    await _controller.loadRequest(Uri.parse(url));
   }
 
   Future<String?> _idToken() =>
@@ -118,7 +129,7 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
           .start(orderId: widget.args.orderId, idToken: token);
       _paymentId = started.paymentId;
       _returnUrl = started.returnUrl;
-      await _controller.loadRequest(Uri.parse(started.checkoutUrl));
+      await _loadCheckout(started.checkoutUrl);
     } on PaymentException catch (e) {
       _fail(_startErrorMessage(e.code));
     } on NetworkException {
