@@ -29,6 +29,9 @@ class CardCheckoutPage extends ConsumerStatefulWidget {
 class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
   late final WebViewController _controller;
   _Phase _phase = _Phase.paying;
+  // True while the WebView is loading a page — the bank's 3DS page can take a
+  // few seconds, so we show a spinner over the (otherwise blank) WebView.
+  bool _webLoading = true;
   late String _paymentId;
   late String _returnUrl;
   String? _message;
@@ -42,19 +45,19 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          // TEMP diagnostics — surface why the bank page can render blank.
-          onPageStarted: (url) => debugPrint('[bcc-wv] started: $url'),
-          onPageFinished: (url) => debugPrint('[bcc-wv] finished: $url'),
-          onWebResourceError: (e) => debugPrint(
-            '[bcc-wv] resourceError: code=${e.errorCode} type=${e.errorType} '
-            'mainFrame=${e.isForMainFrame} url=${e.url} desc=${e.description}',
-          ),
-          onHttpError: (e) => debugPrint(
-            '[bcc-wv] httpError: status=${e.response?.statusCode} '
-            'url=${e.request?.uri}',
-          ),
+          onPageStarted: (_) {
+            if (mounted) setState(() => _webLoading = true);
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _webLoading = false);
+          },
+          onWebResourceError: (e) {
+            // A failed main-frame load must not leave the spinner forever.
+            if ((e.isForMainFrame ?? false) && mounted) {
+              setState(() => _webLoading = false);
+            }
+          },
           onNavigationRequest: (req) {
-            debugPrint('[bcc-wv] navTo: ${req.url}');
             if (req.url.startsWith(_returnUrl)) {
               // Bank flow finished — don't actually load our return URL in the
               // WebView; switch to polling instead.
@@ -73,18 +76,16 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
   /// failed attempt can make the bank page misbehave — BCC support's fix is
   /// literally "очистите кэш и попробуйте ещё раз", so we do it on every load.
   Future<void> _loadCheckout(String url) async {
-    debugPrint('[bcc-wv] loadCheckout: $url');
+    if (mounted) setState(() => _webLoading = true);
     // Best-effort clear — never let a clear failure block the checkout load.
     try {
       await WebViewCookieManager().clearCookies();
       await _controller.clearCache();
       await _controller.clearLocalStorage();
-      debugPrint('[bcc-wv] cache/cookies cleared');
-    } catch (e) {
-      debugPrint('[bcc-wv] clear failed (ignored): $e');
+    } catch (_) {
+      // ignore — clearing is a nicety, the load is what matters
     }
     await _controller.loadRequest(Uri.parse(url));
-    debugPrint('[bcc-wv] loadRequest issued');
   }
 
   Future<String?> _idToken() =>
@@ -170,7 +171,29 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Оплата картой')),
       body: switch (_phase) {
-        _Phase.paying => WebViewWidget(controller: _controller),
+        _Phase.paying => Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            if (_webLoading)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: AppColors.white,
+                  child: _Centered(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          color: AppColors.purplePrimary,
+                        ),
+                        SizedBox(height: 16),
+                        Text('Загружаем страницу оплаты…', style: _hintStyle),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
         _Phase.checking => const _Centered(
           child: Column(
             mainAxisSize: MainAxisSize.min,
