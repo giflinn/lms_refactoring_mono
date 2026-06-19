@@ -42,7 +42,19 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
+          // TEMP diagnostics — surface why the bank page can render blank.
+          onPageStarted: (url) => debugPrint('[bcc-wv] started: $url'),
+          onPageFinished: (url) => debugPrint('[bcc-wv] finished: $url'),
+          onWebResourceError: (e) => debugPrint(
+            '[bcc-wv] resourceError: code=${e.errorCode} type=${e.errorType} '
+            'mainFrame=${e.isForMainFrame} url=${e.url} desc=${e.description}',
+          ),
+          onHttpError: (e) => debugPrint(
+            '[bcc-wv] httpError: status=${e.response?.statusCode} '
+            'url=${e.request?.uri}',
+          ),
           onNavigationRequest: (req) {
+            debugPrint('[bcc-wv] navTo: ${req.url}');
             if (req.url.startsWith(_returnUrl)) {
               // Bank flow finished — don't actually load our return URL in the
               // WebView; switch to polling instead.
@@ -61,10 +73,18 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
   /// failed attempt can make the bank page misbehave — BCC support's fix is
   /// literally "очистите кэш и попробуйте ещё раз", so we do it on every load.
   Future<void> _loadCheckout(String url) async {
-    await WebViewCookieManager().clearCookies();
-    await _controller.clearCache();
-    await _controller.clearLocalStorage();
+    debugPrint('[bcc-wv] loadCheckout: $url');
+    // Best-effort clear — never let a clear failure block the checkout load.
+    try {
+      await WebViewCookieManager().clearCookies();
+      await _controller.clearCache();
+      await _controller.clearLocalStorage();
+      debugPrint('[bcc-wv] cache/cookies cleared');
+    } catch (e) {
+      debugPrint('[bcc-wv] clear failed (ignored): $e');
+    }
     await _controller.loadRequest(Uri.parse(url));
+    debugPrint('[bcc-wv] loadRequest issued');
   }
 
   Future<String?> _idToken() =>
