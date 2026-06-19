@@ -136,7 +136,7 @@ Confirmed canonical field set (no card data — the bank's page collects the car
 AMOUNT       "350.00"                  # 2 decimals
 CURRENCY     398                       # KZT
 ORDER        <numeric, >6 digits, unique low-6/day>   # per-attempt ref (§7)
-MERCH_RN_ID  <merchant ref id>         # MVMAZDUNTFWJURIY in the prior attempt
+MERCH_RN_ID  <merchant ref id>         # EXACTLY 16 alphanumeric AND must contain ≥1 DIGIT — an all-letter value passes purchase but fails reversal with RC=95 "Reconcile error" (BCC, 2026-06-19). Same value on purchase + reversal. We generate it (BCC doesn't assign one).
 DESC         "Покупка ..."             # human description, shown to payer
 MERCHANT     <merchant id>             # see §15 (test: 00000001)
 MERCH_NAME   "IP Zhanna Slyamova"

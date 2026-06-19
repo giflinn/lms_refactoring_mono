@@ -115,7 +115,7 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     .where(eq(paymentTransactions.id, tx.id));
   await logBccEvent({
     kind: "refund",
-    trtype: "14",
+    trtype,
     outcome: "success",
     paymentTransactionId: tx.id,
     orderId,
