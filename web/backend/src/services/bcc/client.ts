@@ -100,6 +100,11 @@ export async function refund(p: {
     // here does not change P_SIGN. Sent because an absent MERCH_GMT can make
     // the gateway misread the timestamp → RC=-17. docs/bcc-payment-integration.md §3.
     MERCH_GMT: "0",
+    // BCC needs MERCH_RN_ID (exactly 16 alphanumeric) to reconcile the reversal
+    // against the original purchase — without it the bank returns RC=95
+    // "Reconcile error". Like the purchase, it's sent in the body but NOT in
+    // REFUND_FIELD_ORDER (not signed), so P_SIGN is unchanged.
+    MERCH_RN_ID: cfg.merchRnId,
     TRTYPE: p.trtype,
     NONCE: bccNonce(),
   };
