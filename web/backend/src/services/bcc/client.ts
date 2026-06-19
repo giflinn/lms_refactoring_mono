@@ -71,15 +71,18 @@ export function isSuccess(r: {
   return r.action === "0" && r.rc === "00";
 }
 
-// Full refund of a prior purchase (TRTYPE=14, ≤30 days). Needs RRN + INT_REF
-// from the original purchase notification. Same-day instant void (TRTYPE=22) is
-// a future optimization; TRTYPE=14 works across the whole window (settles next
-// day). docs/bcc-payment-integration.md §3/§4.
+// Reverse a captured purchase. TRTYPE=22 = same-day void (before the batch
+// settles), TRTYPE=14 = refund of an already-settled tx (≤30 days). Both carry
+// the same fields + MAC order (REFUND_FIELD_ORDER); only the TRTYPE value
+// differs — a same-day TRTYPE=14 returns RC=95 "Reconcile error". The caller
+// picks which by settlement day. Needs RRN + INT_REF from the purchase
+// notification. docs/bcc-payment-integration.md §3/§8.
 export async function refund(p: {
   bccOrder: string;
   amount: string;
   rrn: string;
   intRef: string;
+  trtype: "14" | "22";
 }): Promise<BccResult> {
   const cfg = requireBccConfig();
   const fields: Record<string, string> = {
@@ -97,7 +100,7 @@ export async function refund(p: {
     // here does not change P_SIGN. Sent because an absent MERCH_GMT can make
     // the gateway misread the timestamp → RC=-17. docs/bcc-payment-integration.md §3.
     MERCH_GMT: "0",
-    TRTYPE: "14",
+    TRTYPE: p.trtype,
     NONCE: bccNonce(),
   };
   fields.P_SIGN = signFields(fields, REFUND_FIELD_ORDER, cfg.macKey);

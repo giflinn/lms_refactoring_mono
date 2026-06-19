@@ -35,10 +35,17 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     .orderBy(desc(paymentTransactions.createdAt))
     .limit(1);
   if (!tx) return { outcome: "not_card" }; // card order but nothing captured
+  // Same-day → void (TRTYPE=22, before the batch settles); an earlier Almaty
+  // day → refund (TRTYPE=14, ≤30d). A same-day TRTYPE=14 returns RC=95
+  // "Reconcile error". Cut-off is the bank's local day; exact batch time TBC
+  // with BCC. docs/bcc-payment-integration.md §6.4.
+  const trtype: "14" | "22" = isSameAlmatyDay(tx.createdAt, new Date())
+    ? "22"
+    : "14";
   if (!tx.rrn || !tx.intRef) {
     await logBccEvent({
       kind: "refund",
-      trtype: "14",
+      trtype,
       outcome: "error",
       paymentTransactionId: tx.id,
       orderId,
@@ -55,12 +62,13 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
       amount: tx.amountTenge,
       rrn: tx.rrn,
       intRef: tx.intRef,
+      trtype,
     });
   } catch (err) {
     console.error("[bcc] refund call failed:", err);
     await logBccEvent({
       kind: "refund",
-      trtype: "14",
+      trtype,
       outcome: "error",
       paymentTransactionId: tx.id,
       orderId,
@@ -79,7 +87,7 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     );
     await logBccEvent({
       kind: "refund",
-      trtype: "14",
+      trtype,
       outcome: "declined",
       paymentTransactionId: tx.id,
       orderId,
@@ -119,4 +127,17 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     payload: result.raw,
   });
   return { outcome: "refunded" };
+}
+
+// BCC reconciles by the bank's local day (Almaty, UTC+5, no DST). Same calendar
+// day in that zone = not yet settled → void; otherwise = settled → refund.
+function isSameAlmatyDay(a: Date, b: Date): boolean {
+  const offset = 5 * 60 * 60 * 1000;
+  const da = new Date(a.getTime() + offset);
+  const db = new Date(b.getTime() + offset);
+  return (
+    da.getUTCFullYear() === db.getUTCFullYear() &&
+    da.getUTCMonth() === db.getUTCMonth() &&
+    da.getUTCDate() === db.getUTCDate()
+  );
 }
