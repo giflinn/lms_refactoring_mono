@@ -109,7 +109,14 @@ function StatusMenuBase<S extends string>({
 
 type PaymentMenuProps = Omit<Props<PaymentStatus>, "items">;
 export function PaymentStatusMenu(props: PaymentMenuProps) {
-  return <StatusMenuBase {...props} items={PAYMENT_ITEMS} />;
+  // "Возврат" is only valid from a paid order — you can't refund what wasn't
+  // captured. Hide it for pending/unpaid (keep it visible when already
+  // refunded so the current status still renders). Backend enforces the same.
+  const allowRefund = props.current === "paid" || props.current === "refunded";
+  const items = allowRefund
+    ? PAYMENT_ITEMS
+    : PAYMENT_ITEMS.filter((i) => i.value !== "refunded");
+  return <StatusMenuBase {...props} items={items} />;
 }
 
 type FulfillmentMenuProps = Omit<Props<FulfillmentStatus>, "items">;

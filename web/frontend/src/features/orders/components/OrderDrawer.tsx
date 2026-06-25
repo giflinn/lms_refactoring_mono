@@ -102,6 +102,10 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
         toast.error("Заказ возвращён — нельзя снова отметить как оплаченный.");
         return;
       }
+      if (err instanceof ApiError && err.code === "order_not_paid") {
+        toast.error("Возврат доступен только для оплаченного заказа.");
+        return;
+      }
       console.error("[orders] payment status change failed", err);
     }
   }

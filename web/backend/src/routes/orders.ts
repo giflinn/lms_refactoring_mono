@@ -672,7 +672,11 @@ ordersRouter.patch(
       const body = req.body as Record<string, unknown>;
 
       const [existing] = await db
-        .select({ id: orders.id, managerId: orders.managerId })
+        .select({
+          id: orders.id,
+          managerId: orders.managerId,
+          paymentStatus: orders.paymentStatus,
+        })
         .from(orders)
         .where(eq(orders.id, orderId))
         .limit(1);
@@ -718,6 +722,13 @@ ordersRouter.patch(
       // 'not_card' → fall through to the normal manual flip (e.g. Kaspi).
       // docs/bcc-payment-integration.md §8.
       if (paymentStatusRaw === "refunded") {
+        // You can only refund a captured payment — block "refund" on an order
+        // that isn't currently paid (avoids a confusing refunded-but-never-paid
+        // state and a no-op BCC refund). Applies to card and Kaspi alike.
+        if (existing.paymentStatus !== "paid") {
+          res.status(400).json({ error: "order_not_paid" });
+          return;
+        }
         const refundResult = await refundCardOrder(orderId);
         if (refundResult.outcome === "error") {
           res.status(502).json({ error: refundResult.errorCode });
