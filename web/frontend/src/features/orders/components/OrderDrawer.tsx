@@ -12,6 +12,7 @@ import {
 import { useOrder, usePatchOrder } from "../queries";
 import { FulfillmentStatusMenu, PaymentStatusMenu } from "./StatusMenu";
 import { BookingConflictDialog } from "./BookingConflictDialog";
+import { RefundCancelDialog } from "./RefundCancelDialog";
 import { formatBookingRange, formatOrderDate, formatTenge } from "../format";
 
 type Props = {
@@ -63,11 +64,16 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
     target: FulfillmentStatus;
   } | null>(null);
 
+  // After a successful refund of an active order, ask whether to also cancel it
+  // (refund and cancellation are decoupled — see RefundCancelDialog).
+  const [askCancel, setAskCancel] = useState(false);
+
   useEffect(() => {
     if (!open) {
       setPaymentMenuOpen(false);
       setFulfillmentMenuOpen(false);
       setConflict(null);
+      setAskCancel(false);
     }
   }, [open]);
 
@@ -79,8 +85,12 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
 
   async function applyPayment(target: PaymentStatus) {
     if (!order) return;
+    // Captured before the mutation — a refund leaves an active order active
+    // (it doesn't auto-cancel), so that's when we offer to cancel it.
+    const wasActive = order.fulfillmentStatus === "active";
     try {
       await patch.mutateAsync({ id: order.id, paymentStatus: target });
+      if (target === "refunded" && wasActive) setAskCancel(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === "refund_failed") {
         toast.error(
@@ -294,6 +304,16 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
         onCancel={() => setConflict(null)}
         onForce={() => {
           if (conflict) applyFulfillment(conflict.target, true);
+        }}
+      />
+
+      <RefundCancelDialog
+        open={askCancel}
+        pending={patch.isPending}
+        onKeep={() => setAskCancel(false)}
+        onCancelOrder={async () => {
+          await applyFulfillment("cancelled", false);
+          setAskCancel(false);
         }}
       />
     </>
