@@ -23,7 +23,7 @@ import { timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { paymentTransactions } from "../db/schema";
-import { config } from "../config";
+import { resolveBccConfigRaw } from "../services/bcc/configStore";
 import { settlePaid } from "../services/bcc/settle";
 import { logBccEvent } from "../services/bcc/events";
 
@@ -33,16 +33,31 @@ bccCallbackRouter.post(
   "/payments/bcc/callback",
   urlencoded({ extended: false }),
   async (req: Request, res: Response) => {
-    const authConfigured = !!(
-      config.bcc.notifyUser && config.bcc.notifyPass
-    );
+    // Resolve the callback Basic-Auth creds from the active config (admin DB
+    // row, else .env). If resolution THROWS (a stored secret can't be decrypted
+    // — rotated APP_ENCRYPTION_KEY, corrupt blob — or a DB error), fail CLOSED:
+    // do NOT accept the settle unauthenticated. 503 so the bank retries once the
+    // operator fixes the config. (Resolution returns empty creds without
+    // throwing for the legitimate no-Basic-Auth test sandbox.)
+    let notifyUser = "";
+    let notifyPass = "";
+    try {
+      const cfg = await resolveBccConfigRaw();
+      notifyUser = cfg.notifyUser;
+      notifyPass = cfg.notifyPass;
+    } catch (err) {
+      console.error("[bcc] callback: config resolve failed — rejecting:", err);
+      res.status(503).json({ error: "config_unavailable" });
+      return;
+    }
+    const authConfigured = !!(notifyUser && notifyPass);
     const data = (req.body ?? {}) as Record<string, string>;
     const bccOrder = typeof data.ORDER === "string" ? data.ORDER : "";
     const nonce = typeof data.NONCE === "string" ? data.NONCE : "";
     const orderNum = bccOrder ? Number(bccOrder) : null;
 
     if (authConfigured) {
-      if (!checkBasicAuth(req)) {
+      if (!checkBasicAuth(req, notifyUser, notifyPass)) {
         await logBccEvent({
           kind: "callback",
           trtype: data.TRTYPE ?? null,
@@ -206,9 +221,7 @@ bccCallbackRouter.post(
   },
 );
 
-function checkBasicAuth(req: Request): boolean {
-  const user = config.bcc.notifyUser ?? "";
-  const pass = config.bcc.notifyPass ?? "";
+function checkBasicAuth(req: Request, user: string, pass: string): boolean {
   if (!user || !pass) return false;
   const header = req.header("authorization") ?? "";
   if (!header.startsWith("Basic ")) return false;

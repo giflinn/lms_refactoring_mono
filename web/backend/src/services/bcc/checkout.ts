@@ -5,8 +5,8 @@
 // docs/bcc-payment-integration.md §4.1/§8.
 
 import { randomBytes } from "node:crypto";
-import { config } from "../../config";
 import { PURCHASE_FIELD_ORDER, signFields } from "./sign";
+import { resolveBccConfigRaw } from "./configStore";
 
 export type BccConfig = {
   webviewUrl: string;
@@ -15,29 +15,34 @@ export type BccConfig = {
   macKey: string;
   merchName: string;
   merchRnId: string;
+  notifyUser: string;
+  notifyPass: string;
 };
 
-// Throws a clear, snake_case-coded error if any required BCC var is unset
-// (mirrors mailer.ts's first-use check). Lets a dev machine without BCC config
-// boot fine and fail only when a card payment is actually attempted.
-export function requireBccConfig(): BccConfig {
-  const c = config.bcc;
+// Resolve the active BCC config (admin-managed DB row, else the .env fallback —
+// see configStore.ts) and assert the core fields are present. Throws a clear,
+// snake_case-coded error otherwise, so a machine without BCC config boots fine
+// and fails only when a card payment is actually attempted.
+export async function requireBccConfig(): Promise<BccConfig> {
+  const c = await resolveBccConfigRaw();
   const missing: string[] = [];
-  if (!c.webviewUrl) missing.push("BCC_WEBVIEW_URL");
-  if (!c.merchantId) missing.push("BCC_MERCHANT_ID");
-  if (!c.terminalId) missing.push("BCC_TERMINAL_ID");
-  if (!c.macKey) missing.push("BCC_MAC_KEY");
-  if (!c.merchName) missing.push("BCC_MERCH_NAME");
+  if (!c.webviewUrl) missing.push("webviewUrl");
+  if (!c.merchantId) missing.push("merchantId");
+  if (!c.terminalId) missing.push("terminalId");
+  if (!c.macKey) missing.push("macKey");
+  if (!c.merchName) missing.push("merchName");
   if (missing.length > 0) {
     throw new Error(`bcc_not_configured:${missing.join(",")}`);
   }
   return {
-    webviewUrl: c.webviewUrl!,
-    merchantId: c.merchantId!,
-    terminalId: c.terminalId!,
-    macKey: c.macKey!,
-    merchName: c.merchName!,
-    merchRnId: c.merchRnId ?? "",
+    webviewUrl: c.webviewUrl,
+    merchantId: c.merchantId,
+    terminalId: c.terminalId,
+    macKey: c.macKey,
+    merchName: c.merchName,
+    merchRnId: c.merchRnId,
+    notifyUser: c.notifyUser,
+    notifyPass: c.notifyPass,
   };
 }
 
@@ -88,10 +93,10 @@ function buildMInfo(
 // once and reused for both the signature and the body — the two bugs the prior
 // Django integration shipped (docs §14): it called now() twice and signed a
 // different amount variable than it sent.
-export function buildPurchaseFields(
+export async function buildPurchaseFields(
   input: PurchaseInput,
-): Record<string, string> {
-  const cfg = requireBccConfig();
+): Promise<Record<string, string>> {
+  const cfg = await requireBccConfig();
   const timestamp = bccTimestamp(input.now);
   const signed: Record<string, string> = {
     AMOUNT: input.amountTenge,

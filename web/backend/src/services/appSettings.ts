@@ -50,6 +50,20 @@ export const SETTING_KEYS = {
   // shape lets the admin temporarily disable group routing without
   // tearing down the configured groups.
   kaspiStrategy: "kaspi_strategy",
+  // BCC card-payment credentials, admin-managed (Settings → BCC → Реквизиты).
+  // When the core fields are set they override the .env BCC_* fallback. The two
+  // *_enc keys (MAC key, callback password) are stored AES-256-GCM-encrypted
+  // (services/secretCrypto.ts); the rest are plaintext identifiers. Resolution,
+  // saving and masking all live in services/bcc/configStore.ts — NOT in the
+  // generic getSettingsMasked path (the encrypted blobs need decrypting first).
+  bccWebviewUrl: "bcc_webview_url",
+  bccMerchantId: "bcc_merchant_id",
+  bccTerminalId: "bcc_terminal_id",
+  bccMerchName: "bcc_merch_name",
+  bccMerchRnId: "bcc_merch_rn_id",
+  bccNotifyUser: "bcc_notify_user",
+  bccMacKeyEnc: "bcc_mac_key_enc",
+  bccNotifyPassEnc: "bcc_notify_pass_enc",
 } as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
@@ -70,6 +84,14 @@ const DEFAULTS: Record<SettingKey, string> = {
   // Default to the safer "everyone gets the default link" behavior; admin
   // can flip to per_group once they've configured groups.
   [SETTING_KEYS.kaspiStrategy]: "single",
+  [SETTING_KEYS.bccWebviewUrl]: "",
+  [SETTING_KEYS.bccMerchantId]: "",
+  [SETTING_KEYS.bccTerminalId]: "",
+  [SETTING_KEYS.bccMerchName]: "",
+  [SETTING_KEYS.bccMerchRnId]: "",
+  [SETTING_KEYS.bccNotifyUser]: "",
+  [SETTING_KEYS.bccMacKeyEnc]: "",
+  [SETTING_KEYS.bccNotifyPassEnc]: "",
 } as const;
 
 const ALL_KEYS = Object.values(SETTING_KEYS) as SettingKey[];

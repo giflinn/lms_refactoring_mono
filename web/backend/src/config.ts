@@ -66,4 +66,12 @@ export const config = {
     notifyUser: process.env.BCC_NOTIFY_USER,
     notifyPass: process.env.BCC_NOTIFY_PASS,
   },
+
+  // 32-byte master key (64 hex chars) for app-level encryption of secrets
+  // stored in Postgres — currently the admin-entered BCC MAC key + callback
+  // password (services/secretCrypto.ts, AES-256-GCM). Optional at startup;
+  // secretCrypto throws a clear error only when an encrypted value is actually
+  // read/written without it, so a dev machine still boots. Generate with
+  // `openssl rand -hex 32`. Deployed out-of-band (secret, not in git).
+  appEncryptionKey: process.env.APP_ENCRYPTION_KEY,
 };

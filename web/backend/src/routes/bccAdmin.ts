@@ -12,8 +12,23 @@ import { db } from "../db";
 import { bccEvents, orders, paymentTransactions } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/requireRole";
+import {
+  getBccConfigForAdmin,
+  saveBccConfig,
+  type SaveBccInput,
+} from "../services/bcc/configStore";
 
 export const bccAdminRouter = Router();
+
+// saveBccConfig's snake_case validation codes → 400 (vs 500 for unexpected).
+const BCC_VALIDATION_ERRORS = new Set([
+  "bcc_webview_url_invalid",
+  "bcc_required_field_missing",
+  "bcc_merch_rn_id_invalid",
+  "bcc_mac_component_invalid",
+  "bcc_key_component_length_mismatch",
+  "bcc_mac_key_invalid",
+]);
 
 const TX_STATUSES = new Set(["pending", "paid", "failed", "refunded"]);
 const MAX_PAGE_SIZE = 100;
@@ -31,6 +46,64 @@ function pagination(q: Record<string, unknown>): {
   );
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
+
+// GET /admin/bcc/settings — masked view of the active BCC credentials (source
+// db/env/none, mode test/prod, MAC-key fingerprint — never the key itself).
+bccAdminRouter.get(
+  "/admin/bcc/settings",
+  requireAuth,
+  requireAdmin,
+  async (_req, res, next) => {
+    try {
+      res.json(await getBccConfigForAdmin());
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PUT /admin/bcc/settings — the business enters/updates prod credentials. The
+// MAC key + callback password are write-only (blank = keep current) and stored
+// AES-256-GCM-encrypted. Returns the refreshed masked view.
+bccAdminRouter.put(
+  "/admin/bcc/settings",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const b = (req.body ?? {}) as Record<string, unknown>;
+      const str = (v: unknown): string => (typeof v === "string" ? v : "");
+      const input: SaveBccInput = {
+        webviewUrl: str(b.webviewUrl),
+        merchantId: str(b.merchantId),
+        terminalId: str(b.terminalId),
+        merchName: str(b.merchName),
+        merchRnId: str(b.merchRnId),
+        notifyUser: str(b.notifyUser),
+        macKey: str(b.macKey),
+        macKeyComponentA: str(b.macKeyComponentA),
+        macKeyComponentB: str(b.macKeyComponentB),
+        notifyPass: str(b.notifyPass),
+      };
+      await saveBccConfig(input, req.actorId!);
+      res.json(await getBccConfigForAdmin());
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "";
+      if (BCC_VALIDATION_ERRORS.has(code)) {
+        res.status(400).json({ error: code });
+        return;
+      }
+      if (
+        code === "app_encryption_key_unset" ||
+        code === "app_encryption_key_invalid_length"
+      ) {
+        res.status(503).json({ error: "encryption_not_configured" });
+        return;
+      }
+      next(err);
+    }
+  },
+);
 
 // GET /admin/bcc/transactions?status=&orderNumber=&page=&pageSize=
 bccAdminRouter.get(

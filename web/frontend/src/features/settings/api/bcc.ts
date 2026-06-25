@@ -1,4 +1,4 @@
-import { apiClient } from "../../../api/client";
+import { apiClient, ApiClient } from "../../../api/client";
 
 // Admin-only BCC audit views. Mirrors web/backend/src/routes/bccAdmin.ts.
 
@@ -93,4 +93,69 @@ export async function getBccEvents(
   const res = await apiClient.get(`/admin/bcc/events${qs(params)}`, token);
   if (!res.ok) throw new Error(`GET /admin/bcc/events: ${res.status}`);
   return (await res.json()) as Paginated<BccEvent>;
+}
+
+// ---- credentials (Реквизиты) — GET/PUT /admin/bcc/settings ----------------
+
+// Masked view of the active credentials. Secrets are never returned: the MAC
+// key is shown only as a configured flag + fingerprint, the callback password
+// as a "••••" mask.
+export type BccSettings = {
+  webviewUrl: string;
+  merchantId: string;
+  terminalId: string;
+  merchName: string;
+  merchRnId: string;
+  notifyUser: string;
+  macKeyConfigured: boolean;
+  macKeyFingerprint: string | null;
+  notifyPassMasked: string;
+  callbackAuthEnabled: boolean;
+  source: "db" | "env" | "none";
+  mode: "test" | "prod" | "unknown";
+  encryptionConfigured: boolean;
+};
+
+// MAC key + callback password are write-only: omit/blank to keep the current
+// value. The MAC key may be sent as two components (XOR-assembled server-side)
+// or as a pre-assembled hex key.
+export type BccSettingsPayload = {
+  webviewUrl: string;
+  merchantId: string;
+  terminalId: string;
+  merchName: string;
+  merchRnId: string;
+  notifyUser: string;
+  macKey?: string;
+  macKeyComponentA?: string;
+  macKeyComponentB?: string;
+  notifyPass?: string;
+};
+
+export class BccSettingsError extends Error {
+  code: string;
+  status: number;
+  constructor(code: string, status: number) {
+    super(code);
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export async function getBccSettings(token: string): Promise<BccSettings> {
+  const res = await apiClient.get("/admin/bcc/settings", token);
+  if (!res.ok) throw new Error(`GET /admin/bcc/settings: ${res.status}`);
+  return (await res.json()) as BccSettings;
+}
+
+export async function saveBccSettings(
+  token: string,
+  payload: BccSettingsPayload,
+): Promise<BccSettings> {
+  const res = await apiClient.put("/admin/bcc/settings", payload, token);
+  if (!res.ok) {
+    const code = await ApiClient.parseErrorCode(res.clone());
+    throw new BccSettingsError(code, res.status);
+  }
+  return (await res.json()) as BccSettings;
 }

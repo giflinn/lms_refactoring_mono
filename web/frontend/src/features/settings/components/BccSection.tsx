@@ -2,11 +2,13 @@ import { useState } from "react";
 import { SegmentedTabs } from "../../../components/ui/SegmentedTabs";
 import { BccTransactionsTab } from "./BccTransactionsTab";
 import { BccEventsTab } from "./BccEventsTab";
+import { BccCredentialsTab } from "./BccCredentialsTab";
 
-type SubTab = "transactions" | "events";
+type SubTab = "transactions" | "events" | "credentials";
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "transactions", label: "Транзакции" },
   { id: "events", label: "Журнал" },
+  { id: "credentials", label: "Реквизиты" },
 ];
 
 export function BccSection() {
@@ -30,7 +32,13 @@ export function BccSection() {
         className="mb-5 self-start"
       />
 
-      {sub === "transactions" ? <BccTransactionsTab /> : <BccEventsTab />}
+      {sub === "transactions" ? (
+        <BccTransactionsTab />
+      ) : sub === "events" ? (
+        <BccEventsTab />
+      ) : (
+        <BccCredentialsTab />
+      )}
     </section>
   );
 }

@@ -84,7 +84,7 @@ export async function refund(p: {
   intRef: string;
   trtype: "14" | "22";
 }): Promise<BccResult> {
-  const cfg = requireBccConfig();
+  const cfg = await requireBccConfig();
   const fields: Record<string, string> = {
     ORDER: p.bccOrder,
     ORG_AMOUNT: p.amount,

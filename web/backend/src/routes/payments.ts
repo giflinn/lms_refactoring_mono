@@ -98,8 +98,8 @@ paymentsRouter.post(
         res.status(400).json({ error: "order_id_required" });
         return;
       }
-      // Fail fast (503) if BCC isn't configured on this machine.
-      requireBccConfig();
+      // Fail fast (503) if BCC isn't configured (DB creds nor .env fallback).
+      await requireBccConfig();
       publicBase();
 
       const [order] = await db
@@ -164,7 +164,7 @@ paymentsRouter.post(
 
 paymentsRouter.get("/payments/:id/checkout", async (req, res, next) => {
   try {
-    const cfg = requireBccConfig();
+    const cfg = await requireBccConfig();
     const [tx] = await db
       .select({
         id: paymentTransactions.id,
@@ -194,7 +194,7 @@ paymentsRouter.get("/payments/:id/checkout", async (req, res, next) => {
       .limit(1);
 
     const now = new Date();
-    const fields = buildPurchaseFields({
+    const fields = await buildPurchaseFields({
       bccOrder: String(tx.bccOrder),
       amountTenge: tx.amountTenge,
       nonce: tx.nonce,
