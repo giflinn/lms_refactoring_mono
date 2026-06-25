@@ -105,6 +105,9 @@ export async function refund(p: {
     // "Reconcile error". Like the purchase, it's sent in the body but NOT in
     // REFUND_FIELD_ORDER (not signed), so P_SIGN is unchanged.
     MERCH_RN_ID: cfg.merchRnId,
+    // LANG is mandatory for the TRTYPE=22 reversal per the doc; not in
+    // REFUND_FIELD_ORDER → unsigned, so it doesn't change P_SIGN.
+    LANG: "ru",
     TRTYPE: p.trtype,
     NONCE: bccNonce(),
   };

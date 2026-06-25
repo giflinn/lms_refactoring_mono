@@ -13,7 +13,7 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { orders, paymentTransactions } from "../db/schema";
+import { orders, paymentTransactions, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole } from "../middleware/requireRole";
 import { config } from "../config";
@@ -45,6 +45,27 @@ function notifyUrl(): string {
 
 function backrefUrl(): string {
   return `${publicBase()}/payments/bcc/return`;
+}
+
+// Payer IP for BCC CLIENT_IP (mandatory for 3DS). The WebView loads the
+// checkout URL directly, so req.ip is the payer (Express trust-proxy is on, so
+// it reflects the X-Forwarded-For nginx sets). Strip the IPv4-mapped-IPv6
+// prefix so it's a plain dotted IPv4 like the doc's example.
+function clientIp(req: import("express").Request): string {
+  const ip = req.ip ?? req.socket.remoteAddress ?? "";
+  return ip.replace(/^::ffff:/, "");
+}
+
+// Split an E.164 phone (+7XXXXXXXXXX) into BCC M_INFO {cc, subscriber}. KZ/CIS
+// numbers carry a 1-digit country code; take the last 10 digits as the
+// subscriber and the remainder as the country code. Null if no usable number.
+function parseMobilePhone(
+  e164: string | null,
+): { cc: string; subscriber: string } | null {
+  if (!e164) return null;
+  const digits = e164.replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  return { cc: digits.slice(0, -10) || "7", subscriber: digits.slice(-10) };
 }
 
 // Maps internal BCC config errors to a clean 503 instead of a generic 500.
@@ -166,8 +187,9 @@ paymentsRouter.get("/payments/:id/checkout", async (req, res, next) => {
     }
 
     const [order] = await db
-      .select({ orderNumber: orders.orderNumber })
+      .select({ orderNumber: orders.orderNumber, phone: users.phone })
       .from(orders)
+      .innerJoin(users, eq(users.id, orders.clientId))
       .where(eq(orders.id, tx.orderId))
       .limit(1);
 
@@ -179,6 +201,8 @@ paymentsRouter.get("/payments/:id/checkout", async (req, res, next) => {
       desc: `Оплата заказа №${order?.orderNumber ?? ""} в приложении`,
       backref: backrefUrl(),
       notifyUrl: notifyUrl(),
+      clientIp: clientIp(req),
+      mobilePhone: parseMobilePhone(order?.phone ?? null),
       now,
     });
 

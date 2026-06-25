@@ -58,6 +58,10 @@ import {
 
 const app = express();
 
+// Behind nginx (single hop): trust the proxy so req.ip reflects the real client
+// from X-Forwarded-For — used for the BCC CLIENT_IP field on card payments.
+app.set("trust proxy", 1);
+
 app.use(cors());
 app.use(express.json());
 

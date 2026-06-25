@@ -62,8 +62,27 @@ export type PurchaseInput = {
   desc: string;
   backref: string;
   notifyUrl: string;
+  clientIp: string; // payer IP — BCC CLIENT_IP (mandatory for 3DS)
+  mobilePhone: { cc: string; subscriber: string } | null; // M_INFO.mobilePhone
   now: Date;
 };
+
+// 3DS2 data the merchant supplies (M_INFO) — base64-encoded JSON, mandatory for
+// 3DS per the BCC doc. The bank's 3DS page does its own device fingerprinting;
+// these are supplementary merchant hints. Screen size is a static placeholder
+// (the WebView's real size isn't round-tripped to the backend); mobilePhone
+// comes from the payer's profile when available. Not in PURCHASE_FIELD_ORDER →
+// doesn't affect P_SIGN. docs/bcc-payment-integration.md §4.2.
+function buildMInfo(
+  mobilePhone: { cc: string; subscriber: string } | null,
+): string {
+  const info: Record<string, unknown> = {
+    browserScreenHeight: "1920",
+    browserScreenWidth: "1080",
+  };
+  if (mobilePhone) info.mobilePhone = mobilePhone;
+  return Buffer.from(JSON.stringify(info), "utf8").toString("base64");
+}
 
 // Build the full signed TRTYPE=1 field map. TIMESTAMP and AMOUNT are computed
 // once and reused for both the signature and the body — the two bugs the prior
@@ -89,6 +108,10 @@ export function buildPurchaseFields(
   return {
     ...signed,
     P_SIGN: psign,
+    // Unsigned fields below — none are in PURCHASE_FIELD_ORDER, so they don't
+    // affect P_SIGN. COUNTRY/M_INFO/CLIENT_IP are mandatory per the BCC doc
+    // (COUNTRY always, M_INFO+CLIENT_IP for 3DS). docs/bcc-payment-integration.md §4.1.
+    COUNTRY: "KZ",
     MERCH_NAME: cfg.merchName,
     MERCH_RN_ID: cfg.merchRnId,
     DESC: input.desc,
@@ -96,6 +119,8 @@ export function buildPurchaseFields(
     NOTIFY_URL: input.notifyUrl,
     LANG: "ru",
     MK_TOKEN: "MERCH",
+    CLIENT_IP: input.clientIp,
+    M_INFO: buildMInfo(input.mobilePhone),
   };
 }
 
