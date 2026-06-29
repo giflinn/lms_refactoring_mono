@@ -52,7 +52,14 @@ function creds() {
   if (!issuerId || !keyId || !privateKey || !bundleId) {
     throw new AppleIapError("apple_iap_not_configured");
   }
-  return { issuerId, keyId, privateKey, bundleId };
+  // The .p8 is stored single-line in .env with literal "\n" escapes (env files
+  // don't carry real newlines reliably); restore them so it parses as PEM.
+  return {
+    issuerId,
+    keyId,
+    privateKey: privateKey.replace(/\\n/g, "\n"),
+    bundleId,
+  };
 }
 
 const apiClientCache = new Map<Environment, AppStoreServerAPIClient>();
