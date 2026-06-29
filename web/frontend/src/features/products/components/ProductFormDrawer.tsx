@@ -49,6 +49,8 @@ const EMPTY: ProductFormValues = {
   isPromo: false,
   isActive: true,
   isTopSearch: false,
+  isDigital: false,
+  iosIapProductId: "",
   bookingEnabled: false,
   durationMinutes: "",
   slotTypeIds: [],
@@ -159,6 +161,8 @@ export function ProductFormDrawer({
         isPromo: product.isPromo,
         isActive: product.isActive,
         isTopSearch: product.isTopSearch,
+        isDigital: product.isDigital,
+        iosIapProductId: product.iosIapProductId ?? "",
         bookingEnabled: product.durationMinutes != null,
         durationMinutes:
           product.durationMinutes != null ? String(product.durationMinutes) : "",
@@ -327,6 +331,10 @@ export function ProductFormDrawer({
       isPromo: values.isPromo,
       isActive: values.isActive,
       isTopSearch: values.isTopSearch,
+      isDigital: values.isDigital,
+      iosIapProductId: values.isDigital
+        ? values.iosIapProductId.trim() || null
+        : null,
       coverKind,
       coverFile: pendingFile,
       // Video — three shapes:
@@ -403,7 +411,7 @@ export function ProductFormDrawer({
             </p>
           )}
 
-          <div className="flex items-center gap-6 pt-1">
+          <div className="flex flex-wrap items-center gap-6 pt-1">
             <ToggleField
               label="Акция"
               checked={watched.isPromo}
@@ -419,7 +427,21 @@ export function ProductFormDrawer({
               checked={watched.isTopSearch}
               onChange={(v) => setValue("isTopSearch", v)}
             />
+            <ToggleField
+              label="Цифровой товар"
+              checked={watched.isDigital}
+              onChange={(v) => setValue("isDigital", v)}
+            />
           </div>
+          {watched.isDigital && (
+            <Input
+              fullWidth
+              label="iOS IAP product ID"
+              placeholder="совпадает с product_id в App Store Connect"
+              {...register("iosIapProductId")}
+              error={errors.iosIapProductId?.message}
+            />
+          )}
 
           <div className="flex flex-col items-center gap-3 pt-2">
             <ProductPreviewCard

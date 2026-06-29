@@ -11,9 +11,15 @@
 // browser return. See docs/bcc-payment-integration.md §5/§8.
 
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db";
-import { orders, paymentTransactions, users } from "../db/schema";
+import {
+  orderItems,
+  orders,
+  paymentTransactions,
+  products,
+  users,
+} from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requireAnyRole } from "../middleware/requireRole";
 import { config } from "../config";
@@ -124,6 +130,28 @@ paymentsRouter.post(
       ) {
         res.status(409).json({ error: "order_not_payable" });
         return;
+      }
+
+      // App Store compliance: on iOS, digital goods must be purchased via Apple
+      // In-App Purchase, never the BCC card flow. Block the card flow for a
+      // digital order coming from the iOS app. Android/web (no 'ios' header)
+      // keep using BCC for everything, unchanged.
+      if (req.clientPlatform === "ios") {
+        const [digitalItem] = await db
+          .select({ id: orderItems.id })
+          .from(orderItems)
+          .innerJoin(products, eq(products.id, orderItems.productId))
+          .where(
+            and(
+              eq(orderItems.orderId, order.id),
+              eq(products.isDigital, true),
+            ),
+          )
+          .limit(1);
+        if (digitalItem) {
+          res.status(409).json({ error: "digital_requires_iap" });
+          return;
+        }
       }
 
       // BCC ORDER = order_number * 100 + attempt index — traceable in the BCC

@@ -67,6 +67,11 @@ dependencies:
   share_plus: ^13.1.0
   in_app_review: ^2.0.10
   webview_flutter: ^4.10.0
+  # Apple In-App Purchase (StoreKit) for iOS digital goods. Only ever invoked
+  # behind Platform.isIOS — Android keeps selling via BCC/Kaspi, unchanged.
+  # (The federated plugin also adds Google Play Billing on Android, which stays
+  # dormant since we never call it there.) See docs/ios-appstore-compliance-tz.md.
+  in_app_purchase: ^3.2.0
 
 # Pin google_sign_in_ios to a version that uses GoogleSignIn ~> 7 (latest
 # 5.x bumped to GoogleSignIn 8.0 which conflicts with Firebase 12's

@@ -59,6 +59,10 @@ export type Product = {
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
+  // Manual digital-good flag + the App Store Connect product identifier used
+  // for iOS in-app purchase. iosIapProductId is null unless isDigital is set.
+  isDigital: boolean;
+  iosIapProductId: string | null;
   coverKind: ProductCoverKind;
   coverImageUrl: string | null;
   // Optional cover-video. videoUrl is either a YouTube link or a relative
@@ -103,6 +107,10 @@ export type ProductInput = {
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
+  // Manual digital-good flag. iosIapProductId carries the App Store Connect
+  // identifier; null when the product isn't digital.
+  isDigital: boolean;
+  iosIapProductId: string | null;
   coverKind: ProductCoverKind;
   // Only set when the user picked a new file in this submit. Existing image
   // on the server is kept if this is null AND coverKind is unchanged.
@@ -233,6 +241,8 @@ function toFormData(input: ProductInput, partial: boolean): FormData {
   fd.append("isPromo", input.isPromo ? "true" : "false");
   fd.append("isActive", input.isActive ? "true" : "false");
   fd.append("isTopSearch", input.isTopSearch ? "true" : "false");
+  fd.append("isDigital", input.isDigital ? "true" : "false");
+  fd.append("iosIapProductId", input.iosIapProductId ?? "");
   fd.append("coverKind", input.coverKind);
   if (input.coverFile) fd.append("cover", input.coverFile);
   // Video — videoFile wins; otherwise we send videoUrl (empty string clears).

@@ -222,6 +222,7 @@ class _PaymentMethodRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCard = method == 'card';
+    final isApple = method == 'apple_iap';
     return Row(
       children: [
         const Text(
@@ -235,19 +236,26 @@ class _PaymentMethodRow extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        ClipOval(
-          child: Image.asset(
-            isCard
-                ? 'assets/icons/cart/bank_card.png'
-                : 'assets/icons/cart/kaspi.png',
-            width: 22,
-            height: 22,
-            fit: BoxFit.cover,
+        if (isApple)
+          const Icon(Icons.apple, color: AppColors.white, size: 22)
+        else
+          ClipOval(
+            child: Image.asset(
+              isCard
+                  ? 'assets/icons/cart/bank_card.png'
+                  : 'assets/icons/cart/kaspi.png',
+              width: 22,
+              height: 22,
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
         const SizedBox(width: 8),
         Text(
-          isCard ? 'Карта' : 'Kaspi',
+          isApple
+              ? 'App Store'
+              : isCard
+              ? 'Карта'
+              : 'Kaspi',
           style: const TextStyle(
             color: AppColors.white,
             fontSize: 15,

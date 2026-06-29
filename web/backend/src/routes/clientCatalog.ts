@@ -61,6 +61,12 @@ function serialize(
     telegramGroup,
     isPromo: p.isPromo,
     isTopSearch: p.isTopSearch,
+    // iOS App Store: the app needs isDigital to route payment (digital → Apple
+    // IAP) and iosIapProductId to launch the matching StoreKit purchase. The
+    // catalog is NOT filtered by platform — digital goods stay visible and are
+    // sold via IAP on iOS, via BCC/Kaspi on Android/web.
+    isDigital: p.isDigital,
+    iosIapProductId: p.iosIapProductId,
     coverKind: p.coverKind,
     coverImageUrl: p.coverImageUrl,
     videoUrl: p.videoUrl,
