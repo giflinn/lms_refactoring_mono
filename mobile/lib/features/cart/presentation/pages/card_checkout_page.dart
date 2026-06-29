@@ -210,7 +210,7 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
           title: 'Оплата прошла',
           message: 'Заказ оплачен. Доступ откроется в течение пары минут.',
           primaryLabel: 'Мои покупки',
-          onPrimary: () => context.go('/client/purchases'),
+          onPrimary: () => _goToPurchases(context),
           secondaryLabel: 'На главную',
           onSecondary: () => context.go('/home'),
         ),
@@ -222,7 +222,7 @@ class _CardCheckoutPageState extends ConsumerState<CardCheckoutPage> {
           primaryLabel: 'Повторить',
           onPrimary: _retry,
           secondaryLabel: 'Мои покупки',
-          onSecondary: () => context.go('/client/purchases'),
+          onSecondary: () => _goToPurchases(context),
         ),
       },
     );
@@ -240,6 +240,16 @@ String _startErrorMessage(String code) {
     default:
       return 'Не удалось начать оплату. Попробуйте позже.';
   }
+}
+
+/// Leaves the checkout WebView and lands on "Мои покупки" with a sane back
+/// stack. We reach card-checkout via `push` (stack: [home, card-checkout]), so
+/// a plain `go('/client/purchases')` would replace the whole stack with a
+/// single rootless page — its "Назад" arrow would then have nothing to pop.
+/// Rebuilding home → purchases keeps back navigation working.
+void _goToPurchases(BuildContext context) {
+  context.go('/home');
+  context.push('/client/purchases');
 }
 
 const _hintStyle = TextStyle(
