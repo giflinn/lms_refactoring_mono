@@ -15,6 +15,7 @@
     "seed:catalog": "tsx --env-file=.env scripts/seed-catalog.ts",
     "seed:managers": "tsx --env-file=.env scripts/seed-managers.ts",
     "import:clients": "tsx --env-file=.env scripts/import-clients.ts",
+    "delete:imported-clients": "tsx --env-file=.env scripts/delete-imported-clients.ts",
     "seed:reviewer": "tsx --env-file=.env scripts/seed-reviewer.ts",
     "test": "tsx --test src/services/bcc/*.test.ts"
   },
