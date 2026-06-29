@@ -59,6 +59,17 @@ Each staff user (manager / senior_manager / admin) has a unique 6-digit `manager
 
 Mobile registration is open (creates `client`); web has **login only**.
 
+## Payments — Apple In-App Purchase (iOS digital goods)
+
+App Store guideline 3.1.1: **digital goods consumed in the app must be sold via Apple IAP on iOS**, never BCC/Kaspi (the KZ storefront has no external-purchase exception). Physical goods and 1:1 real-time services keep using BCC/Kaspi (IAP is *forbidden* for them — 3.1.3(e)). Full rationale + spec: `docs/ios-appstore-compliance-tz.md`.
+
+- **`products.is_digital`** — a **manual** flag (admin sets it; not derived from course/telegram/booking, no DB CHECK coupling). **`products.ios_iap_product_id`** — the App Store Connect product id for that SKU.
+- **Routing is by `is_digital` + platform.** The mobile app sends `X-Client-Platform: ios|android` (added in `ApiClient._headers`). On iOS, a digital order is paid via StoreKit IAP; the BCC start route (`POST /payments`) rejects digital-on-iOS with `digital_requires_iap`. **All iOS gating is conditional on `Platform.isIOS` / `req.clientPlatform==='ios'` — Android/web behaviour is unchanged.** Don't add a Kaspi/BCC button for digital goods on iOS (anti-steering).
+- **Order-first:** the order is created `pending` before IAP launches (so a manual Kaspi settle by a manager stays possible). IAP settlement reuses the same `changeOrderPaymentStatus(orderId,'paid',null)` chokepoint as BCC.
+- **Server verification:** `services/apple/appStoreServer.ts` uses `@apple/app-store-server-library` (App Store Server API + JWS verify). Verify endpoint `POST /payments/apple/verify {orderId, transactionId}`; refund/revoke webhook `POST /payments/apple/notifications` (App Store Server Notifications V2). `apple_iap_transactions.transaction_id` is unique → idempotent settle.
+- **Secrets/config:** `APPLE_IAP_ISSUER_ID/KEY_ID/PRIVATE_KEY/BUNDLE_ID/APP_APPLE_ID` (in `.env`/`.env.example`, optional at startup like BCC). Apple Root CA certs go in `web/backend/apple-certs/` (public certs, committed so prod gets them via git — see its README) — without them the Apple endpoints fail at first use but the app still boots.
+- **Ops:** each new digital SKU needs an IAP product created in App Store Connect (Consumable) + its id written to `ios_iap_product_id`. Enroll in the Small Business Program (15%). Mobile uses the `in_app_purchase` plugin (run `pod install` for iOS; the plugin also adds a dormant Google Play Billing permission on Android — unused).
+
 ## Database (Drizzle ORM)
 
 Schema in `web/backend/src/db/schema.ts`. Migrations generated into `web/backend/drizzle/`.

@@ -4,7 +4,7 @@ import type { OrderListItem } from "../api";
 import { FulfillmentBadge, PaymentBadge } from "./StatusBadge";
 import { formatOrderDate, formatTenge } from "../format";
 import kaspiIcon from "../../../assets/icons/payment/kaspi.png";
-import { CreditCard } from "lucide-react";
+import { Apple, CreditCard } from "lucide-react";
 
 type Props = {
   orders: OrderListItem[];
@@ -141,6 +141,16 @@ function OrderRow({
               />
               <span className="text-[13px] font-medium text-[#0E131F]">
                 Карта
+              </span>
+            </>
+          ) : order.paymentMethod === "apple_iap" ? (
+            <>
+              <Apple
+                className="h-6 w-6 shrink-0 text-[#0E131F]"
+                strokeWidth={1.5}
+              />
+              <span className="text-[13px] font-medium text-[#0E131F]">
+                App Store
               </span>
             </>
           ) : (

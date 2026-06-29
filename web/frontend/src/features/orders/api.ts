@@ -19,7 +19,7 @@ export type OrderListItem = {
   id: string;
   orderNumber: number;
   paymentStatus: PaymentStatus;
-  paymentMethod: "kaspi" | "card" | null;
+  paymentMethod: "kaspi" | "card" | "apple_iap" | null;
   fulfillmentStatus: FulfillmentStatus;
   // Postgres numeric arrives as a JSON string ("10000.00"); render with
   // formatTenge (see ./format.ts).
@@ -51,7 +51,7 @@ export type OrderDetail = {
   paymentStatus: PaymentStatus;
   // null on legacy/Kaspi orders (UI treats null as Kaspi); "card" once a BCC
   // card payment was initiated.
-  paymentMethod: "kaspi" | "card" | null;
+  paymentMethod: "kaspi" | "card" | "apple_iap" | null;
   // Latest card-payment attempt summary (null if there was none).
   payment: {
     status: string;

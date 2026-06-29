@@ -94,6 +94,9 @@ class ApiClient {
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
   Map<String, String> _headers(String? idToken) => {
+    // Lets the backend apply iOS-only App Store rules (digital goods must use
+    // Apple IAP, not the BCC card flow). Android keeps its current behaviour.
+    'X-Client-Platform': Platform.isIOS ? 'ios' : 'android',
     if (idToken != null) 'Authorization': 'Bearer $idToken',
   };
 

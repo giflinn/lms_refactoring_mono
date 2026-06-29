@@ -134,6 +134,13 @@ class Product {
   final String? videoUrl;
   final ProductVideoDisplay videoDisplay;
   final bool videoAutoplay;
+  // App Store: when true this is a digital good — on iOS it must be purchased
+  // via Apple In-App Purchase (StoreKit), never the BCC card flow. A "plain"
+  // product (no booking, no Telegram) can be either physical or digital, so the
+  // client can't infer this — the server sends it explicitly. iosIapProductId
+  // is the App Store Connect product identifier used to launch the purchase.
+  final bool isDigital;
+  final String? iosIapProductId;
 
   const Product({
     required this.id,
@@ -156,6 +163,8 @@ class Product {
     required this.videoUrl,
     required this.videoDisplay,
     required this.videoAutoplay,
+    required this.isDigital,
+    required this.iosIapProductId,
   });
 
   bool get isBookable => durationMinutes != null && slotTypeIds.isNotEmpty;
@@ -195,6 +204,8 @@ class Product {
       videoUrl: json['videoUrl'] as String?,
       videoDisplay: _videoDisplayFromString(json['videoDisplay'] as String?),
       videoAutoplay: json['videoAutoplay'] as bool? ?? false,
+      isDigital: json['isDigital'] as bool? ?? false,
+      iosIapProductId: json['iosIapProductId'] as String?,
     );
   }
 }

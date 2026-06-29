@@ -3,6 +3,7 @@ import cors from "cors";
 import multer from "multer";
 import http from "node:http";
 import { config } from "./config";
+import { platformDetect } from "./middleware/platformDetect";
 import { attachSocketServer } from "./services/socketServer";
 import { startPushDispatcher } from "./services/pushNotifications";
 import { startNotificationDispatcher } from "./services/notificationDispatcher";
@@ -30,6 +31,7 @@ import { feedbackRouter } from "./routes/feedback";
 import { legalRouter } from "./routes/legal";
 import { kaspiRouter } from "./routes/kaspi";
 import { paymentsRouter } from "./routes/payments";
+import { applePaymentsRouter } from "./routes/applePayments";
 import { bccCallbackRouter } from "./routes/bccCallback";
 import { bccAdminRouter } from "./routes/bccAdmin";
 import { reviewsRouter } from "./routes/reviews";
@@ -64,6 +66,10 @@ app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json());
+// Detect the calling client ('ios' | 'android') from X-Client-Platform so the
+// iOS-only App Store guards (digital goods → Apple IAP) can fire. No-op for
+// web/admin requests that omit the header.
+app.use(platformDetect);
 
 app.use("/avatars", express.static(AVATAR_DIR));
 app.use("/product-images", express.static(PRODUCT_IMAGE_DIR));
@@ -106,6 +112,7 @@ app.use(feedbackRouter);
 app.use(legalRouter);
 app.use(kaspiRouter);
 app.use(paymentsRouter);
+app.use(applePaymentsRouter);
 app.use(bccCallbackRouter);
 app.use(bccAdminRouter);
 app.use(reviewsRouter);

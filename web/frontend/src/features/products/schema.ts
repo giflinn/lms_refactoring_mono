@@ -33,6 +33,10 @@ export const productFormSchema = z
     isPromo: z.boolean(),
     isActive: z.boolean(),
     isTopSearch: z.boolean(),
+    // Manual digital-good flag. iosIapProductId is only meaningful (and only
+    // sent) when isDigital is true; no cross-field validation otherwise.
+    isDigital: z.boolean(),
+    iosIapProductId: z.string(),
     // Booking section. When false the consultation fields are ignored.
     bookingEnabled: z.boolean(),
     durationMinutes: z.string(),

@@ -210,7 +210,9 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
                   <span className="font-medium text-grey-dark">
                     {order.paymentMethod === "card"
                       ? "Банковская карта"
-                      : "Kaspi"}
+                      : order.paymentMethod === "apple_iap"
+                        ? "App Store"
+                        : "Kaspi"}
                   </span>
                 </div>
                 {order.payment?.cardMask && (

@@ -1,13 +1,20 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/network/api_exceptions.dart';
+import '../../../catalog/domain/product.dart';
 import '../../../orders/data/orders_api.dart';
 import '../../../orders/data/orders_api_provider.dart';
+import '../../data/apple_iap_api.dart';
+import '../../data/apple_iap_api_provider.dart';
+import '../../data/apple_iap_purchaser.dart';
 import '../../data/bcc_payment_api.dart';
 import '../../data/bcc_payment_api_provider.dart';
 import '../../data/kaspi_api_provider.dart';
@@ -33,12 +40,24 @@ Future<void> showPaymentMethodPopup(
   );
 }
 
-class _PaymentMethodDialog extends StatelessWidget {
+class _PaymentMethodDialog extends ConsumerWidget {
   final num totalTenge;
   const _PaymentMethodDialog({required this.totalTenge});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    final product = cart.isNotEmpty ? cart.first.product : null;
+    final iapProductId = product?.iosIapProductId;
+    // App Store rule: digital goods on iOS must be bought via Apple IAP — never
+    // Kaspi/BCC. For everything else (physical goods, 1:1 services, and ALL of
+    // Android) the existing Kaspi + card rows are shown unchanged.
+    final useIap =
+        Platform.isIOS &&
+        product != null &&
+        product.isDigital &&
+        iapProductId != null;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
@@ -77,25 +96,46 @@ class _PaymentMethodDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _MethodRow(
-              logo: const _KaspiLogo(),
-              title: 'Kaspi',
-              subtitle: 'Комиссия 0%\nАктивация покупки в течение 3 часов',
-              onTap: () {
-                Navigator.of(context).pop();
-                _showKaspiInstructions(context, totalTenge: totalTenge);
-              },
-            ),
-            const SizedBox(height: 8),
-            _MethodRow(
-              logo: const _BankLogo(),
-              title: 'Банковская карта',
-              subtitle: 'Комиссия 2%\nМоментальная активация покупки',
-              onTap: () {
-                Navigator.of(context).pop();
-                _showCardCheckout(context, totalTenge: totalTenge);
-              },
-            ),
+            if (useIap)
+              _MethodRow(
+                logo: const Icon(
+                  Icons.apple,
+                  color: AppColors.white,
+                  size: 34,
+                ),
+                title: 'App Store',
+                subtitle: 'Оплата через Apple\nМоментальная активация покупки',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showApplePurchase(
+                    context,
+                    product: product,
+                    iapProductId: iapProductId,
+                    totalTenge: totalTenge,
+                  );
+                },
+              )
+            else ...[
+              _MethodRow(
+                logo: const _KaspiLogo(),
+                title: 'Kaspi',
+                subtitle: 'Комиссия 0%\nАктивация покупки в течение 3 часов',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showKaspiInstructions(context, totalTenge: totalTenge);
+                },
+              ),
+              const SizedBox(height: 8),
+              _MethodRow(
+                logo: const _BankLogo(),
+                title: 'Банковская карта',
+                subtitle: 'Комиссия 2%\nМоментальная активация покупки',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showCardCheckout(context, totalTenge: totalTenge);
+                },
+              ),
+            ],
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -544,6 +584,8 @@ String _paymentStartError(String code) {
   switch (code) {
     case 'order_not_payable':
       return 'Этот заказ уже оплачен или отменён.';
+    case 'digital_requires_iap':
+      return 'Этот товар можно оплатить только через App Store.';
     case 'payment_unavailable':
       return 'Оплата картой временно недоступна. Попробуйте Kaspi.';
     default:
@@ -781,5 +823,339 @@ class _CardCheckoutDialogState extends ConsumerState<_CardCheckoutDialog> {
   void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Apple In-App Purchase flow (iOS digital goods only). Mirrors the card
+// dialog's "create order first, then pay" guarantee: the order is recorded
+// (pending) before StoreKit is launched, so an abandoned purchase can still be
+// settled later (e.g. manually by a manager). On success we verify the
+// transaction on our server — which grants access — then finish the StoreKit
+// transaction. See docs/ios-appstore-compliance-tz.md.
+// ---------------------------------------------------------------------------
+
+Future<void> _showApplePurchase(
+  BuildContext context, {
+  required Product product,
+  required String iapProductId,
+  required num totalTenge,
+}) async {
+  await showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (ctx) => _AppleIapDialog(
+      product: product,
+      iapProductId: iapProductId,
+      totalTenge: totalTenge,
+    ),
+  );
+}
+
+class _AppleIapDialog extends ConsumerStatefulWidget {
+  final Product product;
+  final String iapProductId;
+  final num totalTenge;
+  const _AppleIapDialog({
+    required this.product,
+    required this.iapProductId,
+    required this.totalTenge,
+  });
+
+  @override
+  ConsumerState<_AppleIapDialog> createState() => _AppleIapDialogState();
+}
+
+class _AppleIapDialogState extends ConsumerState<_AppleIapDialog> {
+  bool _busy = false;
+  String? _priceLabel; // StoreKit-localized price; falls back to tenge.
+  // Reused across retries so a cancel→retry within this dialog doesn't create a
+  // second pending order (the dialog is modal and tied to one product/cart).
+  String? _orderId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrice();
+  }
+
+  Future<void> _loadPrice() async {
+    try {
+      final pd = await ref
+          .read(applePurchaserProvider)
+          .productDetails(widget.iapProductId);
+      if (mounted && pd != null) setState(() => _priceLabel = pd.price);
+    } catch (_) {
+      // Non-fatal — StoreKit's own purchase sheet shows the authoritative price.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final price = _priceLabel ?? '${formatTenge(widget.totalTenge)} ₸';
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.purpleGradientTop, AppColors.purplePrimary],
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(
+              child: Icon(Icons.apple, color: AppColors.white, size: 44),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Оплата через App Store',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'К оплате: $price',
+                style: const TextStyle(
+                  color: AppColors.yellowPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Оплата пройдёт через App Store. Доступ откроется сразу после '
+              'подтверждения.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.purpleTertiary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 54,
+              child: Material(
+                color: Colors.transparent,
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.yellowGradientTop,
+                        AppColors.yellowGradientBottom,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: InkWell(
+                    onTap: _busy ? null : _purchase,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Center(
+                      child: _busy
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppColors.purpleDark,
+                              ),
+                            )
+                          : const Text(
+                              'Оплатить через App Store',
+                              style: TextStyle(
+                                color: AppColors.purpleDark,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48,
+              child: TextButton(
+                onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Закрыть',
+                  style: TextStyle(
+                    color: AppColors.purpleTertiary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _purchase() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final cart = ref.read(cartProvider);
+      if (cart.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showError('Войдите в аккаунт, чтобы продолжить');
+        return;
+      }
+      final idToken = await user.getIdToken();
+      if (idToken == null || idToken.isEmpty) {
+        _showError('Не удалось получить токен. Попробуйте перезайти.');
+        return;
+      }
+
+      // 1) Record the order (pending) BEFORE launching StoreKit. Reuse the
+      //    order across retries so an abandoned purchase doesn't pile up
+      //    duplicate pending orders.
+      String orderId;
+      if (_orderId != null) {
+        orderId = _orderId!;
+      } else {
+        final CreatedOrder order;
+        try {
+          order = await ref
+              .read(ordersApiProvider)
+              .createOrder(
+                items: cart
+                    .map(
+                      (c) => CreateOrderItemInput(
+                        productId: c.productId,
+                        bookedStart: c.bookedStart,
+                      ),
+                    )
+                    .toList(),
+                idToken: idToken,
+              );
+        } on OrderCreationException catch (e) {
+          if (mounted) _showError(_orderCreationError(e.code));
+          return;
+        }
+        orderId = order.id;
+        _orderId = orderId;
+      }
+
+      // 2) Launch the StoreKit purchase.
+      final PurchaseDetails details;
+      try {
+        details = await ref
+            .read(applePurchaserProvider)
+            .buy(widget.iapProductId);
+      } on ApplePurchaseException catch (e) {
+        // User backed out — leave the order pending, nothing to show.
+        if (e.code == 'cancelled') return;
+        if (mounted) _showError(_applePurchaseError(e.code));
+        return;
+      }
+      final transactionId = details.purchaseID;
+      if (transactionId == null || transactionId.isEmpty) {
+        if (mounted) _showError('Не удалось получить идентификатор покупки.');
+        return;
+      }
+
+      // 3) Verify on our server — this grants access on success.
+      final String status;
+      try {
+        status = await ref
+            .read(appleIapApiProvider)
+            .verify(
+              orderId: orderId,
+              transactionId: transactionId,
+              idToken: idToken,
+            );
+      } on AppleIapException catch (e) {
+        // Don't finish the StoreKit transaction — leave it for a retry so a
+        // paying user isn't stranded without access.
+        if (mounted) _showError(_appleVerifyError(e.code));
+        return;
+      }
+
+      if (status == 'paid') {
+        // 4) Access granted — finish the StoreKit transaction.
+        await ref.read(applePurchaserProvider).complete(details);
+        ref.read(cartProvider.notifier).clear();
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Оплата прошла — доступ открыт.')),
+        );
+      } else {
+        if (mounted) {
+          _showError('Оплата обрабатывается. Доступ откроется в течение минуты.');
+        }
+      }
+    } on NetworkException {
+      if (mounted) _showError('Нет соединения с сервером');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+}
+
+String _applePurchaseError(String code) {
+  switch (code) {
+    case 'unavailable':
+      return 'Покупки через App Store недоступны на этом устройстве.';
+    case 'product_not_found':
+      return 'Товар не найден в App Store. Попробуйте позже.';
+    default:
+      return 'Не удалось завершить покупку. Попробуйте позже.';
+  }
+}
+
+String _appleVerifyError(String code) {
+  switch (code) {
+    case 'payment_unavailable':
+      return 'Оплата через App Store временно недоступна.';
+    case 'apple_tx_product_mismatch':
+    case 'apple_tx_bundle_mismatch':
+      return 'Покупка не совпадает с товаром. Напишите менеджеру.';
+    case 'apple_tx_revoked':
+      return 'Покупка была возвращена в App Store.';
+    case 'apple_tx_already_used':
+      return 'Эта покупка уже привязана к другому заказу.';
+    case 'order_not_digital':
+    case 'product_missing_iap_id':
+      return 'Товар не настроен для оплаты через App Store. Напишите менеджеру.';
+    default:
+      return 'Не удалось подтвердить оплату. Если деньги списались — напишите менеджеру.';
   }
 }

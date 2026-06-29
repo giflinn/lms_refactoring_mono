@@ -160,6 +160,17 @@ export const products = pgTable(
     isPromo: boolean("is_promo").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     isTopSearch: boolean("is_top_search").notNull().default(false),
+    // App Store compliance: digital goods (LMS course, Telegram access, digital
+    // files) consumed in/through the app must be sold via Apple In-App Purchase
+    // on iOS — never BCC/Kaspi. This is a MANUAL flag set by staff per product;
+    // it is intentionally NOT derived from the fulfilment kind. It only drives
+    // iOS payment routing (catalog still returns everything; Android/web are
+    // unaffected). See docs/ios-appstore-compliance-tz.md.
+    isDigital: boolean("is_digital").notNull().default(false),
+    // App Store Connect IAP product identifier for this digital product. Set
+    // only for is_digital products sold on iOS; null otherwise. The mobile app
+    // uses it to launch the matching StoreKit purchase.
+    iosIapProductId: text("ios_iap_product_id"),
     coverKind: productCoverKindEnum("cover_kind").notNull().default("preset"),
     // Path under /product-images/<id>.<ext>; null for coverKind='preset'.
     coverImageUrl: text("cover_image_url"),
@@ -550,9 +561,15 @@ export const fulfillmentStatusEnum = pgEnum("fulfillment_status", [
 ]);
 
 // How the client paid. NULL on legacy/Kaspi orders — the manual Kaspi flow
-// never recorded a method; 'card' is set when a BCC card payment is initiated.
-// UI treats NULL as Kaspi. See docs/bcc-payment-integration.md.
-export const paymentMethodEnum = pgEnum("payment_method", ["kaspi", "card"]);
+// never recorded a method; 'card' is set when a BCC card payment is initiated;
+// 'apple_iap' is set when an Apple In-App Purchase settles the order (iOS
+// digital goods). UI treats NULL as Kaspi. See docs/bcc-payment-integration.md
+// and docs/ios-appstore-compliance-tz.md.
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "kaspi",
+  "card",
+  "apple_iap",
+]);
 
 // Provider-side state of a single BCC card-payment attempt
 // (payment_transactions). Distinct from orders.payment_status, which the
@@ -561,6 +578,15 @@ export const bccTransactionStatusEnum = pgEnum("bcc_transaction_status", [
   "pending",
   "paid",
   "failed",
+  "refunded",
+]);
+
+// State of a single Apple In-App Purchase transaction settled against an order
+// (apple_iap_transactions). Distinct from orders.payment_status — the verified
+// /payments/apple/verify call (or an App Store Server Notification) drives the
+// order to 'paid'/'refunded' via changeOrderPaymentStatus.
+export const appleIapStatusEnum = pgEnum("apple_iap_status", [
+  "paid",
   "refunded",
 ]);
 
@@ -749,6 +775,45 @@ export const paymentTransactions = pgTable(
   (t) => [
     index("payment_transactions_order_id_idx").on(t.orderId),
     index("payment_transactions_status_idx").on(t.status),
+  ],
+);
+
+// One settled Apple In-App Purchase against an order (iOS digital goods).
+// Separate from payment_transactions, which is BCC-specific (bcc_order/nonce).
+// Idempotency: transaction_id is unique — the verify endpoint and the App Store
+// Server Notification webhook both upsert on it, so a replayed transaction or a
+// duplicated notification can't double-grant. The order side reuses
+// changeOrderPaymentStatus (a no-op once already 'paid'/'refunded'). See
+// docs/ios-appstore-compliance-tz.md.
+export const appleIapTransactions = pgTable(
+  "apple_iap_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    // Apple's transactionId for this purchase — the idempotency key.
+    transactionId: text("transaction_id").notNull().unique(),
+    // originalTransactionId groups renewals/restores of the same purchase.
+    originalTransactionId: text("original_transaction_id"),
+    // The App Store Connect product identifier that was purchased. Verified
+    // against products.ios_iap_product_id at settle time.
+    productId: text("product_id").notNull(),
+    // 'Production' | 'Sandbox' — App Review pays in Sandbox.
+    environment: text("environment").notNull(),
+    status: appleIapStatusEnum("status").notNull().default("paid"),
+    // The full decoded+verified JWS transaction payload, for audit/debugging.
+    rawTransaction: jsonb("raw_transaction").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("apple_iap_transactions_order_id_idx").on(t.orderId),
+    index("apple_iap_transactions_transaction_id_idx").on(t.transactionId),
   ],
 );
 

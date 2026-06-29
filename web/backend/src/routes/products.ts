@@ -95,6 +95,8 @@ function serialize(
     isPromo: p.isPromo,
     isActive: p.isActive,
     isTopSearch: p.isTopSearch,
+    isDigital: p.isDigital,
+    iosIapProductId: p.iosIapProductId,
     coverKind: p.coverKind,
     coverImageUrl: p.coverImageUrl,
     videoUrl: p.videoUrl,
@@ -284,6 +286,11 @@ type CreateInput = {
   isPromo: boolean;
   isActive: boolean;
   isTopSearch: boolean;
+  // App Store: manual flag marking the product as digital (sold via Apple IAP
+  // on iOS). iosIapProductId is the App Store Connect product identifier, set
+  // only for digital products. See docs/ios-appstore-compliance-tz.md.
+  isDigital: boolean;
+  iosIapProductId: string | null;
   coverKind: CoverKind;
   // Video state from the body (the file itself comes via multer separately).
   // videoUrl carries either a YouTube link or — when the form is re-saving an
@@ -506,6 +513,34 @@ function parseBody(
   if (has("isPromo")) data.isPromo = parseBool(body.isPromo);
   if (has("isActive")) data.isActive = parseBool(body.isActive);
   if (has("isTopSearch")) data.isTopSearch = parseBool(body.isTopSearch);
+
+  // isDigital: a MANUAL flag (no derivation from the fulfilment kind, no
+  // exclusivity check). Drives iOS payment routing only. See
+  // docs/ios-appstore-compliance-tz.md.
+  if (has("isDigital")) data.isDigital = parseBool(body.isDigital);
+
+  // iosIapProductId: App Store Connect product identifier for the digital
+  // product. Optional; empty string maps to null. Same shape as lmsCourseId.
+  if (has("iosIapProductId")) {
+    const raw = body.iosIapProductId;
+    if (raw === null || raw === undefined || raw === "") {
+      data.iosIapProductId = null;
+    } else if (typeof raw !== "string") {
+      return { ok: false, status: 400, error: "invalid_ios_iap_product_id" };
+    } else {
+      data.iosIapProductId = raw.trim() || null;
+    }
+  } else if (!partial) {
+    data.iosIapProductId = null;
+  }
+
+  // A digital product must carry an App Store IAP id, otherwise it's unsellable
+  // on iOS (the BCC card flow is blocked for digital goods, and StoreKit has no
+  // product to launch). Enforced when the request carries the IAP id — the
+  // admin form always sends both fields together.
+  if (data.isDigital === true && has("iosIapProductId") && !data.iosIapProductId) {
+    return { ok: false, status: 400, error: "ios_iap_product_id_required" };
+  }
 
   err = required("coverKind", "cover_kind_required");
   if (err) return err;
@@ -758,6 +793,8 @@ productsRouter.post(
           isPromo: data.isPromo ?? false,
           isActive: data.isActive ?? true,
           isTopSearch: data.isTopSearch ?? false,
+          isDigital: data.isDigital ?? false,
+          iosIapProductId: data.iosIapProductId ?? null,
           coverKind: data.coverKind,
           videoUrl: initialVideoUrl,
           videoDisplay: data.videoDisplay ?? "replace",
@@ -928,6 +965,9 @@ productsRouter.patch(
       if (data.isPromo !== undefined) patch.isPromo = data.isPromo;
       if (data.isActive !== undefined) patch.isActive = data.isActive;
       if (data.isTopSearch !== undefined) patch.isTopSearch = data.isTopSearch;
+      if (data.isDigital !== undefined) patch.isDigital = data.isDigital;
+      if (data.iosIapProductId !== undefined)
+        patch.iosIapProductId = data.iosIapProductId;
       if (data.coverKind !== undefined) patch.coverKind = data.coverKind;
       if (data.videoDisplay !== undefined) patch.videoDisplay = data.videoDisplay;
       if (data.videoAutoplay !== undefined) patch.videoAutoplay = data.videoAutoplay;
