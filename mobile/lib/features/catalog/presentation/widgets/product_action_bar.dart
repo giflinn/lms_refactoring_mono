@@ -1,8 +1,11 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/terms_checkbox_row.dart';
+import '../../../cart/data/apple_iap_price_provider.dart';
 import '../../../cart/domain/cart_item.dart';
 import '../../../cart/presentation/controller/cart_controller.dart';
 import '../../../cart/presentation/widgets/cart_popups.dart';
@@ -54,6 +57,20 @@ class ProductActionBar extends ConsumerWidget {
     final showTerms = !isOnRequest && !inCart;
     final canAdd =
         !isOnRequest && (isBookable ? hasSelection : true) && termsAccepted;
+
+    // Digital goods on iOS show the App Store (StoreKit) price the user will
+    // actually be charged — grossed up for Apple's commission — instead of the
+    // base tenge price. Android and non-digital keep the base price unchanged.
+    String priceLabel = _formatPrice(product.price);
+    if (Platform.isIOS &&
+        product.isDigital &&
+        product.iosIapProductId != null) {
+      final iosPrice = ref
+          .watch(iosIapPriceProvider(product.iosIapProductId!))
+          .asData
+          ?.value;
+      if (iosPrice != null) priceLabel = iosPrice;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -113,7 +130,7 @@ class ProductActionBar extends ConsumerWidget {
                         ),
                       ),
                     Text(
-                      _formatPrice(product.price),
+                      priceLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

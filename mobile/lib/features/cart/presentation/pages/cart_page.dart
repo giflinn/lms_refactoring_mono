@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/widgets/terms_checkbox_row.dart';
 import '../../../../core/widgets/brand_logotype.dart';
+import '../../data/apple_iap_price_provider.dart';
 import '../../domain/cart_item.dart';
 import '../controller/cart_controller.dart';
 import '../widgets/cart_item_card.dart';
@@ -154,6 +157,20 @@ class _FilledState extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final total = items.fold<num>(0, (sum, it) => sum + it.price);
     final canPay = termsAccepted;
+
+    // Digital goods on iOS are sold via Apple IAP at the grossed-up App Store
+    // price. The cart holds a single product (1-per-cart rule), so show that
+    // product's StoreKit price as the total instead of the base tenge sum.
+    // Android and mixed/non-digital carts keep the base total.
+    String totalLabel = '${formatTenge(total)} ₸';
+    if (Platform.isIOS && items.length == 1) {
+      final p = items.first.product;
+      if (p.isDigital && p.iosIapProductId != null) {
+        final iosPrice =
+            ref.watch(iosIapPriceProvider(p.iosIapProductId!)).asData?.value;
+        if (iosPrice != null) totalLabel = iosPrice;
+      }
+    }
     return Column(
       children: [
         Expanded(
@@ -193,7 +210,7 @@ class _FilledState extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '${formatTenge(total)} ₸',
+                    totalLabel,
                     style: const TextStyle(
                       color: AppColors.yellowPrimary,
                       fontSize: 17,

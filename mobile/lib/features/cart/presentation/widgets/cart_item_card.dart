@@ -1,6 +1,10 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../catalog/domain/ru_dates.dart';
+import '../../data/apple_iap_price_provider.dart';
 import '../../domain/cart_item.dart';
 
 /// One purchased line in the cart: category chip + delete icon, then
@@ -37,13 +41,26 @@ class CartItemCard extends StatelessWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends ConsumerWidget {
   final CartItem item;
   final VoidCallback onRemove;
   const _Body({required this.item, required this.onRemove});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Digital goods on iOS show the App Store (StoreKit) price the user will
+    // actually be charged; everything else keeps the base tenge price.
+    String priceLabel = '${formatTenge(item.price)} ₸';
+    final product = item.product;
+    if (Platform.isIOS &&
+        product.isDigital &&
+        product.iosIapProductId != null) {
+      final iosPrice = ref
+          .watch(iosIapPriceProvider(product.iosIapProductId!))
+          .asData
+          ?.value;
+      if (iosPrice != null) priceLabel = iosPrice;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -97,7 +114,7 @@ class _Body extends StatelessWidget {
               ),
             ),
             Text(
-              '${formatTenge(item.price)} ₸',
+              priceLabel,
               style: const TextStyle(
                 color: AppColors.yellowPrimary,
                 fontSize: 15,
