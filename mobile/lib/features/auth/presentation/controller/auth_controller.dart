@@ -94,7 +94,19 @@ class AuthController extends AsyncNotifier<AppUser?> {
       // Surfacing them as logged-out keeps them off /home until verified.
       return null;
     }
-    return _resolveExisting(fbUser);
+    final token = await fbUser.getIdToken();
+    if (token == null) return null;
+    final existing = await _api.fetchMe(token);
+    if (existing != null) return existing;
+    // Verified Firebase session with no DB profile row: an OAuth sign-in
+    // (Sign in with Apple / Google) whose CompleteProfilePage was never
+    // finished, after which the app was relaunched. Falling through to
+    // syncExisting used to 400 → the splash mis-reported it as "no connection"
+    // and dead-ended there (Apple 2.1 rejection — reviewers test Sign in with
+    // Apple). Drop the orphan session so the router lands on /login; re-tapping
+    // the OAuth button re-opens CompleteProfilePage from a clean state.
+    await fb.FirebaseAuth.instance.signOut();
+    return null;
   }
 
   /// Re-fetches /me using the current Firebase user so server-side profile
