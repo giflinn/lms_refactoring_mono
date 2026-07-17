@@ -153,6 +153,14 @@ function OrderRow({
                 App Store
               </span>
             </>
+          ) : !order.paymentMethod && order.paymentStatus === "pending" ? (
+            // Method is only written when the payment settles, so a still-
+            // pending order genuinely has none yet — it could be heading to
+            // Kaspi or to Apple IAP (the order is created before StoreKit
+            // launches). Don't claim Kaspi. Once it settles, the real method
+            // renders above; legacy Kaspi orders (null + paid/unpaid) keep
+            // falling through to the Kaspi branch below.
+            <span className="text-grey-medium">—</span>
           ) : (
             <>
               <img

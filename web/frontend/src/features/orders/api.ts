@@ -49,8 +49,11 @@ export type OrderDetail = {
   id: string;
   orderNumber: number;
   paymentStatus: PaymentStatus;
-  // null on legacy/Kaspi orders (UI treats null as Kaspi); "card" once a BCC
-  // card payment was initiated.
+  // Only written when the payment settles. null on legacy/Kaspi orders (the
+  // Kaspi flow never writes a method), so the UI renders null as Kaspi —
+  // except while paymentStatus is still "pending", where the method is
+  // genuinely undecided (Kaspi vs Apple IAP) and renders as "—".
+  // "card" once a BCC card payment was initiated.
   paymentMethod: "kaspi" | "card" | "apple_iap" | null;
   // Latest card-payment attempt summary (null if there was none).
   payment: {

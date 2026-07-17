@@ -212,7 +212,12 @@ export function OrderDrawer({ orderId, open, onClose }: Props) {
                       ? "Банковская карта"
                       : order.paymentMethod === "apple_iap"
                         ? "App Store"
-                        : "Kaspi"}
+                        : !order.paymentMethod &&
+                            order.paymentStatus === "pending"
+                          ? // Not settled yet → no method written. Could still
+                            // go Kaspi or Apple IAP; don't claim either.
+                            "—"
+                          : "Kaspi"}
                   </span>
                 </div>
                 {order.payment?.cardMask && (
