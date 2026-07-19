@@ -136,11 +136,28 @@ async function grantOneItem(params: {
   }
 
   if (firstTime) {
-    await pushAccessGranted(
-      params.userId,
-      params.productTitle,
-      params.userTelegramId !== null,
-    );
+    // Only announce "Доступ открыт" when the group can actually deliver it.
+    // A broken group (bot not admin / archived) issues no invite link — same
+    // guard as tryIssueInviteLink — so the push would be a false promise. Stay
+    // silent rather than tell a paid user access is ready when it isn't.
+    const groupRows = await db
+      .select({
+        botStatus: telegramGroups.botStatus,
+        archivedAt: telegramGroups.archivedAt,
+      })
+      .from(telegramGroups)
+      .where(eq(telegramGroups.id, params.telegramGroupId))
+      .limit(1);
+    const group = groupRows[0];
+    const canDeliverAccess =
+      !!group && group.botStatus === "admin" && !group.archivedAt;
+    if (canDeliverAccess) {
+      await pushAccessGranted(
+        params.userId,
+        params.productTitle,
+        params.userTelegramId !== null,
+      );
+    }
   }
 }
 
