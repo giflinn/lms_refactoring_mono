@@ -10,6 +10,7 @@ import '../../../../core/widgets/keyboard_dismiss.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/terms_checkbox_row.dart';
 import '../../data/auth_api.dart';
+import '../../data/register_config_provider.dart';
 import '../../domain/registration_data.dart';
 import '../../domain/validation.dart';
 import '../controller/auth_controller.dart';
@@ -182,6 +183,8 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final showManagerCode =
+        ref.watch(showManagerCodeFieldProvider).asData?.value ?? false;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -261,23 +264,28 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     },
                     onValidityChanged: (v) => _phoneValid = v,
                   ),
-                  const SizedBox(height: 12),
-                  LabeledTextField(
-                    label: 'Код менеджера (необязательно)',
-                    controller: _managerCodeCtrl,
-                    errorText: _managerCodeError,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    maxLength: 6,
-                    onChanged: (_) {
-                      if (_managerCodeError != null) {
-                        setState(() => _managerCodeError = null);
-                      }
-                    },
-                  ),
+                  // Rendered only when the admin-controlled server flag is on
+                  // (see showManagerCodeFieldProvider). Hidden ⇒ the backend
+                  // assigns a manager by its configured strategy.
+                  if (showManagerCode) ...[
+                    const SizedBox(height: 12),
+                    LabeledTextField(
+                      label: 'Код менеджера (необязательно)',
+                      controller: _managerCodeCtrl,
+                      errorText: _managerCodeError,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
+                      maxLength: 6,
+                      onChanged: (_) {
+                        if (_managerCodeError != null) {
+                          setState(() => _managerCodeError = null);
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TermsCheckboxRow(
                     value: _termsAccepted,

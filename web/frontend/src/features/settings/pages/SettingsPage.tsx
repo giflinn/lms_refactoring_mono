@@ -4,6 +4,7 @@ import { TelegramBotSection } from "../components/TelegramBotSection";
 import { TelegramGroupsSection } from "../components/TelegramGroupsSection";
 import { ChatsSection } from "../components/ChatsSection";
 import { ManagerAssignmentSection } from "../components/ManagerAssignmentSection";
+import { ManagerCodeFieldSection } from "../components/ManagerCodeFieldSection";
 import { KaspiSection } from "../components/KaspiSection";
 import { BccSection } from "../components/BccSection";
 import { LmsCoursesSection } from "../../lms/components/LmsCoursesSection";
@@ -57,6 +58,7 @@ export function SettingsPage() {
       )}
       {active === "assignment" && (
         <div className="flex flex-col gap-6">
+          <ManagerCodeFieldSection />
           <ManagerAssignmentSection />
         </div>
       )}

@@ -14,6 +14,7 @@ import {
   managerAvatarUpload,
   persistManagerAvatar,
 } from "../services/avatarUpload";
+import { getSetting, SETTING_KEYS } from "../services/appSettings";
 import { pickManagerForRegistration } from "../services/managerAssignment";
 import { kickUser } from "../services/telegram/links";
 import {
@@ -462,6 +463,19 @@ authRouter.get("/auth/manager-code-valid", async (req, res, next) => {
       )
       .limit(1);
     res.json({ valid: found.length > 0 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /auth/register-config — public flags the registration screens read
+// before the user is signed in. showManagerCode controls whether the mobile
+// form renders the optional manager-code field; admin flips it from the web
+// panel (Настройки → Назначение) without an app release.
+authRouter.get("/auth/register-config", async (_req, res, next) => {
+  try {
+    const value = await getSetting(SETTING_KEYS.showManagerCodeOnRegister);
+    res.json({ showManagerCode: value === "true" });
   } catch (err) {
     next(err);
   }

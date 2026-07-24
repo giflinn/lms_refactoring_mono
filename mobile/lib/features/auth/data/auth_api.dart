@@ -121,6 +121,20 @@ class AuthApi {
     }
   }
 
+  /// Whether the registration screens should render the optional manager-code
+  /// field. Admin-controlled server flag; swallows errors and falls back to
+  /// hidden — registration works without the code either way.
+  Future<bool> fetchShowManagerCodeField() async {
+    try {
+      final res = await _client.get('/auth/register-config');
+      if (res.statusCode != 200) return false;
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return json['showManagerCode'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> requestPasswordReset(String email) async {
     final res = await _client.postJson(
       '/auth/password-reset/request',

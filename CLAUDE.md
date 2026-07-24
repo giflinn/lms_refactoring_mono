@@ -55,7 +55,7 @@ Enum `user_role`: `client`, `manager`, `senior_manager`, `admin`.
 - **manager / senior_manager** — staff; created by an admin (admin UI not built yet).
 - **admin** — full access; bootstrapped via `npm run seed:admin` in `web/backend` (one-shot on first deploy).
 
-Each staff user (manager / senior_manager / admin) has a unique 6-digit `manager_code`. Clients can enter it during mobile registration to be linked to their manager via `users.manager_id`. If a client registers without a code, the backend falls back to the **oldest** staff user (by `created_at`) — so the seeded admin always picks up unlinked clients. Generate codes with `web/backend/src/services/managerCode.ts:generateUniqueManagerCode()`. The seed script prints the admin's code at the end of its output.
+Each staff user (manager / senior_manager / admin) has a unique 6-digit `manager_code`. Clients can enter it during mobile registration to be linked to their manager via `users.manager_id` — but the mobile field is **hidden by default** behind the `show_manager_code_on_register` app-setting (admin toggle: Настройки → Назначение; hidden per customer request 2026-07 — don't delete the code path, it's meant to be re-enableable without an app release). The backend accepts the code regardless of the flag. Without a code, the manager is picked by the admin-configurable strategy in `services/managerAssignment.ts` (default `any_admin`, load-balanced; safety net — oldest active admin, so the seeded admin always picks up unlinked clients). Generate codes with `web/backend/src/services/managerCode.ts:generateUniqueManagerCode()`. The seed script prints the admin's code at the end of its output.
 
 Mobile registration is open (creates `client`); web has **login only**.
 

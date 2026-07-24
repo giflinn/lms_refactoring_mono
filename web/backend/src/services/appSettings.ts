@@ -43,6 +43,11 @@ export const SETTING_KEYS = {
     "manager_assignment_on_delete_strategy",
   managerAssignmentOnDeleteTargetId:
     "manager_assignment_on_delete_target_id",
+  // Whether the mobile registration screens render the optional "manager
+  // code" field. "true" / "false". Hidden by default (customer request,
+  // 2026-07); the admin can flip it back without an app release. The backend
+  // keeps accepting the code either way.
+  showManagerCodeOnRegister: "show_manager_code_on_register",
   // Routing strategy for the Kaspi payment link surfaced to mobile after
   // order creation. 'single' → every client gets the default link.
   // 'per_group' → if the client's manager belongs to a kaspi_links group,
@@ -81,6 +86,7 @@ const DEFAULTS: Record<SettingKey, string> = {
   [SETTING_KEYS.managerAssignmentOnRegisterTargetId]: "",
   [SETTING_KEYS.managerAssignmentOnDeleteStrategy]: "any_admin",
   [SETTING_KEYS.managerAssignmentOnDeleteTargetId]: "",
+  [SETTING_KEYS.showManagerCodeOnRegister]: "false",
   // Default to the safer "everyone gets the default link" behavior; admin
   // can flip to per_group once they've configured groups.
   [SETTING_KEYS.kaspiStrategy]: "single",
@@ -101,6 +107,7 @@ const ALL_KEYS = Object.values(SETTING_KEYS) as SettingKey[];
 export const PUBLIC_KEYS: ReadonlySet<SettingKey> = new Set([
   SETTING_KEYS.supportWhatsapp,
   SETTING_KEYS.supportHours,
+  SETTING_KEYS.showManagerCodeOnRegister,
 ]);
 
 // Keys whose values must never be returned in plaintext to a human (admin
