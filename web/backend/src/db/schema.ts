@@ -753,6 +753,10 @@ export const paymentTransactions = pgTable(
     // Per-attempt CSPRNG nonce — hex, upper-case, no dashes. Secondary key the
     // callback can be matched on.
     nonce: text("nonce").notNull().unique(),
+    // Nonce of the latest outbound refund/void request (TRTYPE=14/22). BCC
+    // echoes it in the async reversal notification, so the callback handler
+    // accepts it alongside the purchase nonce. Overwritten on each attempt.
+    refundNonce: text("refund_nonce"),
     amountTenge: numeric("amount_tenge", { precision: 12, scale: 2 }).notNull(),
     status: bccTransactionStatusEnum("status").notNull().default("pending"),
     // Last result codes from BCC (callback or TRTYPE=90 status check).

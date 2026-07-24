@@ -96,6 +96,7 @@ bccCallbackRouter.post(
           orderId: paymentTransactions.orderId,
           status: paymentTransactions.status,
           nonce: paymentTransactions.nonce,
+          refundNonce: paymentTransactions.refundNonce,
         })
         .from(paymentTransactions)
         .where(eq(paymentTransactions.bccOrder, Number(bccOrder)))
@@ -118,8 +119,12 @@ bccCallbackRouter.post(
         return;
       }
       // Per-transaction shared secret: the echoed NONCE must match what we
-      // generated for this ORDER. Rejects forged callbacks.
-      if (!safeEqual(nonce, tx.nonce)) {
+      // generated for this ORDER — the purchase nonce, or the refund nonce for
+      // the async reversal-notification echo (TRTYPE=14/22, sent ~1s after our
+      // outbound refund/void request). Rejects forged callbacks.
+      const matchesRefund =
+        tx.refundNonce != null && safeEqual(nonce, tx.refundNonce);
+      if (!safeEqual(nonce, tx.nonce) && !matchesRefund) {
         console.warn("[bcc] callback NONCE mismatch for order", bccOrder);
         await logBccEvent({
           kind: "callback",
@@ -135,17 +140,26 @@ bccCallbackRouter.post(
         return;
       }
       if (tx.status !== "pending") {
+        // A reversal echo carries the bank's verdict for the refund itself —
+        // BCC notifies on decline too. Label those 'declined' so the journal
+        // doesn't show a green row for a failed refund.
+        const echoDeclined =
+          matchesRefund && !(data.ACTION === "0" && data.RC === "00");
         await logBccEvent({
           kind: "callback",
           trtype: data.TRTYPE ?? null,
-          outcome: "success",
+          outcome: echoDeclined ? "declined" : "success",
           paymentTransactionId: tx.id,
           orderId: tx.orderId,
           bccOrder: orderNum,
           action: data.ACTION ?? null,
           rc: data.RC ?? null,
           rcText: data.RC_TEXT ?? null,
-          note: `${authNote}; duplicate ack (already ${tx.status})`,
+          note: `${authNote}; ${
+            matchesRefund
+              ? `refund notification ack${echoDeclined ? " (declined)" : ""}`
+              : `duplicate ack (already ${tx.status})`
+          }`,
           payload: data,
         });
         res.sendStatus(200); // already settled — idempotent ack

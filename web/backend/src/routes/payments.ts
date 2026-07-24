@@ -257,6 +257,28 @@ paymentsRouter.get("/payments/:id/checkout", async (req, res, next) => {
   }
 });
 
+// BACKREF landing — where the bank's checkout/3DS page sends the payer after
+// the flow. The mobile WebView intercepts navigation to this URL and switches
+// to status polling, so normally these handlers are never reached. They cover
+// what interception misses: Android WebView doesn't route form POSTs through
+// onNavigationRequest, so the bank's POST used to render a 404 inside the
+// WebView. The POST replies with a page that immediately re-navigates to the
+// same URL via GET — a JS navigation the WebView does intercept; the GET is a
+// plain "return to the app" page for anything that still slips through.
+function bccReturnHtml(redirect: boolean): string {
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Оплата</title>${redirect ? "<script>location.replace(location.href)</script>" : ""}
+<style>body{font-family:system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;color:#333}div{text-align:center;padding:24px}</style>
+</head><body><div><p>Оплата обработана.</p><p>Вернитесь в приложение, чтобы увидеть статус заказа.</p></div></body></html>`;
+}
+paymentsRouter.get("/payments/bcc/return", (_req, res) => {
+  res.type("html").send(bccReturnHtml(false));
+});
+paymentsRouter.post("/payments/bcc/return", (_req, res) => {
+  res.type("html").send(bccReturnHtml(true));
+});
+
 paymentsRouter.get(
   "/payments/:id",
   requireAuth,

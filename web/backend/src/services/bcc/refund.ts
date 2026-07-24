@@ -7,6 +7,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { orders, paymentTransactions } from "../../db/schema";
+import { bccNonce } from "./checkout";
 import { isSuccess, refund as bccRefund } from "./client";
 import { logBccEvent } from "./events";
 
@@ -55,6 +56,19 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
     return { outcome: "error", errorCode: "refund_missing_reference" };
   }
 
+  // Persist the refund nonce BEFORE the outbound call: BCC sends an async
+  // notification echoing it ~1s after the synchronous response (on success AND
+  // on decline), and the callback handler verifies the echo against this
+  // column. Written first so the echo can't race the write. Last-write-wins is
+  // accepted: a rapid second attempt overwrites the column, so the previous
+  // attempt's late echo 401s exactly like every pre-fix echo did — harmless,
+  // settle is synchronous and the echo is informational.
+  const refundNonce = bccNonce();
+  await db
+    .update(paymentTransactions)
+    .set({ refundNonce, updatedAt: new Date() })
+    .where(eq(paymentTransactions.id, tx.id));
+
   let result;
   try {
     result = await bccRefund({
@@ -63,6 +77,7 @@ export async function refundCardOrder(orderId: string): Promise<RefundOutcome> {
       rrn: tx.rrn,
       intRef: tx.intRef,
       trtype,
+      nonce: refundNonce,
     });
   } catch (err) {
     console.error("[bcc] refund call failed:", err);
