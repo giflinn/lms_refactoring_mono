@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { SearchInput } from "../../../components/ui/SearchInput";
 import IconChatEmpty from "../../../assets/icons/chat-empty.svg?react";
@@ -36,7 +37,12 @@ export function ChatsPage() {
   const [filter, setFilter] = useState<"all" | "unread" | "unanswered">("all");
   const [managerId, setManagerId] = useState<string | null>(null);
   const [sort, setSort] = useState<"newest" | "oldest" | "name">("newest");
-  const [selected, setSelected] = useState<string | null>(null);
+  // Thread handed over from another page (client drawer → "Написать в чат").
+  // It may have no messages yet and so be absent from the list; keep it
+  // selected anyway until the user picks a different one.
+  const [searchParams] = useSearchParams();
+  const pinnedId = searchParams.get("thread");
+  const [selected, setSelected] = useState<string | null>(pinnedId);
 
   const params = useMemo(
     () => ({ search: search || undefined, filter, managerId, sort }),
@@ -112,6 +118,7 @@ export function ChatsPage() {
   useEffect(() => {
     const list = threadsQuery.data;
     if (!list) return;
+    if (selected && selected === pinnedId) return;
     if (list.length === 0) {
       if (selected !== null) setSelected(null);
       return;
@@ -119,7 +126,7 @@ export function ChatsPage() {
     if (!selected || !list.some((t) => t.id === selected)) {
       setSelected(list[0].id);
     }
-  }, [threadsQuery.data, selected]);
+  }, [threadsQuery.data, selected, pinnedId]);
 
   const managerOptions: SelectOption<string>[] = [
     { value: ALL_MANAGERS, label: "Все менеджеры" },

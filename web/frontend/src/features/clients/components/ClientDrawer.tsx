@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import clsx from "clsx";
+import { MessageCircle } from "lucide-react";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Input } from "../../../components/ui/Input";
 import { PhoneInput } from "../../../components/ui/PhoneInput";
 import { Textarea } from "../../../components/ui/Textarea";
 import { Button } from "../../../components/ui/Button";
+import { PageActionButton } from "../../../components/ui/PageActionButton";
 import { Avatar } from "../../../components/Avatar";
 import { Select, type SelectOption } from "../../../components/ui/Select";
 import { useAuth } from "../../../auth/AuthContext";
@@ -17,6 +20,7 @@ import { clientFormSchema, type ClientFormValues } from "../schema";
 import { CATEGORY_OPTIONS } from "./CategoryBadge";
 import { PurchaseHistoryTab } from "./PurchaseHistoryTab";
 import { OrderDrawer } from "../../orders/components/OrderDrawer";
+import { useOpenClientThread } from "../../chat/queries";
 
 type Props = {
   open: boolean;
@@ -41,9 +45,12 @@ export function ClientDrawer({ open, client, onClose }: Props) {
 
   const update = useUpdateClient();
   const staffList = useStaffList(open && canReassignManager);
+  const openThread = useOpenClientThread();
+  const navigate = useNavigate();
 
   const [tab, setTab] = useState<Tab>("details");
   const [generalError, setGeneralError] = useState<string | undefined>();
+  const [chatError, setChatError] = useState<string | undefined>();
   const [orderDrawerId, setOrderDrawerId] = useState<string | null>(null);
   const [orderDrawerOpen, setOrderDrawerOpen] = useState(false);
 
@@ -65,6 +72,7 @@ export function ClientDrawer({ open, client, onClose }: Props) {
     if (!open) return;
     setTab("details");
     setGeneralError(undefined);
+    setChatError(undefined);
     setOrderDrawerOpen(false);
     setOrderDrawerId(null);
     if (client) {
@@ -151,6 +159,26 @@ export function ClientDrawer({ open, client, onClose }: Props) {
     }
   }
 
+  // Mirrors the backend rule for POST /chat/threads/by-client: a plain
+  // manager may only open threads of their own clients; deactivated clients
+  // have no thread to open.
+  const canOpenChat =
+    !!client &&
+    client.deactivatedAt === null &&
+    (!isPlainManager || client.managerId === user?.id);
+
+  async function onOpenChat() {
+    if (!client) return;
+    setChatError(undefined);
+    try {
+      const threadId = await openThread.mutateAsync(client.id);
+      onClose();
+      navigate(`/chats?thread=${threadId}`);
+    } catch {
+      setChatError("Не удалось открыть чат.");
+    }
+  }
+
   const watchedManagerId = watch("managerId");
   const watchedCategory = watch("clientCategory");
 
@@ -184,6 +212,19 @@ export function ClientDrawer({ open, client, onClose }: Props) {
             <p className="text-[13px] font-medium text-[#96999D]">
               {client.email}
             </p>
+            {canOpenChat && (
+              <PageActionButton
+                variant="outline"
+                icon={<MessageCircle size={20} strokeWidth={1.5} />}
+                onClick={onOpenChat}
+                disabled={openThread.isPending}
+              >
+                {openThread.isPending ? "Открываем…" : "Написать в чат"}
+              </PageActionButton>
+            )}
+            {chatError && (
+              <p className="text-[13px] text-red-error">{chatError}</p>
+            )}
           </div>
 
           <div className="flex w-full overflow-hidden rounded-[8px] border border-[rgba(102,112,133,0.3)] bg-grey-lighter p-1">

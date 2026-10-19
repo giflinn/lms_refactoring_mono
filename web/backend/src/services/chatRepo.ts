@@ -160,6 +160,11 @@ export async function listThreads(opts: ListOptions): Promise<SerializedThread[]
         sql`${users.email} ILIKE ${like}`,
       )!,
     );
+  } else {
+    // A thread row is created the moment a client opens the Chat tab, so
+    // most rows never get a message. Keep those out of the default list;
+    // an explicit search still surfaces them so staff can write first.
+    conditions.push(isNotNull(chatThreads.lastMessageAt));
   }
 
   // Per-thread unread count for the calling user — only counts messages from
@@ -200,10 +205,16 @@ export async function listThreads(opts: ListOptions): Promise<SerializedThread[]
     if (opts.sort === "name") {
       return baseQuery.orderBy(users.firstName, users.lastName);
     }
+    // NULLS LAST: empty threads (only reachable via search) sink to the
+    // bottom instead of Postgres floating NULLs to the top on DESC.
     if (opts.sort === "oldest") {
-      return baseQuery.orderBy(chatThreads.lastMessageAt);
+      return baseQuery.orderBy(
+        sql`${chatThreads.lastMessageAt} ASC NULLS LAST`,
+      );
     }
-    return baseQuery.orderBy(desc(chatThreads.lastMessageAt));
+    return baseQuery.orderBy(
+      sql`${chatThreads.lastMessageAt} DESC NULLS LAST`,
+    );
   })();
 
   let filtered = rows;

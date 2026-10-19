@@ -10,6 +10,7 @@ import {
   listMessages,
   listThreads,
   markRead,
+  openThreadWithClient,
   sendMessage,
   type ListThreadsParams,
 } from "./api";
@@ -75,6 +76,13 @@ export function useMarkRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chat", "threads"] });
     },
+  });
+}
+
+export function useOpenClientThread() {
+  return useMutation({
+    mutationFn: async (clientId: string) =>
+      openThreadWithClient(await token(), clientId),
   });
 }
 

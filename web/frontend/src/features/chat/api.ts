@@ -97,6 +97,22 @@ export async function joinThread(
   if (!res.ok) throw new Error(`POST join: ${res.status}`);
 }
 
+// Staff-only get-or-create of a client's thread. Used by the client drawer
+// "Написать в чат" button; the thread may have no messages yet and therefore
+// be absent from listThreads.
+export async function openThreadWithClient(
+  idToken: string,
+  clientId: string,
+): Promise<string> {
+  const res = await apiClient.postJson(
+    `/chat/threads/by-client/${clientId}`,
+    {},
+    idToken,
+  );
+  if (!res.ok) throw new Error(`POST by-client: ${res.status}`);
+  return ((await res.json()) as { threadId: string }).threadId;
+}
+
 async function tryReadCode(res: Response): Promise<string | null> {
   try {
     const j = (await res.json()) as { error?: string };
